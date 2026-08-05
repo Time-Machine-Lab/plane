@@ -1,0 +1,59 @@
+services:
+  web:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-web:${APP_RELEASE:?APP_RELEASE must be set}
+
+  space:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-space:${APP_RELEASE:?APP_RELEASE must be set}
+
+  admin:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-admin:${APP_RELEASE:?APP_RELEASE must be set}
+
+  live:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-live:${APP_RELEASE:?APP_RELEASE must be set}
+
+  api:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-api:${APP_RELEASE:?APP_RELEASE must be set}
+
+  worker:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-api:${APP_RELEASE:?APP_RELEASE must be set}
+
+  beat-worker:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-api:${APP_RELEASE:?APP_RELEASE must be set}
+
+  migrator:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-api:${APP_RELEASE:?APP_RELEASE must be set}
+
+  proxy:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-proxy:${APP_RELEASE:?APP_RELEASE must be set}
+
+volumes:
+  pgdata:
+    external: true
+    name: plane-production-pgdata
+  redisdata:
+    external: true
+    name: plane-production-redisdata
+  uploads:
+    external: true
+    name: plane-production-uploads
+  logs_api:
+    external: true
+    name: plane-production-logs-api
+  logs_worker:
+    external: true
+    name: plane-production-logs-worker
+  logs_beat-worker:
+    external: true
+    name: plane-production-logs-beat-worker
+  logs_migrator:
+    external: true
+    name: plane-production-logs-migrator
+  rabbitmq_data:
+    external: true
+    name: plane-production-rabbitmq-data
+  proxy_config:
+    external: true
+    name: plane-production-proxy-config
+  proxy_data:
+    external: true
+    name: plane-production-proxy-data

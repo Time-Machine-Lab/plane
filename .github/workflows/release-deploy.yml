@@ -1,0 +1,252 @@
+name: Release and Deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Immutable release version (for example, v1.2.3)"
+        required: true
+        type: string
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release version
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Validate deployment configuration
+        shell: bash
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PWD: ${{ secrets.SERVER_PWD }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          for secret_name in SERVER_IP SERVER_USER SERVER_PWD DOCKER_USERNAME DOCKER_PASSWORD; do
+            if [[ -z "${!secret_name:-}" ]]; then
+              echo "::error::Required GitHub Secret ${secret_name} is not configured."
+              exit 1
+            fi
+          done
+
+          [[ "$SERVER_IP" =~ ^[A-Za-z0-9][A-Za-z0-9.:-]*$ ]] || {
+            echo "::error::SERVER_IP contains unsupported characters."
+            exit 1
+          }
+          [[ "$SERVER_USER" =~ ^[A-Za-z0-9._-]+$ ]] || {
+            echo "::error::SERVER_USER contains unsupported characters."
+            exit 1
+          }
+          [[ "$DOCKER_USERNAME" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]] || {
+            echo "::error::DOCKER_USERNAME is not a valid Docker Hub namespace."
+            exit 1
+          }
+
+      - name: Validate immutable version
+        id: version
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+          REF_VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            version="$INPUT_VERSION"
+          else
+            version="$REF_VERSION"
+          fi
+
+          version_pattern='^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z]+([.-][0-9A-Za-z]+)*)?$'
+          if [[ ! "$version" =~ $version_pattern ]]; then
+            echo "Version must be an immutable SemVer tag such as v1.2.3 or v1.2.3-rc.1." >&2
+            exit 1
+          fi
+
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.image }}
+    needs: prepare
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: plane-web
+            context: .
+            dockerfile: ./apps/web/Dockerfile.web
+          - image: plane-admin
+            context: .
+            dockerfile: ./apps/admin/Dockerfile.admin
+          - image: plane-space
+            context: .
+            dockerfile: ./apps/space/Dockerfile.space
+          - image: plane-live
+            context: .
+            dockerfile: ./apps/live/Dockerfile.live
+          - image: plane-api
+            context: ./apps/api
+            dockerfile: ./apps/api/Dockerfile.api
+          - image: plane-proxy
+            context: ./apps/proxy
+            dockerfile: ./apps/proxy/Dockerfile.ce
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push immutable image
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/${{ matrix.image }}:${{ needs.prepare.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  deploy:
+    name: Deploy production
+    needs:
+      - prepare
+      - build
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      SERVER_IP: ${{ secrets.SERVER_IP }}
+      SERVER_USER: ${{ secrets.SERVER_USER }}
+      SSHPASS: ${{ secrets.SERVER_PWD }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+      DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install SSH client dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes sshpass
+
+      - name: Trust production SSH host key
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 "$HOME/.ssh"
+          ssh-keyscan -p 22 -H "$SERVER_IP" > "$HOME/.ssh/known_hosts"
+          chmod 600 "$HOME/.ssh/known_hosts"
+
+      - name: Prepare deployment directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          sshpass -e ssh -p 22 -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_IP" 'install -d -m 700 "$HOME/plane"'
+
+      - name: Log in to Docker Hub on server
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_docker_username=$(printf '%q' "$DOCKER_USERNAME")
+          printf '%s' "$DOCKER_PASSWORD" | \
+            sshpass -e ssh -p 22 -o StrictHostKeyChecking=yes \
+              "$SERVER_USER@$SERVER_IP" \
+              "docker login --username $remote_docker_username --password-stdin"
+
+      - name: Copy deployment assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          sshpass -e scp -P 22 -o StrictHostKeyChecking=yes \
+            deployments/cli/community/docker-compose.yml \
+            deployments/production/docker-compose.override.yml \
+            deployments/production/deploy.sh \
+            "$SERVER_USER@$SERVER_IP:~/plane/"
+
+      - name: Run production deployment
+        shell: bash
+        run: |
+          set -euo pipefail
+          remote_version=$(printf '%q' "$VERSION")
+          remote_docker_username=$(printf '%q' "$DOCKER_USERNAME")
+          remote_public_url=$(printf '%q' "http://$SERVER_IP")
+
+          sshpass -e ssh -p 22 -o StrictHostKeyChecking=yes \
+            "$SERVER_USER@$SERVER_IP" \
+            "cd \"\$HOME/plane\" && chmod 700 deploy.sh && ./deploy.sh $remote_version $remote_docker_username $remote_public_url"
+
+      - name: Verify production externally
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --show-error --silent \
+            --retry 30 --retry-delay 10 --retry-all-errors \
+            "http://$SERVER_IP/" > /dev/null
+
+  promote:
+    name: Promote ${{ matrix.image }} to latest
+    needs:
+      - prepare
+      - deploy
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        image:
+          - plane-web
+          - plane-admin
+          - plane-space
+          - plane-live
+          - plane-api
+          - plane-proxy
+    env:
+      VERSION: ${{ needs.prepare.outputs.version }}
+      DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Promote immutable manifest
+        shell: bash
+        env:
+          IMAGE: ${{ matrix.image }}
+        run: |
+          set -euo pipefail
+          source_image="$DOCKER_USERNAME/$IMAGE:$VERSION"
+          latest_image="$DOCKER_USERNAME/$IMAGE:latest"
+          docker buildx imagetools create --tag "$latest_image" "$source_image"
+          docker buildx imagetools inspect "$latest_image" > /dev/null

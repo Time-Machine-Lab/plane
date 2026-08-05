@@ -1,0 +1,132 @@
+name: Deployment Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Validate Docker Hub and server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Validate required secrets
+        shell: bash
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PWD: ${{ secrets.SERVER_PWD }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          required_secrets=(
+            SERVER_IP
+            SERVER_USER
+            SERVER_PWD
+            DOCKER_USERNAME
+            DOCKER_PASSWORD
+          )
+
+          for secret_name in "${required_secrets[@]}"; do
+            secret_value="${!secret_name:-}"
+            if [[ -z "$secret_value" ]]; then
+              echo "::error::Required GitHub Secret ${secret_name} is not configured."
+              exit 1
+            fi
+            if [[ "$secret_value" == *$'\n'* || "$secret_value" == *$'\r'* ]]; then
+              echo "::error::GitHub Secret ${secret_name} contains an unsupported line break."
+              exit 1
+            fi
+          done
+
+          if [[ ! "$SERVER_USER" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::SERVER_USER contains unsupported characters."
+            exit 1
+          fi
+          if [[ ! "$SERVER_IP" =~ ^[A-Za-z0-9][A-Za-z0-9.:-]*$ ]]; then
+            echo "::error::SERVER_IP is not a valid IP address or hostname."
+            exit 1
+          fi
+          if [[ ! "$DOCKER_USERNAME" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]]; then
+            echo "::error::DOCKER_USERNAME contains unsupported characters."
+            exit 1
+          fi
+
+          echo "All required GitHub Secrets are configured."
+
+      - name: Validate Docker Hub credentials
+        shell: bash
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          set -euo pipefail
+
+          docker_config="$(mktemp -d)"
+          docker_error_file="$docker_config/login-error"
+          trap 'rm -rf "$docker_config"' EXIT
+
+          if ! printf '%s' "$DOCKER_PASSWORD" | docker --config "$docker_config" login \
+            --username "$DOCKER_USERNAME" \
+            --password-stdin \
+            > /dev/null \
+            2>"$docker_error_file"; then
+            echo "::error::Docker Hub authentication failed."
+            exit 1
+          fi
+
+          echo "Docker Hub authentication succeeded."
+
+      - name: Install SSH password client
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends sshpass >/dev/null
+
+      - name: Run read-only server preflight
+        shell: bash
+        env:
+          SERVER_IP: ${{ secrets.SERVER_IP }}
+          SERVER_USER: ${{ secrets.SERVER_USER }}
+          SERVER_PWD: ${{ secrets.SERVER_PWD }}
+        run: |
+          set -euo pipefail
+
+          known_hosts_file="$RUNNER_TEMP/deploy-preflight-known-hosts"
+          ssh_error_file="$RUNNER_TEMP/deploy-preflight-ssh-error"
+
+          if ! ssh-keyscan -p 22 -T 10 -H "$SERVER_IP" >"$known_hosts_file" 2>/dev/null; then
+            echo "::error::Could not retrieve the SSH host key on port 22."
+            exit 1
+          fi
+          if [[ ! -s "$known_hosts_file" ]]; then
+            echo "::error::The SSH server returned no host key on port 22."
+            exit 1
+          fi
+          chmod 600 "$known_hosts_file"
+
+          export SSHPASS="$SERVER_PWD"
+          if ! timeout 120 sshpass -e ssh \
+            -p 22 \
+            -o ConnectTimeout=15 \
+            -o ConnectionAttempts=1 \
+            -o LogLevel=ERROR \
+            -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$known_hosts_file" \
+            "$SERVER_USER@$SERVER_IP" \
+            'bash -s' \
+            < deployments/production/preflight.sh \
+            2>"$ssh_error_file"; then
+            echo "::error::SSH connection or server preflight failed."
+            exit 1
+          fi
+          unset SSHPASS SERVER_PWD
