@@ -67,7 +67,14 @@ fi
 
 if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
   compose_version="$(docker compose version --short 2>/dev/null || true)"
-  pass "Docker Compose plugin is available (${compose_version:-version unknown})."
+  normalized_compose_version="${compose_version#v}"
+  normalized_compose_version="${normalized_compose_version%%-*}"
+  minimum_compose_version="2.24.4"
+  if [[ "$(printf '%s\n%s\n' "$minimum_compose_version" "$normalized_compose_version" | sort -V | head -n 1)" == "$minimum_compose_version" ]]; then
+    pass "Docker Compose supports explicit port replacement (${compose_version})."
+  else
+    fail "Docker Compose ${minimum_compose_version} or newer is required; found ${compose_version:-unknown}."
+  fi
 else
   fail "Docker Compose plugin is not available."
 fi
@@ -103,19 +110,19 @@ fi
 
 listener_count=""
 if command -v ss >/dev/null 2>&1; then
-  listener_count="$(ss -H -ltn 2>/dev/null | awk '$4 ~ /:80$/ || $4 ~ /:443$/ {count++} END {print count + 0}')"
+  listener_count="$(ss -H -ltn 2>/dev/null | awk '$4 ~ /:6767$/ {count++} END {print count + 0}')"
 elif command -v netstat >/dev/null 2>&1; then
-  listener_count="$(netstat -ltn 2>/dev/null | awk '$4 ~ /:80$/ || $4 ~ /:443$/ {count++} END {print count + 0}')"
+  listener_count="$(netstat -ltn 2>/dev/null | awk '$4 ~ /:6767$/ {count++} END {print count + 0}')"
 fi
 
 if [[ "$listener_count" =~ ^[0-9]+$ ]]; then
   if ((listener_count == 0)); then
-    pass "TCP ports 80 and 443 have no listeners."
+    pass "Plane backend port 6767 has no listener."
   else
-    warn "Detected ${listener_count} listener(s) on TCP ports 80 or 443; confirm the deployment proxy can bind its ports."
+    warn "Detected ${listener_count} listener(s) on TCP port 6767; confirm it belongs to the existing Plane deployment."
   fi
 else
-  warn "Neither ss nor netstat is available; TCP ports 80 and 443 could not be inspected."
+  warn "Neither ss nor netstat is available; TCP port 6767 could not be inspected."
 fi
 
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then

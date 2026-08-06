@@ -18,6 +18,10 @@ concurrency:
   group: production-release
   cancel-in-progress: false
 
+env:
+  PUBLIC_URL: https://plane.tmlab.top
+  PLANE_HTTP_PORT: "6767"
+
 jobs:
   prepare:
     name: Validate release version
@@ -158,9 +162,31 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          expected_fingerprint="SHA256:jmzl6o5sZWlfwF2Ncg6hrEf7lluI0iDfp7t1W2MJwRk"
+          scanned_key_file="$RUNNER_TEMP/production-ed25519-host-key"
+          known_hosts_file="$HOME/.ssh/known_hosts"
+
           install -d -m 700 "$HOME/.ssh"
-          ssh-keyscan -p 22 -H "$SERVER_IP" > "$HOME/.ssh/known_hosts"
-          chmod 600 "$HOME/.ssh/known_hosts"
+          if ! ssh-keyscan -p 22 -T 10 -t ed25519 -H "$SERVER_IP" > "$scanned_key_file" 2>/dev/null; then
+            echo "::error::Could not retrieve the production ED25519 SSH host key."
+            exit 1
+          fi
+          if [[ ! -s "$scanned_key_file" ]]; then
+            echo "::error::The production server returned no ED25519 SSH host key."
+            exit 1
+          fi
+
+          mapfile -t fingerprints < <(
+            ssh-keygen -lf "$scanned_key_file" -E sha256 \
+              | awk '$NF == "(ED25519)" {print $2}' \
+              | sort -u
+          )
+          if [[ "${#fingerprints[@]}" -ne 1 || "${fingerprints[0]:-}" != "$expected_fingerprint" ]]; then
+            echo "::error::Production ED25519 SSH host key fingerprint does not match the manually verified fingerprint."
+            exit 1
+          fi
+
+          install -m 600 "$scanned_key_file" "$known_hosts_file"
 
       - name: Prepare deployment directory
         shell: bash
@@ -195,11 +221,12 @@ jobs:
           set -euo pipefail
           remote_version=$(printf '%q' "$VERSION")
           remote_docker_username=$(printf '%q' "$DOCKER_USERNAME")
-          remote_public_url=$(printf '%q' "http://$SERVER_IP")
+          remote_public_url=$(printf '%q' "$PUBLIC_URL")
+          remote_http_port=$(printf '%q' "$PLANE_HTTP_PORT")
 
           sshpass -e ssh -p 22 -o StrictHostKeyChecking=yes \
             "$SERVER_USER@$SERVER_IP" \
-            "cd \"\$HOME/plane\" && chmod 700 deploy.sh && ./deploy.sh $remote_version $remote_docker_username $remote_public_url"
+            "cd \"\$HOME/plane\" && chmod 700 deploy.sh && ./deploy.sh $remote_version $remote_docker_username $remote_public_url $remote_http_port"
 
       - name: Verify production externally
         shell: bash
@@ -207,7 +234,8 @@ jobs:
           set -euo pipefail
           curl --fail --show-error --silent \
             --retry 30 --retry-delay 10 --retry-all-errors \
-            "http://$SERVER_IP/" > /dev/null
+            --resolve "plane.tmlab.top:443:$SERVER_IP" \
+            "$PUBLIC_URL/" > /dev/null
 
   promote:
     name: Promote ${{ matrix.image }} to latest

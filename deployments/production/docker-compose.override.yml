@@ -25,6 +25,12 @@ services:
 
   proxy:
     image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-proxy:${APP_RELEASE:?APP_RELEASE must be set}
+    ports: !override
+      - target: 80
+        published: ${PLANE_HTTP_PORT:-6767}
+        host_ip: 127.0.0.1
+        protocol: tcp
+        mode: host
 
 volumes:
   pgdata:

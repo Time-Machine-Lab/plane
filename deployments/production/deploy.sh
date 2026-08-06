@@ -8,6 +8,7 @@ readonly OVERRIDE_COMPOSE_FILE="${DEPLOY_DIR}/docker-compose.override.yml"
 readonly ENV_FILE="${DEPLOY_DIR}/.env"
 readonly BACKUP_ROOT="${DEPLOY_DIR}/backups"
 readonly BACKUP_IMAGE="alpine:3.20.3"
+readonly MINIMUM_COMPOSE_VERSION="2.24.4"
 readonly -a APP_SERVICES=(api worker beat-worker web space admin live proxy)
 readonly -a WRITER_SERVICES=(proxy api worker beat-worker live migrator)
 readonly -a INFRA_SERVICES=(plane-db plane-redis plane-mq plane-minio)
@@ -25,7 +26,7 @@ readonly -a VOLUME_NAMES=(
 )
 
 usage() {
-  echo "Usage: bash deploy.sh VERSION DOCKER_USERNAME PUBLIC_URL" >&2
+  echo "Usage: bash deploy.sh VERSION DOCKER_USERNAME PUBLIC_URL HTTP_PORT" >&2
 }
 
 die() {
@@ -45,14 +46,14 @@ read_env_value() {
   printf '%s' "${value%$'\r'}"
 }
 
-upsert_release_coordinate() {
+upsert_env_value() {
   local key="$1"
   local value="$2"
   local temporary_file
 
   case "${key}" in
-    APP_RELEASE | DOCKER_USERNAME) ;;
-    *) die "Refusing to update non-release environment key: ${key}" ;;
+    APP_RELEASE | DOCKER_USERNAME | APP_DOMAIN | WEB_URL | CORS_ALLOWED_ORIGINS | SITE_ADDRESS | LISTEN_HTTP_PORT | LISTEN_HTTPS_PORT | MINIO_ENDPOINT_SSL) ;;
+    *) die "Refusing to update unsupported environment key: ${key}" ;;
   esac
 
   temporary_file="$(mktemp "${ENV_FILE}.tmp.XXXXXX")"
@@ -83,9 +84,7 @@ random_hex() {
 create_initial_env() {
   local app_domain="$1"
   local public_url="$2"
-  local site_address="$3"
-  local listen_http_port="$4"
-  local listen_https_port="$5"
+  local listen_http_port="$3"
   local postgres_password rabbitmq_password aws_access_key aws_secret_key secret_key live_secret
   local temporary_file
 
@@ -105,9 +104,9 @@ APP_DOMAIN=${app_domain}
 WEB_URL=${public_url}
 CORS_ALLOWED_ORIGINS=${public_url}
 DEBUG=0
-SITE_ADDRESS=${site_address}
+SITE_ADDRESS=:80
 LISTEN_HTTP_PORT=${listen_http_port}
-LISTEN_HTTPS_PORT=${listen_https_port}
+LISTEN_HTTPS_PORT=443
 CERT_EMAIL=
 CERT_ACME_CA=https://acme-v02.api.letsencrypt.org/directory
 CERT_ACME_DNS=
@@ -173,12 +172,11 @@ validate_existing_secrets() {
 }
 
 wait_for_database() {
-  local attempt
   local postgres_user postgres_database
 
   postgres_user="$(read_env_value POSTGRES_USER)"
   postgres_database="$(read_env_value POSTGRES_DB)"
-  for attempt in $(seq 1 60); do
+  for _ in $(seq 1 60); do
     if "${COMPOSE[@]}" exec -T plane-db pg_isready -U "${postgres_user}" -d "${postgres_database}" >/dev/null 2>&1; then
       echo "PostgreSQL is ready."
       return 0
@@ -245,17 +243,25 @@ backup_existing_deployment() {
   echo "Backup completed: ${backup_dir}"
 }
 
+restore_environment_backup() {
+  local temporary_file
+
+  [[ -f "${backup_dir}/.env" ]] || return 1
+  temporary_file="$(mktemp "${ENV_FILE}.rollback.XXXXXX")"
+  cp "${backup_dir}/.env" "${temporary_file}"
+  chmod 600 "${temporary_file}"
+  mv -f "${temporary_file}" "${ENV_FILE}"
+  echo "Restored the pre-deployment environment from ${backup_dir}/.env." >&2
+}
+
 health_check() {
-  local attempt
-  local app_domain http_port
+  local app_domain
 
   app_domain="$(read_env_value APP_DOMAIN)"
-  http_port="$(read_env_value LISTEN_HTTP_PORT)"
-  http_port="${http_port:-80}"
 
-  for attempt in $(seq 1 30); do
+  for _ in $(seq 1 30); do
     if curl --fail --silent --show-error --max-time 10 \
-      --header "Host: ${app_domain}" "http://127.0.0.1:${http_port}/" >/dev/null \
+      --header "Host: ${app_domain}" "http://127.0.0.1:${listen_http_port}/" >/dev/null \
       && "${COMPOSE[@]}" exec -T api python -c \
         "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=10).read()"; then
       echo "Local proxy and API health checks passed."
@@ -265,6 +271,20 @@ health_check() {
   done
 
   echo "ERROR: Local proxy or API health check failed after 120 seconds" >&2
+  return 1
+}
+
+public_health_check() {
+  for _ in $(seq 1 30); do
+    if curl --fail --silent --show-error --max-time 10 \
+      --resolve "${app_domain}:443:127.0.0.1" "${public_url}/" >/dev/null; then
+      echo "Public HTTPS health check passed."
+      return 0
+    fi
+    sleep 4
+  done
+
+  echo "ERROR: Public HTTPS health check failed after 120 seconds" >&2
   return 1
 }
 
@@ -278,15 +298,19 @@ rollback_on_error() {
 
   if [[ "${existing_deployment}" == true && -n "${previous_release}" && -n "${previous_docker_username}" ]]; then
     echo "Attempting application rollback to ${previous_docker_username}:${previous_release}." >&2
-    if upsert_release_coordinate APP_RELEASE "${previous_release}" \
-      && upsert_release_coordinate DOCKER_USERNAME "${previous_docker_username}" \
-      && "${COMPOSE[@]}" up -d "${INFRA_SERVICES[@]}" \
-      && wait_for_database \
-      && "${COMPOSE[@]}" up -d "${APP_SERVICES[@]}" \
-      && health_check; then
-      echo "Previous application images were restored. Database migrations were not reversed." >&2
+    if { [[ -n "${backup_dir}" ]] && restore_environment_backup; } \
+      || { upsert_env_value APP_RELEASE "${previous_release}" \
+        && upsert_env_value DOCKER_USERNAME "${previous_docker_username}"; }; then
+      if "${COMPOSE[@]}" up -d "${INFRA_SERVICES[@]}" \
+        && wait_for_database \
+        && "${COMPOSE[@]}" up -d "${APP_SERVICES[@]}" \
+        && health_check; then
+        echo "Previous application images and environment were restored. Database migrations were not reversed." >&2
+      else
+        echo "Automatic application rollback did not complete; data volumes were left untouched." >&2
+      fi
     else
-      echo "Automatic application rollback did not complete; data volumes were left untouched." >&2
+      echo "The pre-deployment environment could not be restored; data volumes were left untouched." >&2
     fi
   else
     echo "No prior application release was available for automatic rollback." >&2
@@ -295,7 +319,7 @@ rollback_on_error() {
   exit "${exit_code}"
 }
 
-[[ $# -eq 3 ]] || {
+[[ $# -eq 4 ]] || {
   usage
   exit 2
 }
@@ -303,6 +327,7 @@ rollback_on_error() {
 release="$1"
 docker_username="$2"
 public_url="${3%/}"
+listen_http_port="$4"
 
 [[ "${release}" =~ ^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$ ]] || die "VERSION is not a valid immutable Docker tag"
 case "${release,,}" in
@@ -328,20 +353,29 @@ if [[ -n "${public_port}" ]]; then
     die "PUBLIC_URL port must be between 1 and 65535"
   fi
 fi
-if [[ "${public_scheme}" == http ]]; then
-  site_address=":80"
-  listen_http_port="${public_port_number:-80}"
-  listen_https_port=443
-else
-  site_address="${app_domain}"
-  listen_http_port=80
-  listen_https_port="${public_port_number:-443}"
+if [[ "${public_scheme}" != "https" || ( -n "${public_port}" && "${public_port}" != "443" ) ]]; then
+  die "PUBLIC_URL must use HTTPS on the default port"
 fi
+if [[ ! "${listen_http_port}" =~ ^[0-9]{1,5}$ ]]; then
+  die "HTTP_PORT must be a number between 1 and 65535"
+fi
+listen_http_port_number=$((10#${listen_http_port}))
+if ((listen_http_port_number < 1 || listen_http_port_number > 65535)); then
+  die "HTTP_PORT must be a number between 1 and 65535"
+fi
+listen_http_port="${listen_http_port_number}"
+export PLANE_HTTP_PORT="${listen_http_port}"
 
-for command_name in awk cp curl docker flock mktemp openssl sed seq sha256sum; do
+for command_name in awk cp curl docker flock head mktemp openssl sed seq sha256sum sort; do
   require_command "${command_name}"
 done
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
+compose_version="$(docker compose version --short 2>/dev/null)"
+compose_version="${compose_version#v}"
+compose_version="${compose_version%%-*}"
+if [[ "$(printf '%s\n%s\n' "${MINIMUM_COMPOSE_VERSION}" "${compose_version}" | sort -V | head -n 1)" != "${MINIMUM_COMPOSE_VERSION}" ]]; then
+  die "Docker Compose ${MINIMUM_COMPOSE_VERSION} or newer is required; found ${compose_version:-unknown}"
+fi
 
 [[ -d "${DEPLOY_DIR}" ]] || die "Deployment directory does not exist: ${DEPLOY_DIR}"
 cd "${DEPLOY_DIR}"
@@ -353,8 +387,7 @@ flock -n 9 || die "Another production deployment is already running"
 umask 077
 
 if [[ ! -e "${ENV_FILE}" ]]; then
-  create_initial_env \
-    "${app_domain}" "${public_url}" "${site_address}" "${listen_http_port}" "${listen_https_port}"
+  create_initial_env "${app_domain}" "${public_url}" "${listen_http_port}"
 fi
 [[ -f "${ENV_FILE}" && ! -L "${ENV_FILE}" ]] || die "${ENV_FILE} must be a regular file"
 chmod 600 "${ENV_FILE}"
@@ -390,13 +423,21 @@ if [[ "${existing_deployment}" == true ]]; then
   backup_existing_deployment
 fi
 
-upsert_release_coordinate APP_RELEASE "${release}"
-upsert_release_coordinate DOCKER_USERNAME "${docker_username}"
+upsert_env_value APP_RELEASE "${release}"
+upsert_env_value DOCKER_USERNAME "${docker_username}"
+upsert_env_value APP_DOMAIN "${app_domain}"
+upsert_env_value WEB_URL "${public_url}"
+upsert_env_value CORS_ALLOWED_ORIGINS "${public_url}"
+upsert_env_value SITE_ADDRESS ":80"
+upsert_env_value LISTEN_HTTP_PORT "${listen_http_port}"
+upsert_env_value LISTEN_HTTPS_PORT "443"
+upsert_env_value MINIO_ENDPOINT_SSL "1"
 "${COMPOSE[@]}" up -d "${INFRA_SERVICES[@]}"
 wait_for_database
 "${COMPOSE[@]}" run --rm --no-deps migrator
 "${COMPOSE[@]}" up -d "${APP_SERVICES[@]}"
 health_check
+public_health_check
 
 trap - ERR
 echo "Plane ${release} is running at ${public_url}."
