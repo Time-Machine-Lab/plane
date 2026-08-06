@@ -40,6 +40,7 @@ See `apps/api/tests/RUNNING_TESTS.md` for the full walkthrough and troubleshooti
 - Before planning or editing code, read `docs/spec/README.md`, `docs/spec/general-development.md`, and `docs/spec/testing-quality.md`.
 - Use the path-to-standard mapping in `docs/spec/README.md` to load every applicable module guide.
 - Read `docs/spec/module-structure.md` before adding or moving directories, packages, or runtime modules.
+- Read `docs/spec/test-environment.md` before starting local apps, deploying a test build, or performing runtime acceptance.
 - More specific `AGENTS.md` files still apply to files inside their directory scope.
 
 ## OpenSpec Development
@@ -47,7 +48,10 @@ See `apps/api/tests/RUNNING_TESTS.md` for the full walkthrough and troubleshooti
 - OpenSpec project context and per-artifact rules are defined in `openspec/config.yaml`.
 - Every proposal must name affected modules and applicable `docs/spec` standards.
 - Every design must describe changed cross-module contracts, migrations, rollout, and rollback where applicable.
-- Every task list must include the exact checks required by `docs/spec/testing-quality.md`.
-- AI must execute the relevant checks and local behavior scenarios itself; code inspection alone is not acceptance evidence.
-- Before accepting an OpenSpec change, re-read its proposal and specs and record pass/fail evidence for every mandatory scenario in `tasks.md`.
+- Every task list must include the L1-L4 test level and exact checks required by `docs/spec/testing-quality.md`.
+- The implementation Agent must run L1 checks, then a newly created Tester sub-agent must independently execute final acceptance; code inspection alone is not evidence.
+- The Tester receives minimal context, reads the change and test standards itself, must not modify product code, and writes `openspec/changes/<change>/verification.md`.
+- If verification fails, the implementation Agent fixes the code and a different new Tester sub-agent performs the next verification cycle.
+- Agent independence is a separation of responsibilities, not process, credential, or security isolation; all Agents share the worktree.
+- Before accepting an OpenSpec change, link the Tester report from `tasks.md` and record pass/fail evidence for every mandatory scenario.
 - Do not mark tasks or a change complete while any required local verification is failed, skipped, or unavailable.

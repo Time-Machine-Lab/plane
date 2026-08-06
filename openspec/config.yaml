@@ -10,6 +10,9 @@ context: |
   Before creating an artifact or implementing code, read docs/spec/README.md,
   docs/spec/general-development.md, docs/spec/testing-quality.md, and every
   module standard selected by the path-to-standard table in that index.
+  Before starting a local app, directly deploying the current worktree to the
+  test server, or executing runtime acceptance, also read
+  docs/spec/test-environment.md.
 
   Module standards:
   - apps/web, apps/admin, apps/space: docs/spec/frontend-development.md
@@ -35,7 +38,7 @@ rules:
     - "Identify affected runtime modules and shared packages; state explicit non-goals."
     - "Call out API, authorization, data migration, realtime protocol, deployment, and AGPL impact when applicable."
     - "Prefer changes that preserve upstream extension points and minimize future upstream merge conflicts."
-    - "Define how each user-visible goal will be accepted in the local development environment."
+    - "Define how each user-visible goal will be accepted, select the required L1-L4 test level, and state whether Windows local frontend or the isolated test server is required."
   specs:
     - "Express requirements as observable behavior with GIVEN/WHEN/THEN scenarios."
     - "Cover validation, unauthorized access, error recovery, and compatibility scenarios when applicable."
@@ -45,11 +48,16 @@ rules:
     - "Document module boundaries and all changed API, data, event, environment-variable, and public-package contracts."
     - "For migrations or deployment changes, include rollout, backward compatibility, observability, backup, and rollback limits."
     - "For cross-module changes, describe dependency direction and failure behavior at each boundary."
-    - "Describe the local test environment, fixtures, and observable evidence needed to accept the change."
+    - "Describe the Windows local/test-server environment, fixtures, affected services, configured-port access, and observable evidence needed to accept the change."
+    - "For L2-L4 verification, follow docs/spec/test-environment.md and keep all hosts, accounts, passwords, tokens, cookies, and private configuration out of tracked artifacts."
   tasks:
     - "Group tasks by module and keep each task independently verifiable."
     - "Include tests and documentation in the same module group as the behavior they validate."
-    - "List exact local format, lint, type, build, test, and runtime acceptance commands required by docs/spec/testing-quality.md."
-    - "Do not mark a task complete until its implementation and stated validation both pass."
-    - "End tasks.md with a Local acceptance record that maps every proposal/spec scenario to pass, fail, or unverified evidence."
-    - "Include a final task that re-reads proposal.md and specs, executes the required local checks, and accepts the change only when every mandatory scenario passes."
+    - "List the required L1-L4 level and exact format, lint, type, build, test, local-start, test-deploy, and runtime acceptance commands required by docs/spec/testing-quality.md and docs/spec/test-environment.md."
+    - "Do not mark an implementation task complete until its implementation and L1 validation both pass."
+    - "Include a final handoff task that creates a new Tester sub-agent after implementation; give it only the change path and test-standard paths so it independently reads the artifacts and runs acceptance."
+    - "Require the Tester to leave product code unchanged and write openspec/changes/<change>/verification.md with pass, fail, or unverified evidence for every mandatory scenario."
+    - "If verification fails, return fixes to the implementation Agent and create a different new Tester sub-agent for the next verification cycle; do not reuse the previous Tester to declare success."
+    - "State that Tester/implementation separation is responsibility independence, not process, credential, or security isolation, because Agents share the worktree."
+    - "End tasks.md with an Acceptance record that links verification.md and summarizes its test level, verdict, evidence, and residual risks."
+    - "Accept the change only when the final new Tester report marks every mandatory scenario pass."

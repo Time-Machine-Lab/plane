@@ -1,139 +1,138 @@
-# AI 本地测试与提案验收规范
+# AI 测试与 OpenSpec 提案验收规范
 
-## 为什么本地开发仍需要测试规范
+## 目标
 
-测试由 AI 执行，并不意味着可以省略测试规范。规范的作用不是要求人工操作，而是约束 AI：
+测试由 AI 执行不等于可以省略测试过程。AI 必须把 OpenSpec 的 Requirement/Scenario 转换为可执行验证，
+实际运行命令或用户场景，并留下可复核证据。代码审查、类型推断和“实现看起来正确”都不是验收证据。
 
-- 不能把“代码已写完”“类型能通过”当成业务提案已经实现。
-- 必须把 OpenSpec 中的每条需求和场景转换为可执行的本地验证。
-- 必须实际运行命令、启动必要服务、观察结果并留下可复核证据。
-- 无法运行的验证必须标记为未验证，不能根据代码推断为通过。
+本项目采用分级测试，避免每次修改都启动或部署完整 Plane：Windows 本地负责快速反馈和前端运行；
+需要真实 API、数据库、Worker、Live 或跨模块环境时，按照
+[测试环境 Runbook](./test-environment.md) 直接部署隔离测试服务器。CI 是合并保护，不是日常测试的必经路径。
 
-本规范以本地开发验收为主。CI 是后续合并保护，不替代 AI 在完成开发时的本地验收。
+## 验收输入
 
-## 验收对象
-
-AI 开始实施前必须阅读当前 change 的：
+实施和测试都必须阅读当前 change 的：
 
 - `proposal.md`：目标、范围、非目标和风险。
-- `specs/**/*.md`：需求和 GIVEN/WHEN/THEN 场景。
-- `design.md`：模块契约、迁移和测试设计（存在时）。
-- `tasks.md`：实现与验证任务。
+- `specs/**/*.md`：Requirements 与 GIVEN/WHEN/THEN 场景。
+- `design.md`：模块契约、迁移、回滚和测试设计（存在时）。
+- `tasks.md`：实现任务、验证计划和验收记录。
+- 本规范、测试环境 Runbook 和所有受影响模块规范。
 
-测试不能只围绕修改的函数设计，必须回到 proposal/specs 验证用户最终能够观察到的结果。
+测试必须验证用户或下游模块可观察的结果，不能只围绕被修改的函数编写。
 
-## 本地验收流程
+## L1-L4 分级测试
 
-### 1. 建立验收映射
+| 等级            | 用途                                         | 最低验证                                       | 运行位置                  |
+| --------------- | -------------------------------------------- | ---------------------------------------------- | ------------------------- |
+| L1 快速检查     | 每轮实现反馈                                 | format、lint、types/Ruff、相关单测、目标 build | Windows 本地              |
+| L2 模块运行验收 | 前端、UI、共享状态和单模块用户行为           | 启动本地前端并验证真实页面                     | 本地前端 + 测试 API       |
+| L3 提案集成验收 | API、权限、migration、任务、Live、跨模块变更 | 部署受影响服务并验证真实契约、数据和用户路径   | 隔离测试服务器            |
+| L4 发布级回归   | 高风险、合并或正式发布前                     | 全库检查/测试、迁移演练和关键业务回归          | 测试服务器 + 正式发布流程 |
 
-编码前，AI 在 `tasks.md` 中为每条需求或场景确定：
+使用能覆盖风险的最低等级：
 
-| 内容 | 说明 |
-| --- | --- |
-| Requirement/Scenario | 对应的 OpenSpec 需求或场景 |
-| Affected module | web、admin、space、api、live 或共享包 |
-| Verification | 静态检查、单元测试、契约测试或本地运行场景 |
-| Command/Evidence | 要执行的命令、HTTP 请求、页面操作或可观察结果 |
-| Result | `pending`、`pass`、`fail` 或 `unverified` |
+- 纯文档、类型、工具函数通常为 L1。
+- `apps/web`、`apps/admin`、`apps/space` 或 UI 修改通常为 L1 + L2。
+- `apps/api`、后台任务或 `apps/live` 修改为 L1 + L3。
+- 权限、migration、公共 API/类型、实时协议、安全和跨模块变更至少为 L1 + L3，合并前升级 L4。
+- Dockerfile、Compose、依赖锁和基础镜像变更必须实际重建受影响镜像。
 
-每条必需场景都要有验证方式。无法客观验证的需求应先修正 spec，而不是进入编码。
+测试等级是风险下限，不是命令数量目标。无需为低风险修改重复部署完整 Plane；也不得把需要真实依赖的
+场景降级为 mock 后的 L1 并声称完成集成验收。
 
-### 2. 执行最小相关检查
+## 实现 Agent 职责
 
-AI 每次修改完成后先运行受影响模块的快速检查：
+实现 Agent 必须：
 
-- 格式检查。
-- Lint，且不得新增 warning。
-- TypeScript 类型检查或 Python Ruff 检查。
-- 直接相关的 unit/contract test。
-- 受影响模块的 build（该模块存在 build 时）。
+1. 在编码前将每条 Requirement/Scenario 映射到验证等级、命令和证据类型。
+2. 为新功能增加正常、边界与失败路径测试；bug 修复增加稳定复现测试。
+3. 完成实现后执行所有 L1 检查并处理失败。
+4. 保持工作区可测试，说明改动模块、运行过的命令和已知限制。
+5. 不自行作出 OpenSpec 最终验收结论；将最终验证交给全新的 Tester 子 Agent。
 
-快速检查失败时先修复，不继续用更大范围测试掩盖局部问题。
+实现 Agent 的 L1 结果是交接条件，不替代 Tester 的独立复核。
 
-### 3. 执行自动化行为测试
+## 独立 Tester 子 Agent
 
-- 新功能必须增加正常、边界和失败路径测试。
-- bug 修复先添加能稳定复现缺陷的测试，再验证修复后通过。
+实现任务结束后，主 Agent 必须创建一个全新的 Tester 子 Agent。Tester 与实现 Agent 共享工作区和权限，
+因此独立指职责与判断独立，不是进程、凭据或安全隔离。
+
+Tester 初始上下文只提供 change 名称、change 路径、测试规范路径和工作区已准备的事实，不应传递实现过程
+中的正确性判断。Tester 必须自行读取 proposal、design、specs、tasks 和适用规范。
+
+Tester 负责：
+
+- 复核 Requirement/Scenario 与测试等级选择。
+- 重跑必要 L1，并按风险执行 L2、L3 或 L4。
+- 按 [测试环境 Runbook](./test-environment.md) 使用 `start-local.ps1` 或 `deploy-test.ps1`。
+- 验证真实页面、请求、权限、数据副作用、Worker 或实时连接。
+- 不修改产品代码；失败时记录稳定复现步骤并交回实现 Agent。
+- 写入 `openspec/changes/<change>/verification.md`，并给出 `pass`、`fail` 或 `unverified` 结论。
+
+实现 Agent 修复失败后，主 Agent 必须创建另一个全新的 Tester 子 Agent重新执行失败场景和必要回归，
+不得复用原 Tester 直接宣布通过。
+
+## 验收映射
+
+`tasks.md` 和 `verification.md` 应为每个必需场景记录：
+
+| 字段                 | 内容                                         |
+| -------------------- | -------------------------------------------- |
+| Requirement/Scenario | OpenSpec 中的准确引用                        |
+| Affected module      | web、admin、space、api、live、proxy 或共享包 |
+| Level                | L1、L2、L3 或 L4                             |
+| Verification         | 静态检查、单测、契约、请求、页面或实时场景   |
+| Result               | `pending`、`pass`、`fail` 或 `unverified`    |
+| Evidence             | 脱敏命令输出、部署 ID、截图/报告或可观察结果 |
+
+每条必需场景都必须可客观验证。无法验证的需求应先修正 spec，不应直接进入编码。
+
+## 自动化测试要求
+
+- 新功能覆盖正常、边界和失败路径。
+- bug 修复先用测试稳定复现缺陷，再验证修复通过。
 - 权限变更至少覆盖允许访问、低权限、其他 workspace/project 和未认证场景。
-- 跨模块契约同时验证提供方和消费方，不能只 mock 掉本次真正修改的边界。
-- 不通过删除断言、放宽预期、增加无理由 skip 或吞掉错误来让测试变绿。
-
-### 4. 启动本地服务验证真实场景
-
-只要 proposal 描述了用户可见行为，仅运行单元测试和构建还不够。AI 应启动必要的本地服务，
-按 spec 场景完成实际验收：
-
-- 前端：打开真实路由，验证正常、loading、empty、error、权限和关键交互状态。
-- API：使用本地测试数据发送真实请求，检查状态码、响应、数据库副作用和权限隔离。
-- 实时协作：验证连接、鉴权、更新传播、重连和持久化。
-- 共享包：在至少一个真实消费应用中验证公共行为。
-- 跨模块：从用户入口贯穿到 API/实时服务，至少完成一条完整业务路径。
-
-AI 可以使用当前环境已有的浏览器自动化、HTTP 客户端或测试工具，但不应仅为一次验收随意引入
-新的长期依赖。需要保留本地服务供用户复核时，报告访问 URL；临时服务则在验证结束后清理。
-
-### 5. 按风险执行回归
-
-不要求每个小修改都运行全库测试。使用以下范围：
-
-| 风险 | 回归范围 |
-| --- | --- |
-| 低 | 目标文件/包检查、直接测试、目标模块 build |
-| 中 | 目标模块完整检查，以及直接消费者的类型检查、测试或 build |
-| 高 | 全库前端检查/build、完整 API Docker suite、跨模块本地场景 |
-
-以下情况默认高风险：认证授权、数据库 migration、公共类型/API、共享状态、编辑器数据、
-实时协议、导入导出、安全修复、基础配置和上游大版本同步。
-
-### 6. 逐条验收提案
-
-所有实现任务完成后，AI 必须重新阅读 proposal 和全部 delta specs，而不是只查看 `tasks.md`：
-
-1. 对每个 Requirement/Scenario 找到对应自动化测试或本地行为证据。
-2. 运行最终所需的检查和回归命令。
-3. 在 `tasks.md` 末尾维护 `## Local acceptance record`。
-4. 记录环境、命令、结果摘要、场景证据和已知限制。
-5. 所有必需项为 `pass` 后，才可将 change 报告为已验收。
-
-`fail` 表示实现或测试失败；`unverified` 表示环境或依赖使测试无法运行。两者都不能算验收通过。
-
-## 模块验证矩阵
-
-| 变更 | 本地最低验证 |
-| --- | --- |
-| `apps/web`、`apps/admin`、`apps/space` | format、lint、types、目标应用 build、相关测试、真实路由交互 |
-| `apps/api` 非数据库代码 | Ruff、相关 unit/contract pytest、受影响端点真实请求 |
-| API/权限 | unit + API/app contract、允许/拒绝/跨租户请求 |
-| 模型/migration | migration 测试、数据前后状态、contract；按风险运行完整 Docker pytest |
-| `apps/live` | format、lint、types、Vitest、build、实际连接/传播场景 |
-| `packages/*` | 包检查/build、受影响消费者检查、消费应用行为 |
-| UI/Propel/Editor | Storybook build、交互/可访问性状态、真实消费页面 |
-| i18n | sync check、类型生成、变量/ICU 结构和实际页面文案 |
-| proxy/Compose | 配置解析、受影响服务启动、health 和关键路由 smoke |
-| 跨模块 | 各模块验证之和，加至少一条完整用户路径 |
-
-## 前端和 Node 测试
-
-- 使用目标包已经配置的测试框架；当前 `apps/live` 和 codemods 使用 Vitest。
-- 测试文件遵循现有 `*.test.ts(x)` 或 `*.spec.ts(x)` 命名。
-- 纯函数、store 和 service 覆盖失败、边界、并发、重试和回滚状态。
-- 组件测试关注用户可见行为、键盘和异步状态，不锁定无意义 DOM 结构。
-- Storybook 验证组件隔离状态，但不能代替业务逻辑和真实页面验收。
+- 跨模块契约同时验证提供方和消费方，不能 mock 掉本次真正修改的边界后声称契约通过。
+- 测试数据只包含场景所需的最小对象，且不得访问生产系统或修改非测试数据。
+- 不得通过删除断言、放宽预期、增加无理由 skip/only 或吞掉异常让测试变绿。
 - 时间、随机数、网络和浏览器 API 必须可控，测试结束后恢复 mock 和 timer。
 
-仓库目前没有为 `web`、`admin`、`space` 配置统一的 test script。涉及这些应用时，AI 必须在
-OpenSpec design/tasks 中明确测试放置位置和执行方式；不能因为缺少现成脚本而跳过行为验收。
+## 模块最低验证
 
-## API 测试
+| 变更                                   | 最低验证                                                     |
+| -------------------------------------- | ------------------------------------------------------------ |
+| `apps/web`、`apps/admin`、`apps/space` | format、lint、types、目标 build、相关测试、真实路由交互      |
+| `apps/api` 普通代码                    | Ruff、相关 unit/contract pytest、测试环境端点请求            |
+| API/权限                               | unit + API/app contract、允许/拒绝/跨租户真实请求            |
+| 模型/migration                         | migration 测试、数据前后状态、contract、测试环境迁移和 smoke |
+| `apps/live`                            | format、lint、types、Vitest、build、真实连接/传播/重连场景   |
+| `packages/*`                           | 包检查/build、直接消费者检查、消费应用行为                   |
+| UI/Propel/Editor                       | Storybook build、交互/可访问性状态、真实消费页面             |
+| i18n                                   | sync check、类型生成、变量/ICU 结构和实际页面文案            |
+| proxy/Compose                          | 配置解析、受影响服务启动、health 和关键路由 smoke            |
+| 跨模块                                 | 各模块验证之和，加至少一条完整用户路径                       |
+
+## 前端与 Node 测试
+
+- 使用目标包已配置的框架；测试文件遵循现有 `*.test.ts(x)` 或 `*.spec.ts(x)` 命名。
+- 纯函数、store 和 service 覆盖失败、边界、并发、重试和回滚状态。
+- 组件测试关注用户可见行为、键盘、可访问性和异步状态，不锁定无意义 DOM 结构。
+- Storybook 验证隔离组件状态，但不替代业务逻辑和真实页面验收。
+- 仓库未给 `web`、`admin`、`space` 提供统一 test script 时，OpenSpec design/tasks 必须明确测试放置位置和执行方式。
+- 用户可见功能使用 `scripts/test/start-local.ps1` 启动本地应用，连接隔离测试 API 完成 L2。
+
+## API 与真实依赖测试
 
 - pytest marker 使用已注册的 `unit`、`contract`、`smoke`、`slow`。
 - `contract/api` 与 `contract/app` 按认证接口面选择正确 fixture。
-- 数据库测试显式使用 `django_db`，fixture 只创建验证场景所需的最小数据。
-- 单元测试 mock 外部服务；需要真实依赖时使用 `docker-compose-test.yml` 隔离栈。
+- 数据库测试显式使用 `django_db`，fixture 只创建最小数据。
+- 单元测试可以 mock 外部服务，但真实依赖契约必须在 L3 测试环境验证。
 - 权限测试必须验证对象归属和 workspace/project 隔离。
-- 测试不得访问真实生产系统或修改非测试数据。
+- 无 Docker 的 Windows 环境不要求运行本地 Compose；使用 `scripts/test/deploy-test.ps1` 部署测试服务器。
+- 能在本地运行 Docker 时仍可使用 `docker-compose-test.yml`，但它不是当前 Windows 工作流的前置条件。
 
-## 常用本地命令
+## 常用命令
 
 全库静态检查与构建：
 
@@ -156,62 +155,54 @@ pnpm --filter=live test
 pnpm --filter=live build
 ```
 
-API 定向测试：
+Windows 本地前端：
 
-```bash
-docker compose -f docker-compose-test.yml run --rm --build api-tests pytest -m unit
-docker compose -f docker-compose-test.yml run --rm --build api-tests pytest -m contract
+```powershell
+.\scripts\test\start-local.ps1 -Apps web
 ```
 
-API 完整测试：
+直接部署受影响服务到测试环境：
 
-```bash
-docker compose -f docker-compose-test.yml up --build --abort-on-container-exit --exit-code-from api-tests
-docker compose -f docker-compose-test.yml down -v
+```powershell
+.\scripts\test\deploy-test.ps1 -Services api
 ```
 
-命令只是基线。AI 必须根据 proposal 场景补充实际页面、请求、数据或实时连接验证。
+所有脚本参数、私有配置、端口、健康检查和回滚步骤以
+[测试环境 Runbook](./test-environment.md) 与脚本帮助为准。
 
-## AI 结果报告要求
+## 测试结果和证据
 
-AI 最终报告必须区分：
+Tester 的 `verification.md` 必须区分：
 
-- `Passed`：实际运行且成功的命令和场景。
-- `Failed`：运行失败及其原因。
-- `Unverified`：没有执行或环境无法执行的项目。
-- `Residual risk`：测试通过后仍存在的风险和未覆盖范围。
+- `Passed`：实际运行成功的命令和场景。
+- `Failed`：运行失败、稳定复现步骤及可观察结果。
+- `Unverified`：因环境或依赖未能执行的必需项。
+- `Residual risk`：已通过范围之外仍存在的风险。
 
-禁止使用“应该没问题”“从代码看可以”代替测试证据。没有执行的测试必须明确说明，不能写成通过。
+证据必须脱敏。不得记录真实服务器地址、账号、密码、连接串、认证 Header、Cookie、Token 或私有配置
+内容。使用部署 ID、服务逻辑名、HTTP 状态、脱敏摘要和本地/测试环境逻辑名称即可。
 
-## 本地验收记录模板
+## OpenSpec 验收记录
 
-在 OpenSpec `tasks.md` 末尾使用以下结构：
+`verification.md` 使用测试环境 Runbook 中的模板。`tasks.md` 末尾保留精简索引：
 
 ```markdown
-## Local acceptance record
+## Acceptance record
 
-- Environment: <OS/runtime/services/test data>
-- Date/commit: <date and commit or working tree state>
-
-| Requirement/Scenario | Verification | Result | Evidence |
-| --- | --- | --- | --- |
-| <spec reference> | <command or local behavior> | pass/fail/unverified | <summary> |
-
-### Commands
-
-- `<command>`: pass/fail
-
-### Residual risks
-
-- <remaining risk, or None>
+- Tester: <new tester agent identifier>
+- Verification report: `./verification.md` (在实际 `tasks.md` 中使用 Markdown 链接)
+- Selected level: <L1/L2/L3/L4>
+- Verdict: pass/fail/unverified
+- Residual risks: <summary or None>
 ```
 
 ## 验收完成条件
 
-- proposal 和 specs 的每个必需场景都有本地证据并标记为 `pass`。
-- 相关格式、Lint、类型、自动化测试和 build 已实际运行通过。
-- 用户可见功能已在本地运行环境验证，而不是只做代码审查。
+- proposal 和 specs 的每个必需场景都在 `verification.md` 中有证据并标记为 `pass`。
+- 相关 format、lint、types/Ruff、自动化测试和 build 已实际运行通过。
+- 用户可见功能完成 L2；真实后端/数据/实时或跨模块变更完成 L3；高风险发布按要求完成 L4。
+- Tester 是实现结束后新创建的子 Agent，且未修改产品代码。
 - 没有新增 warning、skip、only、临时断言或被隐藏的失败。
-- `tasks.md` 的 Local acceptance record 完整记录命令、结果和剩余风险。
+- `tasks.md` 链接最终 `verification.md`，结论和剩余风险一致。
 
-任一必需项为 `fail` 或 `unverified` 时，AI 必须报告 change 尚未通过验收。
+任一必需项为 `fail` 或 `unverified` 时，AI 必须报告 change 尚未通过验收，不得标记完成或归档。

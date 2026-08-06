@@ -1,0 +1,6 @@
+/test-environment.env
+/runtime/
+/*.tar.gz
+/*.manifest.json
+__pycache__/
+*.py[cod]

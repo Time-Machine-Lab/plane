@@ -112,6 +112,12 @@ temp/
 scripts/
 !packages/i18n/scripts/
 
+# Test environment entry scripts are tracked; credentials stay under .secrets/.
+!scripts/
+scripts/*
+!scripts/test/
+!scripts/test/**
+
 # i18n auto-generated types (regenerated on every build)
 packages/i18n/src/types/keys.generated.ts
 

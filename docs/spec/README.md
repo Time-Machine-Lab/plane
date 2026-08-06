@@ -8,28 +8,29 @@
 
 当前项目分为以下开发模块：
 
-| 模块 | 主要路径 | 职责 | 必读规范 |
-| --- | --- | --- | --- |
-| 主应用前端 | `apps/web` | 登录、工作区、项目、工作项等主要交互界面 | [前端开发规范](./frontend-development.md) |
-| 管理端前端 | `apps/admin` | 实例、认证、邮件、AI 和工作区管理 | [前端开发规范](./frontend-development.md) |
-| 公开空间前端 | `apps/space` | 对外发布的项目、工作项和页面 | [前端开发规范](./frontend-development.md) |
-| 后端 API | `apps/api` | Django API、认证、数据模型、任务和迁移 | [后端开发规范](./backend-development.md) |
-| 实时协作服务 | `apps/live` | Hocuspocus/Yjs 协同编辑、WebSocket 和 PDF 导出 | [实时协作开发规范](./realtime-development.md) |
-| 网关代理 | `apps/proxy` | Caddy 路由、TLS、上传限制和反向代理 | 通用规范、测试规范和结构说明 |
-| 共享前端/Node 包 | `packages` | UI、状态、服务、类型、编辑器、i18n 和工具库 | [共享包开发规范](./shared-packages-development.md) |
-| 部署层 | `deployments`、根目录 Compose 文件 | Docker Compose、AIO、Kubernetes、Swarm 和备份恢复 | 通用规范、测试规范和结构说明 |
+| 模块             | 主要路径                           | 职责                                              | 必读规范                                           |
+| ---------------- | ---------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
+| 主应用前端       | `apps/web`                         | 登录、工作区、项目、工作项等主要交互界面          | [前端开发规范](./frontend-development.md)          |
+| 管理端前端       | `apps/admin`                       | 实例、认证、邮件、AI 和工作区管理                 | [前端开发规范](./frontend-development.md)          |
+| 公开空间前端     | `apps/space`                       | 对外发布的项目、工作项和页面                      | [前端开发规范](./frontend-development.md)          |
+| 后端 API         | `apps/api`                         | Django API、认证、数据模型、任务和迁移            | [后端开发规范](./backend-development.md)           |
+| 实时协作服务     | `apps/live`                        | Hocuspocus/Yjs 协同编辑、WebSocket 和 PDF 导出    | [实时协作开发规范](./realtime-development.md)      |
+| 网关代理         | `apps/proxy`                       | Caddy 路由、TLS、上传限制和反向代理               | 通用规范、测试规范和结构说明                       |
+| 共享前端/Node 包 | `packages`                         | UI、状态、服务、类型、编辑器、i18n 和工具库       | [共享包开发规范](./shared-packages-development.md) |
+| 部署层           | `deployments`、根目录 Compose 文件 | Docker Compose、AIO、Kubernetes、Swarm 和备份恢复 | 通用规范、测试规范和结构说明                       |
 
 所有模块同时遵守：
 
 - [通用开发规范](./general-development.md)
 - [测试与质量规范](./testing-quality.md)
+- [测试环境 Runbook](./test-environment.md)
 - [模块与目录结构说明](./module-structure.md)
 
 ## AI 规范选择规则
 
 AI 在分析、设计或修改代码前必须按受影响路径选择规范：
 
-1. 始终阅读本索引、通用开发规范和测试与质量规范。
+1. 始终阅读本索引、通用开发规范和测试与质量规范；需要启动页面、部署或运行验收时同时阅读测试环境 Runbook。
 2. 修改 `apps/web`、`apps/admin` 或 `apps/space` 时阅读前端开发规范。
 3. 修改 `apps/api` 时阅读后端开发规范。
 4. 修改 `apps/live` 时阅读实时协作开发规范。
@@ -45,9 +46,10 @@ OpenSpec 已通过 `openspec/config.yaml` 注入本目录的选择规则。每�
 - `proposal.md`：声明受影响模块、适用规范、范围和非目标。
 - `design.md`：说明模块边界、API/数据/事件契约、迁移与回滚策略。
 - `specs/*`：使用可验证的行为场景，不使用纯实现描述代替需求。
-- `tasks.md`：按模块拆分任务，为每组任务列出验证命令，并维护本地验收记录。
+- `tasks.md`：按模块拆分任务，为每组任务列出验证等级和命令，并维护验收记录。
 - 实施前重新读取相关规范；发现设计偏差时先更新 OpenSpec 产物，再继续编码。
-- 实施完成后逐条回看 proposal/specs，只有全部必需场景在本地验证通过才可验收 change。
+- 实施完成后必须创建全新的 Tester 子 Agent；Tester 按测试环境 Runbook 独立验证并写入
+  `openspec/changes/<change>/verification.md`，只有全部必需场景通过才可验收 change。
 
 ## 规范维护
 
