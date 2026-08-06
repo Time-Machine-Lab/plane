@@ -1,0 +1,55 @@
+schema: spec-driven
+
+context: |
+  Plane is a pnpm/Turborepo monorepo with three React Router applications
+  (apps/web, apps/admin, apps/space), a Django/DRF API (apps/api), a
+  Hocuspocus/Yjs realtime service (apps/live), a Caddy proxy (apps/proxy),
+  shared TypeScript packages (packages/*), and deployment assets (deployments/*).
+
+  The authoritative development standards are indexed at docs/spec/README.md.
+  Before creating an artifact or implementing code, read docs/spec/README.md,
+  docs/spec/general-development.md, docs/spec/testing-quality.md, and every
+  module standard selected by the path-to-standard table in that index.
+
+  Module standards:
+  - apps/web, apps/admin, apps/space: docs/spec/frontend-development.md
+  - apps/api: docs/spec/backend-development.md
+  - apps/live: docs/spec/realtime-development.md
+  - packages/*: docs/spec/shared-packages-development.md
+  - apps/proxy, deployments/*, Docker/Compose/CI: docs/spec/module-structure.md
+  - repository layout and ownership: docs/spec/module-structure.md
+
+  Preserve upstream Plane patterns and extension points. Keep team-specific
+  changes focused so future merges from makeplane/plane remain manageable.
+  Internal TypeScript dependencies use workspace:* and external dependencies
+  use catalog:. TypeScript is strict. Shared state uses MobX. Shared components
+  belong in @plane/ui or the existing @plane/propel design-system area. Backend
+  tests use pytest. Frontend/Node tests use the existing Vitest setup.
+
+  The repository is AGPL-3.0-only. Preserve copyright and SPDX notices and do
+  not introduce secrets, production data, or incompatible licensing.
+
+rules:
+  proposal:
+    - "Add an Applicable standards section listing every docs/spec file required by the affected paths."
+    - "Identify affected runtime modules and shared packages; state explicit non-goals."
+    - "Call out API, authorization, data migration, realtime protocol, deployment, and AGPL impact when applicable."
+    - "Prefer changes that preserve upstream extension points and minimize future upstream merge conflicts."
+    - "Define how each user-visible goal will be accepted in the local development environment."
+  specs:
+    - "Express requirements as observable behavior with GIVEN/WHEN/THEN scenarios."
+    - "Cover validation, unauthorized access, error recovery, and compatibility scenarios when applicable."
+    - "Keep implementation details in design.md rather than using them as requirements."
+  design:
+    - "Add a Standards compliance section mapping design decisions to the selected docs/spec files."
+    - "Document module boundaries and all changed API, data, event, environment-variable, and public-package contracts."
+    - "For migrations or deployment changes, include rollout, backward compatibility, observability, backup, and rollback limits."
+    - "For cross-module changes, describe dependency direction and failure behavior at each boundary."
+    - "Describe the local test environment, fixtures, and observable evidence needed to accept the change."
+  tasks:
+    - "Group tasks by module and keep each task independently verifiable."
+    - "Include tests and documentation in the same module group as the behavior they validate."
+    - "List exact local format, lint, type, build, test, and runtime acceptance commands required by docs/spec/testing-quality.md."
+    - "Do not mark a task complete until its implementation and stated validation both pass."
+    - "End tasks.md with a Local acceptance record that maps every proposal/spec scenario to pass, fail, or unverified evidence."
+    - "Include a final task that re-reads proposal.md and specs, executes the required local checks, and accepts the change only when every mandatory scenario passes."

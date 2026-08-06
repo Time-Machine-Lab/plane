@@ -33,4 +33,21 @@ Prereq (once): `./setup.sh` — generates `apps/api/.env` from `.env.example`.
 - Subset: `docker compose -f docker-compose-test.yml run --rm api-tests pytest -m unit`
 - Teardown: `docker compose -f docker-compose-test.yml down -v`
 
-See `apps/api/tests/RUNNING_TESTS.md` for the full walkthrough and troubleshooting; see `apps/api/tests/TESTING_GUIDE.md` for test conventions and fixtures.
+See `apps/api/tests/RUNNING_TESTS.md` for the full walkthrough and troubleshooting; see `apps/api/plane/tests/README.md` for test layout, conventions, markers, and fixtures.
+
+## Module Development Standards
+
+- Before planning or editing code, read `docs/spec/README.md`, `docs/spec/general-development.md`, and `docs/spec/testing-quality.md`.
+- Use the path-to-standard mapping in `docs/spec/README.md` to load every applicable module guide.
+- Read `docs/spec/module-structure.md` before adding or moving directories, packages, or runtime modules.
+- More specific `AGENTS.md` files still apply to files inside their directory scope.
+
+## OpenSpec Development
+
+- OpenSpec project context and per-artifact rules are defined in `openspec/config.yaml`.
+- Every proposal must name affected modules and applicable `docs/spec` standards.
+- Every design must describe changed cross-module contracts, migrations, rollout, and rollback where applicable.
+- Every task list must include the exact checks required by `docs/spec/testing-quality.md`.
+- AI must execute the relevant checks and local behavior scenarios itself; code inspection alone is not acceptance evidence.
+- Before accepting an OpenSpec change, re-read its proposal and specs and record pass/fail evidence for every mandatory scenario in `tasks.md`.
+- Do not mark tasks or a change complete while any required local verification is failed, skipped, or unavailable.
