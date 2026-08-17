@@ -82,7 +82,8 @@ package-lock.json
 
 
 
-.secrets
+/.secrets/
+/.runtime/
 tmp/
 
 ## packages

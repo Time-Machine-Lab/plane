@@ -41,24 +41,18 @@
 - PDF/富文本渲染必须对 URL、图片、HTML 和文件类型执行现有安全校验。
 - 新 controller 使用 `@plane/decorators` 的现有模式，不绕开统一 middleware。
 
-## 测试与验证
+## 快速自检与验收
 
 - 单元测试放入 `apps/live/tests`，目录与 `src` 能力对应。
 - 覆盖认证拒绝、重复 update、Redis 重连、持久化失败、graceful shutdown 和资源限制。
 - 涉及协同算法或协议时增加至少两个 client 的集成场景。
-
-```bash
-pnpm --filter=live check:format
-pnpm --filter=live check:lint
-pnpm --filter=live check:types
-pnpm --filter=live test
-pnpm --filter=live test:coverage
-pnpm --filter=live build
-```
+- 开发 Agent 只运行与改动直接相关的类型检查或 Vitest；涉及构建配置、依赖、协议装配或发布时再按需 build。
+- 不固定运行 coverage、Lint、类型、测试和 build 的完整组合，也不让 Tester 重跑这些检查。
+- 日常最终证据来自部署后的 OpenSpec 场景，包括实际连接、传播、权限或持久化结果。
 
 ## 完成清单
 
 - 权限在连接与敏感操作边界均被验证。
 - 多实例、重连、重复消息和异常关闭行为可预测。
 - 资源已清理，日志无敏感信息，错误可以关联诊断。
-- Vitest、类型、Lint 和构建通过。
+- 部署后的相关实时场景已由独立 Tester 验收。

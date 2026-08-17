@@ -84,12 +84,12 @@ function Get-PythonCommand {
 }
 
 function Get-TransportPython {
-    param([Parameter(Mandatory)][string]$SystemPython)
+    param(
+        [Parameter(Mandatory)][string]$SystemPython,
+        [Parameter(Mandatory)][string]$RuntimeRoot
+    )
 
-    & $SystemPython -c "import paramiko" 2>$null
-    if ($LASTEXITCODE -eq 0) { return $SystemPython }
-
-    $toolRoot = Join-Path $env:LOCALAPPDATA "PlaneTestTools"
+    $toolRoot = Join-Path $RuntimeRoot "tools"
     $venvRoot = Join-Path $toolRoot "venv"
     $venvPython = Join-Path $venvRoot "Scripts/python.exe"
     if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
@@ -97,8 +97,17 @@ function Get-TransportPython {
         & $SystemPython -m venv $venvRoot
         if ($LASTEXITCODE -ne 0) { throw "Could not create private transport virtual environment" }
     }
-    & $venvPython -m pip install --disable-pip-version-check --quiet "paramiko==4.0.0"
-    if ($LASTEXITCODE -ne 0) { throw "Could not install Paramiko in the private tool environment" }
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $venvPython -c "import paramiko; raise SystemExit(0 if paramiko.__version__ == '4.0.0' else 1)" 2>$null
+        $paramikoProbeExitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previousErrorPreference }
+    if ($paramikoProbeExitCode -ne 0) {
+        & $venvPython -m pip install --disable-pip-version-check --quiet "paramiko==4.0.0"
+        if ($LASTEXITCODE -ne 0) { throw "Could not install Paramiko in the private tool environment" }
+    }
     return $venvPython
 }
 
@@ -109,10 +118,11 @@ function Assert-PrivateConfig {
     )
 
     $resolved = (Resolve-Path -LiteralPath $Path).Path
-    $repoPrefix = $RepoRoot.TrimEnd("\") + "\"
-    if (-not $resolved.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    $secretsPrefix = (Join-Path $RepoRoot ".secrets").TrimEnd("\") + "\"
+    if (-not $resolved.StartsWith($secretsPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Private configuration must be inside the repository's ignored .secrets directory"
     }
+    $repoPrefix = $RepoRoot.TrimEnd("\") + "\"
     $relative = $resolved.Substring($repoPrefix.Length).Replace("\", "/")
     & git -C $RepoRoot check-ignore --quiet -- $relative
     if ($LASTEXITCODE -ne 0) { throw "Private configuration is not ignored by Git: $relative" }
@@ -128,6 +138,8 @@ function Assert-PrivateConfig {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
+$runtimeRoot = Join-Path $repoRoot ".runtime/test"
+$logsRoot = Join-Path $runtimeRoot "logs/local"
 if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw "git is not available on PATH" }
 $ConfigPath = Assert-PrivateConfig -RepoRoot $repoRoot -Path $ConfigPath
 $config = Read-DotEnv -Path $ConfigPath
@@ -178,20 +190,22 @@ if (-not $SkipChecks) {
     }
 }
 
-$runtimeRoot = Join-Path ([System.IO.Path]::GetTempPath()) "plane-local-apps"
-New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+if (-not $WhatIfPreference) {
+    New-Item -ItemType Directory -Path $logsRoot -Force | Out-Null
+}
 $started = @()
 $localApiUrl = "http://localhost:8000"
 
 if (-not (Test-HttpReady -Url "$localApiUrl/")) {
     if ($PSCmdlet.ShouldProcess("localhost:8000", "Start SSH tunnel to the remote Plane proxy")) {
         $systemPython = Get-PythonCommand
-        $transportPython = Get-TransportPython -SystemPython $systemPython
+        $transportPython = Get-TransportPython -SystemPython $systemPython -RuntimeRoot $runtimeRoot
         $helper = Join-Path $PSScriptRoot "test_env_transport.py"
-        $tunnelStdout = Join-Path $runtimeRoot "ssh-tunnel.stdout.log"
-        $tunnelStderr = Join-Path $runtimeRoot "ssh-tunnel.stderr.log"
+        $tunnelStdout = Join-Path $logsRoot "ssh-tunnel.stdout.log"
+        $tunnelStderr = Join-Path $logsRoot "ssh-tunnel.stderr.log"
         $tunnelProcess = Start-Process -FilePath $transportPython -ArgumentList @(
-            $helper, "tunnel", "--config", $ConfigPath, "--bind-host", "127.0.0.1", "--local-port", "8000"
+            $helper, "tunnel", "--config", $ConfigPath, "--bind-host", "127.0.0.1", "--local-port", "8000",
+            "--runtime-root", $runtimeRoot
         ) -WorkingDirectory $repoRoot -WindowStyle Hidden -RedirectStandardOutput $tunnelStdout `
             -RedirectStandardError $tunnelStderr -PassThru
         $started += $tunnelProcess
@@ -240,8 +254,8 @@ foreach ($app in $Apps) {
         continue
     }
 
-    $stdoutPath = Join-Path $runtimeRoot "$app.stdout.log"
-    $stderrPath = Join-Path $runtimeRoot "$app.stderr.log"
+    $stdoutPath = Join-Path $logsRoot "$app.stdout.log"
+    $stderrPath = Join-Path $logsRoot "$app.stderr.log"
     $command = "pnpm --filter=$app dev"
     $process = Start-Process -FilePath "cmd.exe" -ArgumentList @("/d", "/s", "/c", $command) `
         -WorkingDirectory $repoRoot -WindowStyle Hidden -RedirectStandardOutput $stdoutPath `

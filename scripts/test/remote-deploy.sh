@@ -107,7 +107,7 @@ EOF
 
 write_compose_override() {
   local override="${release_dir}/docker-compose.test.override.yml"
-  if [[ "${bootstrap_mode}" == true ]]; then
+  if [[ "${bootstrap_mode}" == true || -n "${selected[fixtures]:-}" ]]; then
     printf 'services: {}\n' >"${override}"
     return
   fi
@@ -232,14 +232,27 @@ rollback_on_error() {
       "${compose[@]}" rm -s -f proxy web admin space live api worker beat-worker >&2
     fi
   fi
+  if [[ -n "${release_dir:-}" && "${release_dir}" == "${root}/releases/"* && -d "${release_dir}" ]]; then
+    echo "Removing the failed Plane release directory." >&2
+    rm -rf -- "${release_dir}"
+  fi
+  if [[ -n "${archive:-}" && "${archive}" == "${root}/incoming/"* ]]; then
+    rm -f -- "${archive}"
+  fi
+  local runner_path
+  runner_path="$(realpath -m -- "$0")"
+  if [[ "${runner_path}" == "${root}/incoming/"* && -f "${runner_path}" && ! -L "${runner_path}" ]]; then
+    rm -f -- "${runner_path}"
+  fi
   exit "${exit_code}"
 }
 
 usage() {
-  echo "Usage: remote-deploy.sh --archive FILE --release ID --root DIR --project NAME --http-port PORT --https-port PORT --base-url URL --services CSV --keep N --local-origins CSV --bootstrap-release TAG" >&2
+  echo "Usage: remote-deploy.sh --archive FILE --fixture-config FILE --release ID --root DIR --project NAME --http-port PORT --https-port PORT --base-url URL --services CSV --keep N --local-origins CSV --bootstrap-release TAG" >&2
 }
 
 archive=""
+fixture_config=""
 release=""
 root=""
 project=""
@@ -254,6 +267,7 @@ bootstrap_release="stable"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --archive) archive="${2:-}"; shift 2 ;;
+    --fixture-config) fixture_config="${2:-}"; shift 2 ;;
     --release) release="${2:-}"; shift 2 ;;
     --root) root="${2:-}"; shift 2 ;;
     --project) project="${2:-}"; shift 2 ;;
@@ -268,13 +282,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-[[ -n "${archive}" && -n "${release}" && -n "${root}" && -n "${project}" && -n "${http_port}" \
+[[ -n "${archive}" && -n "${fixture_config}" && -n "${release}" && -n "${root}" && -n "${project}" && -n "${http_port}" \
   && -n "${https_port}" && -n "${base_url}" && -n "${services_csv}" && -n "${keep}" ]] || {
   usage
   exit 2
 }
 
-for command_name in awk curl docker flock openssl realpath sed seq sha256sum tar timeout; do
+for command_name in awk curl docker flock openssl realpath sed seq sha256sum stat tar timeout; do
   require_command "${command_name}"
 done
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
@@ -293,8 +307,18 @@ docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is required"
 
 root="$(realpath -m -- "${root}")"
 archive="$(realpath -m -- "${archive}")"
+fixture_config="$(realpath -m -- "${fixture_config}")"
 [[ "${archive}" == "${root}/incoming/"* && -f "${archive}" && ! -L "${archive}" ]] \
   || die "Archive must be a regular file inside the dedicated incoming directory"
+[[ "${fixture_config}" == "${root}/incoming/"* && -f "${fixture_config}" && ! -L "${fixture_config}" ]] \
+  || die "Fixture configuration must be a regular file inside the dedicated incoming directory"
+
+cleanup_private_files() {
+  rm -f -- "${fixture_config}"
+}
+trap cleanup_private_files EXIT
+[[ "$(stat -c '%a' -- "${fixture_config}")" == "600" ]] \
+  || die "Fixture configuration must have mode 600"
 
 mkdir -p -- "${root}/incoming" "${root}/releases" "${root}/shared" "${root}/backups"
 chmod 700 "${root}" "${root}/incoming" "${root}/releases" "${root}/shared" "${root}/backups"
@@ -361,10 +385,13 @@ declare -A selected=()
 for service in "${requested_services[@]}"; do
   case "${service}" in
     all) selected[all]=1 ;;
-    web | admin | space | api | worker | beat-worker | live | proxy) selected["${service}"]=1 ;;
+    web | admin | space | api | worker | beat-worker | live | proxy | fixtures) selected["${service}"]=1 ;;
     *) die "Unsupported service: ${service}" ;;
   esac
 done
+if [[ -n "${selected[fixtures]:-}" && "${#selected[@]}" -ne 1 ]]; then
+  die "The fixtures service must be deployed by itself"
+fi
 bootstrap_mode=false
 if [[ -z "${previous_release_dir}" ]]; then
   bootstrap_mode=true
@@ -432,8 +459,27 @@ elif [[ "${#build_services[@]}" -gt 0 ]]; then
   "${compose[@]}" build "${build_services[@]}"
 fi
 if [[ "${run_migrator}" == true ]]; then "${compose[@]}" run --rm migrator; fi
-"${compose[@]}" up -d --no-build "${start_services[@]}"
+if [[ "${#start_services[@]}" -gt 0 ]]; then
+  "${compose[@]}" up -d --no-build "${start_services[@]}"
+fi
 health_check
+
+bootstrap_script="${release_dir}/scripts/test/remote-bootstrap.py"
+[[ -f "${bootstrap_script}" && ! -L "${bootstrap_script}" ]] \
+  || die "Plane test fixture bootstrap script is missing from the release"
+"${compose[@]}" cp "${bootstrap_script}" api:/tmp/plane-test-bootstrap.py
+if ! fixture_version="$("${compose[@]}" exec -T api python -c \
+  'exec(compile(open("/tmp/plane-test-bootstrap.py", encoding="utf-8").read(), "/tmp/plane-test-bootstrap.py", "exec"))' \
+  <"${fixture_config}")"; then
+  "${compose[@]}" exec -T api rm -f /tmp/plane-test-bootstrap.py >/dev/null 2>&1 || true
+  die "Persistent Plane test fixture initialization failed"
+fi
+"${compose[@]}" exec -T api rm -f /tmp/plane-test-bootstrap.py
+[[ "${fixture_version}" =~ ^[A-Za-z0-9._-]{1,32}$ ]] \
+  || die "Plane test fixture bootstrap returned an invalid version marker"
+printf '%s\n' "${fixture_version}" >"${root}/shared/test-fixture.version"
+chmod 600 "${root}/shared/test-fixture.version"
+echo "Persistent Plane test accounts and fixture data are ready."
 
 ln -sfn "${release_dir}" "${root}/current"
 trap - ERR

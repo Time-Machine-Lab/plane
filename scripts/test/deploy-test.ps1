@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet("auto", "all", "web", "admin", "space", "api", "worker", "beat-worker", "live", "proxy")]
+    [ValidateSet("auto", "all", "web", "admin", "space", "api", "worker", "beat-worker", "live", "proxy", "fixtures")]
     [string[]]$Services = @("auto"),
 
     [string]$ConfigPath,
@@ -27,6 +27,51 @@ function Get-PythonCommand {
     throw "Python 3.12 or newer is required"
 }
 
+function Test-PlaneReady {
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:8000/api/instances/" -Method Get -TimeoutSec 5 -UseBasicParsing
+        return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
+    }
+    catch {
+        return $false
+    }
+}
+
+function Ensure-TestTunnel {
+    param(
+        [Parameter(Mandatory)][string]$Python,
+        [Parameter(Mandatory)][string]$Helper,
+        [Parameter(Mandatory)][string]$Config,
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$RuntimeRoot
+    )
+
+    if (Test-PlaneReady) { return }
+
+    $logsRoot = Join-Path $RuntimeRoot "logs"
+    $sshRoot = Join-Path $RuntimeRoot "ssh"
+    New-Item -ItemType Directory -Path $logsRoot, $sshRoot -Force | Out-Null
+    $stdoutPath = Join-Path $logsRoot "ssh-tunnel.stdout.log"
+    $stderrPath = Join-Path $logsRoot "ssh-tunnel.stderr.log"
+    $pidPath = Join-Path $sshRoot "tunnel.pid"
+    $process = Start-Process -FilePath $Python -ArgumentList @(
+        $Helper, "tunnel", "--config", $Config, "--bind-host", "127.0.0.1", "--local-port", "8000",
+        "--runtime-root", $RuntimeRoot
+    ) -WorkingDirectory $RepoRoot -WindowStyle Hidden -RedirectStandardOutput $stdoutPath `
+        -RedirectStandardError $stderrPath -PassThru
+    Set-Content -LiteralPath $pidPath -Value $process.Id -Encoding ascii
+
+    $deadline = [DateTime]::UtcNow.AddSeconds(60)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        if ($process.HasExited) {
+            throw "SSH tunnel exited before Plane became reachable. See $stdoutPath and $stderrPath"
+        }
+        if (Test-PlaneReady) { return }
+        Start-Sleep -Seconds 2
+    }
+    throw "Timed out waiting for Plane through the SSH tunnel. See $stdoutPath and $stderrPath"
+}
+
 function Get-ChangedPaths {
     param([Parameter(Mandatory)][string]$RepoRoot)
 
@@ -50,6 +95,7 @@ function Resolve-AutoServices {
             '^apps/space/' { [void]$selected.Add("space"); continue }
             '^apps/live/' { [void]$selected.Add("live"); continue }
             '^apps/proxy/' { [void]$selected.Add("proxy"); continue }
+            '^scripts/test/' { [void]$selected.Add("fixtures"); continue }
             '^packages/' {
                 foreach ($service in @("web", "admin", "space", "live")) { [void]$selected.Add($service) }
                 continue
@@ -70,23 +116,30 @@ function Resolve-AutoServices {
 function Invoke-RequiredCheck {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [Parameter(Mandatory)][string[]]$SelectedServices
+        [Parameter(Mandatory)][string[]]$SelectedServices,
+        [Parameter(Mandatory)][string]$SystemPython
     )
 
     Push-Location $RepoRoot
     try {
+        & git diff --check
+        if ($LASTEXITCODE -ne 0) { throw "Git conflict or whitespace check failed" }
+
         $frontendApps = @($SelectedServices | Where-Object { $_ -in @("web", "admin", "space") })
         if ($SelectedServices -contains "all") { $frontendApps = @("web", "admin", "space") }
+        if (($frontendApps.Count -gt 0 -or $SelectedServices -contains "live" -or $SelectedServices -contains "all") -and -not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+            throw "pnpm is required for the selected frontend or live service checks"
+        }
         foreach ($app in $frontendApps) {
             & pnpm turbo run check:types --filter=$app
             if ($LASTEXITCODE -ne 0) { throw "Type check failed for $app with exit code $LASTEXITCODE" }
         }
         if ($SelectedServices -contains "live" -or $SelectedServices -contains "all") {
-            & pnpm --filter=live test
-            if ($LASTEXITCODE -ne 0) { throw "Live tests failed with exit code $LASTEXITCODE" }
+            & pnpm turbo run check:types --filter=live
+            if ($LASTEXITCODE -ne 0) { throw "Type check failed for live with exit code $LASTEXITCODE" }
         }
         if ($SelectedServices -contains "api" -or $SelectedServices -contains "worker" -or $SelectedServices -contains "beat-worker" -or $SelectedServices -contains "all") {
-            & python -m compileall -q apps/api/plane
+            & $SystemPython -m compileall -q apps/api/plane
             if ($LASTEXITCODE -ne 0) { throw "Python compile check failed with exit code $LASTEXITCODE" }
         }
     }
@@ -94,12 +147,12 @@ function Invoke-RequiredCheck {
 }
 
 function Get-TransportPython {
-    param([Parameter(Mandatory)][string]$SystemPython)
+    param(
+        [Parameter(Mandatory)][string]$SystemPython,
+        [Parameter(Mandatory)][string]$RuntimeRoot
+    )
 
-    & $SystemPython -c "import paramiko" 2>$null
-    if ($LASTEXITCODE -eq 0) { return $SystemPython }
-
-    $toolRoot = Join-Path $env:LOCALAPPDATA "PlaneTestTools"
+    $toolRoot = Join-Path $RuntimeRoot "tools"
     $venvRoot = Join-Path $toolRoot "venv"
     $venvPython = Join-Path $venvRoot "Scripts/python.exe"
     if (-not (Test-Path -LiteralPath $venvPython -PathType Leaf)) {
@@ -107,8 +160,17 @@ function Get-TransportPython {
         & $SystemPython -m venv $venvRoot
         if ($LASTEXITCODE -ne 0) { throw "Could not create private transport virtual environment" }
     }
-    & $venvPython -m pip install --disable-pip-version-check --quiet "paramiko==4.0.0"
-    if ($LASTEXITCODE -ne 0) { throw "Could not install Paramiko in the private tool environment" }
+    $previousErrorPreference = $ErrorActionPreference
+    $ErrorActionPreference = "Continue"
+    try {
+        & $venvPython -c "import paramiko; raise SystemExit(0 if paramiko.__version__ == '4.0.0' else 1)" 2>$null
+        $paramikoProbeExitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $previousErrorPreference }
+    if ($paramikoProbeExitCode -ne 0) {
+        & $venvPython -m pip install --disable-pip-version-check --quiet "paramiko==4.0.0"
+        if ($LASTEXITCODE -ne 0) { throw "Could not install Paramiko in the private tool environment" }
+    }
     return $venvPython
 }
 
@@ -119,10 +181,11 @@ function Assert-PrivateConfig {
     )
 
     $resolved = (Resolve-Path -LiteralPath $Path).Path
-    $repoPrefix = $RepoRoot.TrimEnd("\") + "\"
-    if (-not $resolved.StartsWith($repoPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+    $secretsPrefix = (Join-Path $RepoRoot ".secrets").TrimEnd("\") + "\"
+    if (-not $resolved.StartsWith($secretsPrefix, [StringComparison]::OrdinalIgnoreCase)) {
         throw "Private configuration must be inside the repository's ignored .secrets directory"
     }
+    $repoPrefix = $RepoRoot.TrimEnd("\") + "\"
     $relative = $resolved.Substring($repoPrefix.Length).Replace("\", "/")
     & git -C $RepoRoot check-ignore --quiet -- $relative
     if ($LASTEXITCODE -ne 0) { throw "Private configuration is not ignored by Git: $relative" }
@@ -138,6 +201,7 @@ function Assert-PrivateConfig {
 }
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot "../..")).Path
+$runtimeRoot = Join-Path $repoRoot ".runtime/test"
 $helper = Join-Path $PSScriptRoot "test_env_transport.py"
 $remoteScript = Join-Path $PSScriptRoot "remote-deploy.sh"
 $systemPython = Get-PythonCommand
@@ -149,7 +213,6 @@ if (-not (Get-Command git -ErrorAction SilentlyContinue)) { throw "git is not av
 $ConfigPath = Assert-PrivateConfig -RepoRoot $repoRoot -Path $ConfigPath
 & $systemPython $helper validate --config $ConfigPath
 if ($LASTEXITCODE -ne 0) { throw "Private test configuration validation failed" }
-if (-not $SkipChecks -and -not (Get-Command pnpm -ErrorAction SilentlyContinue)) { throw "pnpm is not available on PATH" }
 
 $selectedServices = @($Services | Select-Object -Unique)
 if ($selectedServices -contains "auto") {
@@ -161,16 +224,16 @@ if ($selectedServices -contains "all" -and $selectedServices.Count -ne 1) { thro
 $commit = (& git -C $repoRoot rev-parse --short=12 HEAD).Trim()
 if ($LASTEXITCODE -ne 0) { throw "Could not determine the current commit" }
 $release = "{0}-{1}" -f (Get-Date -Format "yyyyMMdd-HHmmss"), $commit
-$runtimeRoot = Join-Path ([System.IO.Path]::GetTempPath()) "plane-test-deploy/$release"
-$archive = Join-Path $runtimeRoot "$release.tar.gz"
-$manifest = Join-Path $runtimeRoot "$release.manifest.json"
+$releaseRoot = Join-Path $runtimeRoot "packages/$release"
+$archive = Join-Path $releaseRoot "$release.tar.gz"
+$manifest = Join-Path $releaseRoot "$release.manifest.json"
 $serviceCsv = $selectedServices -join ","
 
 Write-Host "Selected services: $serviceCsv"
 Write-Host "Release: $release"
 
 if (-not $SkipChecks -and $PSCmdlet.ShouldProcess($serviceCsv, "Run pre-deployment checks")) {
-    Invoke-RequiredCheck -RepoRoot $repoRoot -SelectedServices $selectedServices
+    Invoke-RequiredCheck -RepoRoot $repoRoot -SelectedServices $selectedServices -SystemPython $systemPython
 }
 
 if ($WhatIfPreference) {
@@ -180,20 +243,28 @@ if ($WhatIfPreference) {
     exit 0
 }
 
-New-Item -ItemType Directory -Path $runtimeRoot -Force | Out-Null
+& $systemPython $helper prepare --config $ConfigPath
+if ($LASTEXITCODE -ne 0) { throw "Could not prepare stable private test identities" }
+& $systemPython $helper validate --config $ConfigPath
+if ($LASTEXITCODE -ne 0) { throw "Prepared private test configuration validation failed" }
+
+New-Item -ItemType Directory -Path $releaseRoot -Force | Out-Null
 try {
     & $systemPython $helper package --repo $repoRoot --output $archive --manifest $manifest
     if ($LASTEXITCODE -ne 0) { throw "Packaging failed with exit code $LASTEXITCODE" }
 
-    $transportPython = Get-TransportPython -SystemPython $systemPython
+    $transportPython = Get-TransportPython -SystemPython $systemPython -RuntimeRoot $runtimeRoot
     if ($PSCmdlet.ShouldProcess($serviceCsv, "Upload and deploy release $release to the Plane test environment")) {
         & $transportPython $helper deploy --config $ConfigPath --archive $archive --remote-script $remoteScript `
-            --release $release --services $serviceCsv --timeout $TimeoutSeconds
+            --release $release --services $serviceCsv --runtime-root $runtimeRoot --timeout $TimeoutSeconds
         if ($LASTEXITCODE -ne 0) { throw "Deployment failed with exit code $LASTEXITCODE" }
+        Ensure-TestTunnel -Python $transportPython -Helper $helper -Config $ConfigPath -RepoRoot $repoRoot `
+            -RuntimeRoot $runtimeRoot
+        Write-Host "Test Plane: http://localhost:8000"
     }
 }
 finally {
-    if (-not $KeepPackage -and (Test-Path -LiteralPath $runtimeRoot)) {
-        Remove-Item -LiteralPath $runtimeRoot -Recurse -Force
+    if (-not $KeepPackage -and (Test-Path -LiteralPath $releaseRoot)) {
+        Remove-Item -LiteralPath $releaseRoot -Recurse -Force
     }
 }

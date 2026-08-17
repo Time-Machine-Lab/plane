@@ -10,6 +10,7 @@ import io
 import json
 import os
 from pathlib import Path, PurePosixPath
+import secrets
 import shlex
 import subprocess
 import sys
@@ -27,6 +28,23 @@ REQUIRED_CONFIG = (
     "PLANE_TEST_COMPOSE_PROJECT",
     "PLANE_TEST_BASE_URL",
 )
+
+FIXTURE_DEFAULTS = {
+    "PLANE_TEST_ADMIN_EMAIL": "admin@plane.test",
+    "PLANE_TEST_MEMBER_EMAIL": "member@plane.test",
+    "PLANE_TEST_GUEST_EMAIL": "guest@plane.test",
+    "PLANE_TEST_WORKSPACE_NAME": "AI Test Workspace",
+    "PLANE_TEST_WORKSPACE_SLUG": "ai-test",
+    "PLANE_TEST_PROJECT_NAME": "AI Acceptance",
+    "PLANE_TEST_PROJECT_IDENTIFIER": "AITEST",
+    "PLANE_TEST_FIXTURE_VERSION": "1",
+}
+FIXTURE_PASSWORD_KEYS = (
+    "PLANE_TEST_ADMIN_PASSWORD",
+    "PLANE_TEST_MEMBER_PASSWORD",
+    "PLANE_TEST_GUEST_PASSWORD",
+)
+FIXTURE_KEYS = (*FIXTURE_DEFAULTS, *FIXTURE_PASSWORD_KEYS)
 
 
 def die(message: str, exit_code: int = 1) -> None:
@@ -71,6 +89,40 @@ def load_config(path: Path) -> dict[str, str]:
 
     validate_config(values)
     return values
+
+
+def prepare_config(path: Path) -> None:
+    """Normalize stable test identities without exposing generated passwords."""
+    config = load_config(path)
+    managed = {key: config.get(key) or value for key, value in FIXTURE_DEFAULTS.items()}
+    managed["PLANE_TEST_BASE_URL"] = "http://localhost:8000"
+    for key in FIXTURE_PASSWORD_KEYS:
+        managed[key] = config.get(key) or secrets.token_urlsafe(24)
+
+    managed_keys = set(managed)
+    retained_lines: list[str] = []
+    for raw_line in path.read_text(encoding="utf-8-sig").splitlines():
+        stripped = raw_line.strip()
+        key = stripped.split("=", 1)[0].strip() if "=" in stripped else ""
+        if key not in managed_keys:
+            retained_lines.append(raw_line)
+    while retained_lines and not retained_lines[-1].strip():
+        retained_lines.pop()
+
+    output_lines = [
+        *retained_lines,
+        "",
+        "# Stable test identities and fixtures (managed by deploy-test.ps1).",
+        *(f"{key}={value}" for key, value in managed.items()),
+    ]
+    temporary_path = path.with_name(f".{path.name}.tmp")
+    temporary_path.write_text("\n".join(output_lines) + "\n", encoding="utf-8", newline="\n")
+    try:
+        os.chmod(temporary_path, 0o600)
+    except OSError:
+        pass
+    os.replace(temporary_path, path)
+    print("Normalized private test configuration fields: " + ", ".join(managed))
 
 
 def parse_port(value: str, name: str) -> int:
@@ -122,7 +174,10 @@ def git_paths(repo: Path) -> list[Path]:
         relative = Path(os.fsdecode(raw_path))
         posix = relative.as_posix()
         parts = relative.parts
-        if not parts or any(part in {".git", "node_modules", "runtime", "__pycache__"} for part in parts):
+        if not parts or any(
+            part in {".git", ".runtime", ".secrets", "node_modules", "runtime", "__pycache__"}
+            for part in parts
+        ):
             continue
         if relative.name == ".env" or relative.name.endswith((".pem", ".key", ".pfx", ".p12")):
             continue
@@ -178,19 +233,18 @@ def create_package(repo: Path, output: Path, manifest_output: Path, dry_run: boo
     print(f"Packaged {len(paths)} files from commit {commit} (dirty={str(dirty).lower()}).")
 
 
-def connect(config: dict[str, str]):
+def connect(config: dict[str, str], runtime_root: Path):
     try:
         import paramiko
     except ImportError:
         die("Paramiko is unavailable. Run deploy-test.ps1 so it can bootstrap the private tool environment.", 3)
 
     ssh = paramiko.SSHClient()
-    tools_root = Path(os.environ.get("LOCALAPPDATA", Path.home() / ".local")) / "PlaneTestTools"
-    tools_root.mkdir(parents=True, exist_ok=True)
-    known_hosts = tools_root / "known_hosts"
+    ssh_state_root = runtime_root.resolve() / "ssh"
+    ssh_state_root.mkdir(parents=True, exist_ok=True)
+    known_hosts = ssh_state_root / "known_hosts"
     if known_hosts.exists():
         ssh.load_host_keys(str(known_hosts))
-    ssh.load_system_host_keys()
 
     expected_fingerprint = config.get("PLANE_TEST_SSH_HOST_KEY_SHA256", "").strip()
     trust_on_first_use = config.get("PLANE_TEST_TRUST_ON_FIRST_USE", "0") == "1"
@@ -243,7 +297,7 @@ def tunnel(args: argparse.Namespace) -> None:
     import threading
 
     config = load_config(Path(args.config).resolve())
-    ssh = connect(config)
+    ssh = connect(config, Path(args.runtime_root))
     transport = ssh.get_transport()
     if transport is None:
         die("SSH transport is unavailable", 4)
@@ -328,7 +382,20 @@ def deploy(args: argparse.Namespace) -> None:
     incoming = f"{remote_root}/incoming"
     remote_archive = f"{incoming}/{args.release}.tar.gz"
     remote_runner = f"{incoming}/remote-deploy-{args.release}.sh"
-    ssh = connect(config)
+    missing_fixture_keys = [key for key in FIXTURE_KEYS if not config.get(key)]
+    if missing_fixture_keys:
+        die(
+            "Private configuration is missing test identity fields; run the prepare command first: "
+            + ", ".join(missing_fixture_keys),
+            2,
+        )
+
+    fixture_payload = json.dumps(
+        {key: config[key] for key in FIXTURE_KEYS}, ensure_ascii=True, separators=(",", ":")
+    ).encode("utf-8")
+    remote_fixture_config = f"{incoming}/{args.release}.fixtures.json"
+    ssh = connect(config, Path(args.runtime_root))
+    fixture_uploaded = False
     try:
         mkdir_command = f"install -d -m 700 -- {shlex.quote(remote_root)} {shlex.quote(incoming)}"
         if run_remote(ssh, mkdir_command, 30) != 0:
@@ -339,6 +406,10 @@ def deploy(args: argparse.Namespace) -> None:
             sftp.chmod(remote_archive, 0o600)
             sftp.put(str(remote_script), remote_runner)
             sftp.chmod(remote_runner, 0o700)
+            with sftp.file(remote_fixture_config, "wb") as fixture_file:
+                fixture_file.write(fixture_payload)
+            sftp.chmod(remote_fixture_config, 0o600)
+            fixture_uploaded = True
         finally:
             sftp.close()
 
@@ -370,12 +441,23 @@ def deploy(args: argparse.Namespace) -> None:
             ),
             "--bootstrap-release",
             config.get("PLANE_TEST_BOOTSTRAP_RELEASE", "stable"),
+            "--fixture-config",
+            remote_fixture_config,
         ]
         command = " ".join(shlex.quote(value) for value in values)
         exit_code = run_remote(ssh, command, args.timeout)
         if exit_code != 0:
             die(f"Remote deployment failed with exit code {exit_code}", exit_code)
     finally:
+        if fixture_uploaded:
+            try:
+                cleanup_sftp = ssh.open_sftp()
+                try:
+                    cleanup_sftp.remove(remote_fixture_config)
+                finally:
+                    cleanup_sftp.close()
+            except OSError:
+                pass
         ssh.close()
 
 
@@ -395,15 +477,20 @@ def build_parser() -> argparse.ArgumentParser:
     deploy_parser.add_argument("--remote-script", required=True)
     deploy_parser.add_argument("--release", required=True)
     deploy_parser.add_argument("--services", required=True)
+    deploy_parser.add_argument("--runtime-root", required=True)
     deploy_parser.add_argument("--timeout", type=int, default=900)
 
     validate_parser = subparsers.add_parser("validate")
     validate_parser.add_argument("--config", required=True)
 
+    prepare_parser = subparsers.add_parser("prepare")
+    prepare_parser.add_argument("--config", required=True)
+
     tunnel_parser = subparsers.add_parser("tunnel")
     tunnel_parser.add_argument("--config", required=True)
     tunnel_parser.add_argument("--bind-host", default="127.0.0.1")
     tunnel_parser.add_argument("--local-port", type=int, default=8000)
+    tunnel_parser.add_argument("--runtime-root", required=True)
     return parser
 
 
@@ -420,6 +507,8 @@ def main() -> None:
     elif args.command == "validate":
         load_config(Path(args.config).resolve())
         print("Private test configuration is valid.")
+    elif args.command == "prepare":
+        prepare_config(Path(args.config).resolve())
 
 
 if __name__ == "__main__":

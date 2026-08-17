@@ -7,11 +7,11 @@
 
 ## 应用边界
 
-| 应用 | 端口 | 责任边界 |
-| --- | --- | --- |
-| `web` | 3000 | 团队工作台和主要业务流程 |
+| 应用    | 端口 | 责任边界                                 |
+| ------- | ---- | ---------------------------------------- |
+| `web`   | 3000 | 团队工作台和主要业务流程                 |
 | `admin` | 3001 | 实例级管理和配置，不承载普通用户业务页面 |
-| `space` | 3002 | 对外公开内容，默认按不可信访问者处理 |
+| `space` | 3002 | 对外公开内容，默认按不可信访问者处理     |
 
 代码只属于一个应用时留在应用目录；跨两个以上应用稳定复用时，按职责下沉到共享包。
 
@@ -75,24 +75,14 @@
 - 不在 localStorage 持久化敏感凭据；认证与权限行为沿用现有 provider/service。
 - 公开 `space` 页面不得因为客户端传参访问未发布或无权限的数据。
 
-## 验证要求
+## 快速自检与验收
 
-按受影响应用运行：
+开发 Agent 只运行与改动直接相关的快速检查，例如目标应用的类型检查或已有组件测试。修改构建配置、
+依赖、路由装配或准备发布时，再按需运行目标应用 build；Storybook 只在共享组件隔离行为需要验证时运行。
+不要把 format、lint、types、build 和 Storybook 固定组合成每次变更的完整命令矩阵。
 
-```bash
-pnpm turbo run check:format check:lint check:types --filter=web
-pnpm turbo run build --filter=web
-
-pnpm turbo run check:format check:lint check:types --filter=admin
-pnpm turbo run build --filter=admin
-
-pnpm turbo run check:format check:lint check:types --filter=space
-pnpm turbo run build --filter=space
-```
-
-共享 UI 同时运行对应包的检查和 Storybook 构建。关键用户流程应补充单元/组件测试；仓库当前
-部分前端应用尚未配置独立 test script，不能以此为理由省略测试，应在 change 的 design/tasks
-中明确测试放置位置和运行方式。
+日常最终证据来自部署后的 OpenSpec 场景验收。Tester 在测试环境验证真实路由、权限、异步状态、关键交互和
+受影响视口，不重复开发 Agent 的静态检查。
 
 ## 前端完成清单
 
@@ -100,4 +90,4 @@ pnpm turbo run build --filter=space
 - 文案已国际化，键盘和屏幕阅读器行为合理。
 - 共享能力放置正确，没有应用间相对导入。
 - 没有新增 lint warning、运行时 console error 或 hydration 问题。
-- 关键视口和交互完成手工或自动化验证。
+- 部署后的 OpenSpec 场景和关键视口已由独立 Tester 验收。

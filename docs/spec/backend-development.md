@@ -68,7 +68,8 @@
 - 数据库测试使用 `@pytest.mark.django_db` 并声明 `unit`、`contract`、`smoke` 或 `slow` marker。
 - 单元/大部分契约测试 mock 外部系统，测试不能依赖真实公网服务。
 
-推荐在根目录使用隔离 Docker 栈：
+仓库保留以下隔离 Docker 测试命令，供 CI、发布前回归或明确要求的后端专项检查使用。它们需要 Docker，
+不是 Windows 日常开发和测试环境验收的必经步骤，也不得在 OpenSpec 中默认复制为任务清单：
 
 ```bash
 docker compose -f docker-compose-test.yml run --rm --build api-tests pytest -m unit
@@ -77,7 +78,7 @@ docker compose -f docker-compose-test.yml up --build --abort-on-container-exit -
 docker compose -f docker-compose-test.yml down -v
 ```
 
-同时运行静态检查：
+专项检查需要时可运行：
 
 ```bash
 ruff check apps/api
@@ -92,4 +93,4 @@ CI 中不得使用 `ruff check --fix` 代替检查；修复命令只用于本地
 - 查询数量、事务边界、任务幂等和外部调用失败已评估。
 - migration 可在生产数据量下执行，并有备份/回滚说明。
 - unit/contract 测试覆盖正常、无权限、非法输入和失败路径。
-- Ruff 与相关 Docker pytest 通过。
+- 已增加与风险相称的直接相关测试，并通过测试环境中的 OpenSpec 场景验收。

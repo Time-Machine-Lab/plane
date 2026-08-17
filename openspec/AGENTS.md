@@ -1,27 +1,19 @@
 # OpenSpec Agent Guide
 
-## Required standards
+Before creating or editing an artifact, read `../docs/spec/README.md` and the module standards selected by its path mapping.
 
-Before creating or editing an OpenSpec artifact, read `../docs/spec/README.md`. Use its path-to-standard
-mapping to read every applicable module guide, plus `general-development.md` and `testing-quality.md`.
-Read `test-environment.md` before starting a local app, deploying to the test server, or running acceptance.
+## Minimal artifacts
 
-## Artifact requirements
+- Proposal: state the goal, scope, non-goals, affected modules, and applicable standards.
+- Specs: describe observable requirements and scenarios, including important failure and authorization behavior.
+- Design: document only decisions that need explanation, such as cross-module contracts, migrations, compatibility, rollout, or rollback.
+- Tasks: keep the plan proportional to the change and end with development, one test deployment, and independent acceptance.
 
-- Proposal: identify affected modules, applicable standards, scope, non-goals, compatibility, risk, required L1-L4 level and acceptance environment.
-- Specs: describe observable requirements and GIVEN/WHEN/THEN scenarios, including failure and authorization paths.
-- Design: document cross-module contracts, data/API/event changes, migration, test environment and observable acceptance evidence.
-- Tasks: group work by module, include tests/docs, name exact verification commands, and end with an acceptance record linked to `verification.md`.
+Do not copy command matrices or test levels into artifacts. The deployment entry point and acceptance process are defined by
+`../docs/spec/test-environment.md` and `../docs/spec/testing-quality.md`.
 
-Do not invent a new module boundary when an existing `apps/*` or `packages/*` owner fits the change. When
-implementation reveals a conflict with an artifact, update the artifact before continuing. Mark a task complete
-only after its code and stated L1 checks are complete; final change acceptance additionally requires the independent
-Tester report below.
-
-After implementation and L1 checks, create a new Tester sub-agent with only the change path and applicable test
-standards. The Tester must independently read the artifacts, select and execute L1-L4 verification using
-`../docs/spec/test-environment.md`, must not modify product code, and must write
-`changes/<change>/verification.md`. This is responsibility independence, not security isolation: Agents share the
-worktree and credentials available to the process. If a test fails, return it to the implementation Agent; after a
-fix, create a different new Tester for the next verification cycle. Link the final report from `tasks.md` and do not
-accept the change while any mandatory result is failed or unverified.
+After implementation, deploy once with `scripts/test/deploy-test.ps1`, then hand the change to an independent Tester.
+The Tester reads the scenarios, uses the persistent test accounts and data, leaves product code unchanged, and writes
+`changes/<change>/verification.md`. If verification fails, the implementation Agent fixes and redeploys; the same Tester
+may retest the failed scenarios and necessary nearby regression. Do not complete or archive a change with a failing or
+untested required scenario.

@@ -22,7 +22,7 @@ apps
 - 基础包应避免依赖高层 UI 或状态包。
 - 跨包依赖使用 `workspace:*`，外部依赖使用 `catalog:`。
 - 通过包的 `src/index.ts` 或明确子路径导出公共 API，不依赖其他包内部文件结构。
-- 新依赖或导出可能影响所有消费者，必须运行受影响应用的类型检查和构建。
+- 新依赖或导出可能影响多个消费者；先确认实际消费者，契约变化时按需运行最小的消费方类型或构建检查。
 
 ## 包职责
 
@@ -67,24 +67,16 @@ apps
 - 新 key 添加到正确 namespace，并保持所有 locale key、变量和 ICU 结构同步。
 - 运行 `pnpm --filter=@plane/i18n check:sync` 和类型生成检查。
 
-## 验证
+## 快速自检与验收
 
-```bash
-pnpm turbo run check:format check:lint check:types --filter=<package-name>
-pnpm turbo run build --filter=<package-name>
-```
-
-额外要求：
-
-- UI/Propel：运行 `build-storybook`，并检查至少一个消费应用。
-- Live 使用的 Node 包：运行 `apps/live` 的 test 和 build。
-- services/shared-state/types/constants/utils：类型检查所有受影响消费者。
-- codemods：运行 `pnpm --filter=@plane/codemods test`。
-- i18n：运行同步检查和所有 locale 验证。
+- 开发 Agent 只检查修改的包和直接受影响消费者；不默认构建所有消费者。
+- 公共类型或 export 变化时，按需运行最小消费方类型检查；构建配置、依赖或发布变化时再运行对应 build。
+- UI/Propel 的 Storybook、Live 的 Vitest、codemod fixture 和 i18n 同步检查只在对应能力被直接修改时运行。
+- 日常最终证据来自部署后使用真实消费应用执行的 OpenSpec 场景，Tester 不重复开发检查。
 
 ## 完成清单
 
 - 包职责、公共 export 和依赖方向清晰。
 - 已检查所有消费者且没有 deep import。
 - 公共行为具有测试或 Storybook 场景。
-- 包与受影响应用的类型检查和构建通过。
+- 部署后的相关消费场景已由独立 Tester 验收。
