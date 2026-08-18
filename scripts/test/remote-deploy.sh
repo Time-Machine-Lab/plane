@@ -444,9 +444,9 @@ wait_for_database
 
 if [[ "${run_migrator}" == true && -n "${previous_release_dir}" ]]; then
   backup_file="${root}/backups/${release}-postgres.dump"
-  postgres_user="$(sed -n 's/^POSTGRES_USER=//p' "${shared_env}" | tail -n 1)"
-  postgres_database="$(sed -n 's/^POSTGRES_DB=//p' "${shared_env}" | tail -n 1)"
-  "${compose[@]}" exec -T plane-db pg_dump -U "${postgres_user}" -d "${postgres_database}" --format=custom >"${backup_file}"
+  "${compose[@]}" exec -T plane-db sh -c \
+    'PGPASSWORD="$POSTGRES_PASSWORD" exec pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
+    >"${backup_file}"
   [[ -s "${backup_file}" ]] || die "Database backup is empty"
   chmod 600 "${backup_file}"
   echo "Created test database backup: ${backup_file}"

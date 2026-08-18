@@ -6,6 +6,9 @@ from .instance import InstanceEndpoint, SignUpScreenVisitedEndpoint
 
 
 from .configuration import (
+    DiscordConfigurationEndpoint,
+    DiscordTestMessageEndpoint,
+    DiscordWorkspaceMembersEndpoint,
     EmailCredentialCheckEndpoint,
     InstanceConfigurationEndpoint,
     DisableEmailFeatureEndpoint,

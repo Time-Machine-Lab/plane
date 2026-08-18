@@ -5,6 +5,9 @@
 from django.urls import path
 
 from plane.license.api.views import (
+    DiscordConfigurationEndpoint,
+    DiscordTestMessageEndpoint,
+    DiscordWorkspaceMembersEndpoint,
     EmailCredentialCheckEndpoint,
     InstanceAdminEndpoint,
     InstanceAdminSignInEndpoint,
@@ -39,6 +42,21 @@ urlpatterns = [
         "configurations/",
         InstanceConfigurationEndpoint.as_view(),
         name="instance-configuration",
+    ),
+    path(
+        "discord-configuration/",
+        DiscordConfigurationEndpoint.as_view(),
+        name="discord-configuration",
+    ),
+    path(
+        "discord-configuration/members/",
+        DiscordWorkspaceMembersEndpoint.as_view(),
+        name="discord-configuration-members",
+    ),
+    path(
+        "discord-configuration/test/",
+        DiscordTestMessageEndpoint.as_view(),
+        name="discord-configuration-test",
     ),
     path(
         "configurations/disable-email-feature/",

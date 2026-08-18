@@ -250,6 +250,39 @@ unsplash_config_variables = [
     },
 ]
 
+discord_config_variables = [
+    {
+        "key": "DISCORD_INTEGRATION_ENABLED",
+        "value": os.environ.get("DISCORD_INTEGRATION_ENABLED", "0"),
+        "category": "DISCORD",
+        "is_encrypted": False,
+    },
+    {
+        "key": "DISCORD_WORKSPACE_ID",
+        "value": os.environ.get("DISCORD_WORKSPACE_ID", ""),
+        "category": "DISCORD",
+        "is_encrypted": False,
+    },
+    {
+        "key": "DISCORD_WEBHOOK_URL",
+        "value": os.environ.get("DISCORD_WEBHOOK_URL", ""),
+        "category": "DISCORD",
+        "is_encrypted": True,
+    },
+    {
+        "key": "DISCORD_ENABLED_EVENTS",
+        "value": os.environ.get("DISCORD_ENABLED_EVENTS", "[]"),
+        "category": "DISCORD",
+        "is_encrypted": False,
+    },
+    {
+        "key": "DISCORD_MEMBER_MAPPINGS",
+        "value": os.environ.get("DISCORD_MEMBER_MAPPINGS", "[]"),
+        "category": "DISCORD",
+        "is_encrypted": False,
+    },
+]
+
 core_config_variables = [
     *authentication_config_variables,
     *workspace_management_config_variables,
@@ -260,4 +293,5 @@ core_config_variables = [
     *smtp_config_variables,
     *llm_config_variables,
     *unsplash_config_variables,
+    *discord_config_variables,
 ]

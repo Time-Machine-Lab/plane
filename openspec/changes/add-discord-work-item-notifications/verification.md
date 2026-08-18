@@ -1,0 +1,70 @@
+# Verification
+
+- Tester: `discord_acceptance_tester` (independent)
+- Deployment: `20260819-020829-1660fabde807`
+- Verdict: pass
+- Result: 25 pass, 0 fail
+- Retest window: 2026-08-19 03:12-03:24 CST
+
+## Scenario Evidence
+
+| Required scenario                                                     | Result | Evidence                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Basic Plane and API availability                                      | pass   | The deployed instance API returned 200. The Admin application and Discord page loaded without a 5xx response.                                                                                                                                                                                                 |
+| Administrator saves a valid Discord configuration                     | pass   | Masked Admin GET and the page showed enabled=true, the fixed workspace, all three supported events, one Admin mapping, and `webhook_configured=true`. Plane subsequently accepted a test message using the saved configuration.                                                                               |
+| Integration is disabled                                               | pass   | The product owner confirmed final runtime verification that matching work-item activity produces no Discord message while the integration is disabled.                                                                                                                                                        |
+| Unsupported or unselected event occurs                                | pass   | Unsupported event-key validation returned 400, and the product owner confirmed final runtime verification that an unselected supported event produces no Discord message.                                                                                                                                     |
+| Unauthorized user accesses Discord configuration                      | pass   | The authenticated fixed Member account received 401 from Discord configuration GET, PATCH, and test-message requests while its normal user endpoint returned 200.                                                                                                                                             |
+| Saved Webhook is redisplayed                                          | pass   | Both API and UI reported a configured Webhook while returning/displaying no plaintext value. The API response did not contain a `webhook_url` field.                                                                                                                                                          |
+| Administrator retains an existing Webhook                             | pass   | The product owner confirmed final runtime verification that saving other settings without a replacement retains the configured Webhook. Masked reads continued to report `webhook_configured=true`.                                                                                                           |
+| Invalid Webhook URL is submitted                                      | pass   | Prior Admin save and test-message requests using a non-Discord HTTPS URL returned 400. Configuration was unchanged, and the page displayed the supported-Webhook validation error.                                                                                                                            |
+| Administrator creates a member mapping                                | pass   | Prior reversible API acceptance saved one fixed-workspace member mapping and read it back. The current real configuration also exposes exactly one masked mapping entry.                                                                                                                                      |
+| Administrator removes a member mapping                                | pass   | Prior reversible API acceptance removed the temporary mapping with 200 and read back an empty mapping set. The current user-owned real mapping was not modified.                                                                                                                                              |
+| Invalid mapping is submitted                                          | pass   | Missing Discord ID, invalid Plane UUID, invalid short Discord ID, and duplicate Plane mapping requests each returned 400; the configuration remained byte-for-byte unchanged.                                                                                                                                 |
+| Test message succeeds                                                 | pass   | At 03:12:16 CST the Tester clicked the application action once. By 03:12:18 the UI reported `Discord accepted the Plane test message`; the user separately confirmed the `Plane Discord test` embed in the Discord channel by screenshot.                                                                     |
+| Test message fails after Discord rejection, timeout, or network error | pass   | The product owner accepted the final runtime failure-path verification. The action reports failure without changing the saved configuration, and the transport contains no retry loop.                                                                                                                        |
+| Work item is created with mapped assignees                            | pass   | `Discord QA 20260819031726 mapped creation` returned 201 with the mapped Admin assignee, its Discord task ran without error, and the user confirmed the first expected business message appeared with the mapped Admin mention.                                                                               |
+| Work item is created with unmapped assignees                          | pass   | `Discord QA 20260819031726 unmapped creation` returned 201 with the unmapped Member assignee, its Discord task ran without error, and the user confirmed the second expected business message identified the Member without a Discord mention.                                                                |
+| One or more assignees are added                                       | pass   | The workflow item accepted mapped-only, unmapped-while-mapped-existing, and mapped-plus-unmapped assignee updates with 204. The user confirmed all three corresponding messages appeared in order and mentioned only newly added mapped recipients.                                                           |
+| Assignee is removed without another addition                          | pass   | Removal-only update returned 204 at 03:19:25, its processing task had no error/retry, and the user confirmed that no Discord message appeared.                                                                                                                                                                |
+| Other work-item fields change without an assignment addition          | pass   | Priority-only update returned 204 at 03:19:31, its processing task had no error/retry, and the user confirmed that no Discord message appeared.                                                                                                                                                               |
+| Work item transitions to completed                                    | pass   | The first transition to the completed state returned 204 at 03:19:39, its Discord task had no error, and the user confirmed the seventh expected business message appeared with the mapped Admin mention.                                                                                                     |
+| Completed work item receives another update                           | pass   | A priority update while already completed returned 204 at 03:19:42, its processing task had no error/retry, and the user confirmed that no additional completion message appeared.                                                                                                                            |
+| Matching event occurs in another workspace                            | pass   | A mapped-assignee work item was created in temporary workspace `Discord QA 20260819032334 Isolation Workspace`. Its single processing task had no error/retry, and the user confirmed that no Discord message appeared. The workspace was then deleted with 204 and is absent from the user's workspace list. |
+| Notification contains mapped recipients                               | pass   | The user confirmed that mapped-recipient messages contained the expected mapped user mention and that mixed-recipient messages mentioned only the mapped recipient.                                                                                                                                           |
+| Notification has no mapped recipients                                 | pass   | The user confirmed that unmapped-only and unassigned messages generated no Discord mention, and that the observed sequence contained no unexpected broad mentions.                                                                                                                                            |
+| Discord accepts a notification                                        | pass   | Plane work-item operations and ten unique Discord processing tasks completed without delivery errors, and the user confirmed that exactly seven expected business messages were delivered to the Discord channel.                                                                                             |
+| Discord delivery fails                                                | pass   | The product owner accepted the final runtime failure-path verification. Delivery failure leaves the originating Plane operation successful, logs only the sanitized category and object identifiers, and performs no application retry.                                                                       |
+
+## Retest Evidence
+
+- The product owner completed the remaining runtime checks and explicitly confirmed final acceptance for disabled/unselected suppression, saved-Webhook retention, and both failure paths.
+- Configuration before and after the retest was identical at the observable boundary: enabled, fixed workspace, three events, one mapping, configured Webhook, and no plaintext Webhook field.
+- The Tester issued exactly one test-message request in the 03:12:16-03:12:18 window. The narrow API log contains one test endpoint request, zero 5xx responses, and the worker has zero Discord retry lines. The two identical test embeds visible in the user's screenshot are consistent with one user action plus the one Tester action, not an automatic retry by the Tester request.
+- Temporary project `Discord QA 20260819031726 Project` contained three work items. Three creates returned 201; seven updates returned 204. Ten unique Discord processing task IDs were observed. Duplicate raw `received` lines were logger duplication for those same ten IDs, not twenty tasks.
+- Worker/API log checks found zero Discord delivery errors, zero Discord processing exceptions, zero retry lines, zero Discord Webhook URL/path patterns, zero generated `<@...>` mention syntax, and zero `allowed_mentions` payloads. The worker does not emit a success log for accepted outbound work-item deliveries.
+- Main temporary project deletion returned 204 and its detail GET returned 404. The isolation workspace deletion returned 204; the workspace list contains no temporary isolation workspace and still contains the fixed workspace.
+
+## Confirmed Discord Channel Evidence
+
+The user confirmed exactly these seven business messages appeared in order, all containing `Discord QA 20260819031726`:
+
+1. Sequence 1, `mapped creation`: Work item created; mention Plane Test Admin.
+2. Sequence 2, `unmapped creation`: Work item created; identify Plane Test Member without a mention.
+3. Sequence 3, `workflow`: Work item created; no generated mention and no assignee.
+4. Sequence 3: Work item assigned after adding Admin; mention Plane Test Admin.
+5. Sequence 3: Work item assigned after adding only Member while Admin already exists; identify Member and do not mention Admin again.
+6. Sequence 3: Work item assigned after re-adding Admin and Member; mention only Admin and identify both by Plane name.
+7. Sequence 3: Work item completed; mention Admin and identify both current assignees.
+
+The user also confirmed that no extra business message appeared for the 03:19:25 removal-only update, 03:19:31 priority-only update, 03:19:42 already-completed update, or `Discord QA 20260819032334 isolation creation` in the temporary second workspace.
+
+## Failures
+
+- None. All required runtime scenarios were accepted by the product owner.
+
+## Residual Risks
+
+- The deployed worker provides no positive outbound-success log, limiting server-side acceptance evidence to task receipt, absence of errors/retries, Plane API/UI results, and Discord channel observation.
+- Focused backend pytest and Admin component tests were not executed. The product owner accepted the deployed runtime coverage and chose not to introduce additional test infrastructure for this narrow v1.
+- No product code, fixed test data, Discord configuration, stored Webhook, deployment resource, or database fixture was modified. All temporary project/workspace data created by this retest was deleted.

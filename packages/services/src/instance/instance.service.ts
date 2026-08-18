@@ -7,6 +7,10 @@
 // plane imports
 import { API_BASE_URL } from "@plane/constants";
 import type {
+  IDiscordConfiguration,
+  IDiscordConfigurationUpdate,
+  IDiscordTestMessageResponse,
+  IDiscordWorkspaceMember,
   IFormattedInstanceConfiguration,
   IInstance,
   IInstanceAdmin,
@@ -137,6 +141,40 @@ export class InstanceService extends APIService {
   async disableEmail(): Promise<void> {
     return this.delete("/api/instances/configurations/disable-email-feature/")
       .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async discordConfiguration(): Promise<IDiscordConfiguration> {
+    return this.get("/api/instances/discord-configuration/")
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async updateDiscordConfiguration(data: IDiscordConfigurationUpdate): Promise<IDiscordConfiguration> {
+    return this.patch("/api/instances/discord-configuration/", data)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async discordWorkspaceMembers(workspaceId: string): Promise<IDiscordWorkspaceMember[]> {
+    return this.get("/api/instances/discord-configuration/members/", {
+      params: { workspace_id: workspaceId },
+    })
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async sendDiscordTestMessage(webhookUrl?: string): Promise<IDiscordTestMessageResponse> {
+    return this.post("/api/instances/discord-configuration/test/", webhookUrl ? { webhook_url: webhookUrl } : {})
+      .then((response) => response.data)
       .catch((error) => {
         throw error?.response?.data;
       });

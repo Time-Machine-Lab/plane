@@ -11,6 +11,10 @@ import type { TInstanceStatus } from "@plane/constants";
 import { EInstanceStatus } from "@plane/constants";
 import { InstanceService } from "@plane/services";
 import type {
+  IDiscordConfiguration,
+  IDiscordConfigurationUpdate,
+  IDiscordTestMessageResponse,
+  IDiscordWorkspaceMember,
   IInstance,
   IInstanceAdmin,
   IInstanceConfiguration,
@@ -30,6 +34,8 @@ export interface IInstanceStore {
   config: IInstanceConfig | undefined;
   instanceAdmins: IInstanceAdmin[] | undefined;
   instanceConfigurations: IInstanceConfiguration[] | undefined;
+  discordConfiguration: IDiscordConfiguration | undefined;
+  discordMembers: IDiscordWorkspaceMember[];
   // computed
   formattedConfig: IFormattedInstanceConfiguration | undefined;
   // action
@@ -40,6 +46,10 @@ export interface IInstanceStore {
   fetchInstanceConfigurations: () => Promise<IInstanceConfiguration[] | undefined>;
   updateInstanceConfigurations: (data: Partial<IFormattedInstanceConfiguration>) => Promise<IInstanceConfiguration[]>;
   disableEmail: () => Promise<void>;
+  fetchDiscordConfiguration: () => Promise<IDiscordConfiguration>;
+  updateDiscordConfiguration: (data: IDiscordConfigurationUpdate) => Promise<IDiscordConfiguration>;
+  fetchDiscordWorkspaceMembers: (workspaceId: string) => Promise<IDiscordWorkspaceMember[]>;
+  sendDiscordTestMessage: (webhookUrl?: string) => Promise<IDiscordTestMessageResponse>;
 }
 
 export class InstanceStore implements IInstanceStore {
@@ -50,6 +60,8 @@ export class InstanceStore implements IInstanceStore {
   config: IInstanceConfig | undefined = undefined;
   instanceAdmins: IInstanceAdmin[] | undefined = undefined;
   instanceConfigurations: IInstanceConfiguration[] | undefined = undefined;
+  discordConfiguration: IDiscordConfiguration | undefined = undefined;
+  discordMembers: IDiscordWorkspaceMember[] = [];
   // service
   instanceService;
 
@@ -62,6 +74,8 @@ export class InstanceStore implements IInstanceStore {
       instance: observable,
       instanceAdmins: observable,
       instanceConfigurations: observable,
+      discordConfiguration: observable.ref,
+      discordMembers: observable.shallow,
       // computed
       formattedConfig: computed,
       // actions
@@ -71,6 +85,9 @@ export class InstanceStore implements IInstanceStore {
       updateInstanceInfo: action,
       fetchInstanceConfigurations: action,
       updateInstanceConfigurations: action,
+      fetchDiscordConfiguration: action,
+      updateDiscordConfiguration: action,
+      fetchDiscordWorkspaceMembers: action,
     });
 
     this.instanceService = new InstanceService();
@@ -184,8 +201,8 @@ export class InstanceStore implements IInstanceStore {
       const response = await this.instanceService.updateConfigurations(data);
       runInAction(() => {
         this.instanceConfigurations = this.instanceConfigurations?.map((config) => {
-          const item = response.find((item) => item.key === config.key);
-          if (item) return item;
+          const responseItem = response.find((item) => item.key === config.key);
+          if (responseItem) return responseItem;
           return config;
         });
       });
@@ -221,4 +238,30 @@ export class InstanceStore implements IInstanceStore {
       this.instanceConfigurations = instanceConfigurations;
     }
   };
+
+  fetchDiscordConfiguration = async () => {
+    const configuration = await this.instanceService.discordConfiguration();
+    runInAction(() => {
+      this.discordConfiguration = configuration;
+    });
+    return configuration;
+  };
+
+  updateDiscordConfiguration = async (data: IDiscordConfigurationUpdate) => {
+    const configuration = await this.instanceService.updateDiscordConfiguration(data);
+    runInAction(() => {
+      this.discordConfiguration = configuration;
+    });
+    return configuration;
+  };
+
+  fetchDiscordWorkspaceMembers = async (workspaceId: string) => {
+    const members = await this.instanceService.discordWorkspaceMembers(workspaceId);
+    runInAction(() => {
+      this.discordMembers = members;
+    });
+    return members;
+  };
+
+  sendDiscordTestMessage = (webhookUrl?: string) => this.instanceService.sendDiscordTestMessage(webhookUrl);
 }
