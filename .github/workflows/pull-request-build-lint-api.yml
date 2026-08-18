@@ -13,6 +13,8 @@ on:
       - "reopened"
     paths:
       - "apps/api/**"
+      - "docker-compose-test.yml"
+      - ".github/workflows/pull-request-build-lint-api.yml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,11 +34,24 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: "3.12.x"
-          cache: 'pip'
-          cache-dependency-path: 'apps/api/requirements.txt'
-      - name: Install Pylint
+      - name: Install Ruff
         run: python -m pip install ruff
-      - name: Install API Dependencies
-        run: cd apps/api && pip install -r requirements.txt
       - name: Lint apps/api
-        run: ruff check --fix apps/api
+        run: ruff check apps/api
+
+  test-api:
+    name: Test API
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.requested_reviewers != null
+    steps:
+      - uses: actions/checkout@v6
+      - name: Prepare test environment
+        run: cp apps/api/.env.example apps/api/.env
+      - name: Run API tests
+        run: docker compose -f docker-compose-test.yml run --rm --build api-tests pytest
+      - name: Clean up test services
+        if: always()
+        run: docker compose -f docker-compose-test.yml down -v

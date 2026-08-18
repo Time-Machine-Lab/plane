@@ -136,16 +136,16 @@ official OpenAI endpoint or configured gateway
 - `docs/spec/frontend-development.md`: reuse existing service/store and Propel controls, maintain typed React form state, accessibility, responsive behavior, and actionable errors.
 - `docs/spec/backend-development.md`: keep request orchestration in views and validation/runtime configuration in focused serializers/helpers, preserve permissions, use transactions, enforce outbound URL safety, timeouts, and sanitized logging.
 - `docs/spec/shared-packages-development.md`: `@plane/types` remains dependency-free, `@plane/i18n` keeps locale keys synchronized, and both are verified with the direct admin consumer.
-- `docs/spec/testing-quality.md`: use L1 for each implementation cycle, L2 for the real God Mode interaction, and L3 for authorization, persistence, outbound request, and failure contracts.
-- `docs/spec/test-environment.md`: start the local admin through the provided script, deploy only affected services to the isolated test server, and keep all credentials and private endpoints in ignored test configuration.
+- `docs/spec/testing-quality.md`: CI owns focused automated evidence while the independent Tester owns only the minimal user-visible journeys.
+- `docs/spec/test-environment.md`: deploy only affected services to the isolated test server and keep all credentials and private endpoints in ignored test configuration.
 
 ## Test Environment and Evidence
 
-- **L1 on Windows**: Run admin and `@plane/types` format/lint/type/build checks; run Ruff plus focused API unit/contract pytest. Automated tests use synthetic keys and mocked DNS/HTTP transports, asserting request URLs and JSON fields without printing credentials.
-- **L2 on Windows plus isolated API**: Use `scripts/test/start-local.ps1 -Apps admin` and its reported local URL/tunnel. With an initialized test instance and an instance-admin test account, verify keyboard and responsive form interaction, save/reload, validation, configured-key indication, and browser console/network behavior. Screenshots and logs must contain only synthetic or redacted values.
-- **L3 on the isolated test server**: Use `scripts/test/deploy-test.ps1 -Services admin,api` (subject to the script's actual help syntax) and the reported configured-port URL. A controlled non-production OpenAI-compatible fixture endpoint and synthetic token come only from ignored `.secrets/plane-test.env` or test fixtures. Evidence records the deployment ID, HTTP status, selected synthetic model/effort observed by the fixture, blocked-target result, authorization result, persistence after failure, container health, and absence of secrets; it never records hosts, accounts, cookies, tokens, or private configuration.
-- **L4 before merge/release**: Run the repository-wide static checks, build, and isolated API suite, then repeat the critical God Mode save and completion smoke path on the test instance because the change spans a public type contract and security-sensitive outbound request behavior.
-- A newly created Tester sub-agent independently reads the artifacts and standards, reruns the required checks and scenarios without modifying product code, and writes `verification.md`.
+- CI runs affected Admin/shared-package checks and focused API unit/contract pytest. Tests use synthetic keys and mocked DNS/HTTP transports, assert request URLs and fields without printing credentials, and own failure permutations that do not need real-network injection.
+- Deploy `admin` and `api` once with `scripts/test/deploy-test.ps1 -Services admin,api`. A controlled non-production compatible endpoint and synthetic token come only from ignored `.secrets/plane-test.env` or fixtures.
+- An independent Tester preflights the required account, credential, fixture endpoint, and observation channel, then executes a minimal set of journeys covering Admin save/reload, authorization and secret semantics, custom/official completion behavior, and outbound endpoint policy. One journey may satisfy multiple spec scenarios.
+- The Tester performs one real compatible-endpoint connectivity smoke, does not rerun CI commands, and does not inspect normal-success logs. Evidence records only sanitized observable results.
+- Missing prerequisites are `blocked`; incorrect deployed behavior is `fail`. After a defect fix and redeployment, the same Tester retests only the failed journey and one necessary nearby regression.
 
 ## Migration Plan
 

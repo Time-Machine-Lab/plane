@@ -7,9 +7,11 @@ context: |
 
   docs/spec/README.md is the standards index. Read the standards mapped to the
   affected modules and preserve existing Plane patterns and module boundaries.
-  Runtime changes follow one acceptance path: implement, run
-  scripts/test/deploy-test.ps1 once, then have an independent Tester verify the
-  OpenSpec scenarios in the persistent test environment.
+  Runtime changes follow one acceptance path: implement, let CI own affected
+  checks and automated tests, run scripts/test/deploy-test.ps1 once, then have
+  an independent Tester verify 3-7 minimal user journeys in the persistent test
+  environment. Missing prerequisites are blocked; only incorrect product
+  behavior is failed.
 
 rules:
   proposal:
@@ -21,5 +23,6 @@ rules:
   design:
     - "Keep design proportional; document important contracts, migrations, rollout, and rollback decisions only when applicable."
   tasks:
-    - "Keep tasks concise and end runtime changes with development, one scripts/test/deploy-test.ps1 deployment, and independent Tester acceptance."
-    - "Record scenario results in verification.md; after a fix and redeployment, the same Tester may perform focused retesting."
+    - "Keep tasks concise; separate implementation, focused automated coverage, one runtime deployment, and independent Tester acceptance without embedding command matrices or test levels."
+    - "Group required scenarios into 3-7 minimal user journeys and record pass/fail/blocked results in verification.md."
+    - "After a fix and redeployment, the same Tester retests only the failed journey and one necessary nearby regression."

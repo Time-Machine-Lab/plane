@@ -47,11 +47,10 @@ None. The repository currently has no main spec governing instance AI configurat
 
 ## Acceptance
 
-- **L1, Windows local**: Run focused format, lint, type, build, and automated tests for `admin`, `@plane/types`, and `apps/api`. Unit and contract tests cover parsing, defaults, invalid values, authorization, URL blocking/allowlisting, request construction, and redaction.
-- **L2, Windows local frontend plus isolated test API**: Start `admin` with `scripts/test/start-local.ps1`; verify an instance administrator can edit the Base URL, model list, default model, API key, and reasoning effort, sees validation and saving states, and reloads the persisted non-secret values without layout, accessibility, console, or network errors.
-- **L3, isolated test server**: Deploy only affected `admin` and `api` services with `scripts/test/deploy-test.ps1`; use a non-production OpenAI-compatible fixture endpoint and synthetic credentials to verify the selected endpoint, model, and optional reasoning effort are used, official-endpoint fallback remains compatible, non-administrators are rejected, blocked targets cannot be saved or called, failures do not erase the last valid configuration, and secrets never appear in responses or logs.
-- **L4, pre-merge/release**: Run the repository-wide checks, build, and isolated API suite because this is a security-sensitive cross-module/public-type contract change; repeat the critical God Mode save and completion smoke path on the test instance.
-- The change is accepted only after a newly created Tester sub-agent independently records pass evidence for every mandatory scenario in `verification.md`; any failed or unavailable mandatory scenario keeps the change incomplete.
+- **Automated evidence**: CI owns affected static checks, builds, and existing tests. Focused API unit/contract tests cover parsing, defaults, invalid values, authorization, URL policy, request construction, failure mapping, and redaction with mocked transports.
+- **Deployment evidence**: Deploy only the affected `admin` and `api` services once with `scripts/test/deploy-test.ps1`; the script owns migration, startup, and health checks.
+- **Runtime evidence**: An independent Tester groups scenarios into a minimal set of Admin configuration, authorization/secret, completion compatibility, and outbound-safety journeys. Only one real compatible-endpoint connectivity smoke is required; equivalent timeout, DNS, and upstream-error permutations remain mocked tests.
+- Missing accounts, credentials, fixture endpoints, observers, or environment availability are recorded as `blocked`, not product `fail`. The change is accepted only when every required journey is `pass`.
 
 ## Non-Goals
 

@@ -57,7 +57,7 @@ jobs:
       - name: Check formatting
         run: pnpm turbo run check:format --affected
 
-  # Build packages - required for lint and type checks
+  # Build affected packages
   build:
     name: Build packages
     runs-on: ubuntu-latest
@@ -115,9 +115,9 @@ jobs:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.event.pull_request.base.sha }}-${{ github.sha }}
 
-  # Lint check - no build dependency, OxLint is a standalone Rust binary
+  # Lint and existing tests have no build dependency and run in parallel with the build
   check-lint:
-    name: check:lint
+    name: check:lint and test
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
@@ -156,6 +156,9 @@ jobs:
 
       - name: Run check:lint
         run: pnpm turbo run check:lint --affected
+
+      - name: Run existing affected tests
+        run: pnpm turbo run test --affected
 
   # Type check depends on build artifacts
   check-types:

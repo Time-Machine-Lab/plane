@@ -46,9 +46,9 @@
 - 单元测试放入 `apps/live/tests`，目录与 `src` 能力对应。
 - 覆盖认证拒绝、重复 update、Redis 重连、持久化失败、graceful shutdown 和资源限制。
 - 涉及协同算法或协议时增加至少两个 client 的集成场景。
-- 开发 Agent 只运行与改动直接相关的类型检查或 Vitest；涉及构建配置、依赖、协议装配或发布时再按需 build。
-- 不固定运行 coverage、Lint、类型、测试和 build 的完整组合，也不让 Tester 重跑这些检查。
-- 日常最终证据来自部署后的 OpenSpec 场景，包括实际连接、传播、权限或持久化结果。
+- 开发 Agent 可以运行直接相关的类型检查或 Vitest 来定位问题；受影响的类型、构建和已有 Vitest 由 CI 提供合并证据。
+- 不固定运行 coverage、lint、类型、测试和 build 的完整组合，也不让 Tester 重跑这些检查。
+- Tester 只验证部署后的最小 OpenSpec 用户旅程，包括实际连接、传播、权限或持久化结果。
 
 ## 完成清单
 

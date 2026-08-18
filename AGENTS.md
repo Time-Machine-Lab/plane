@@ -7,6 +7,7 @@
 - `pnpm check` - run all repository checks when explicitly required.
 - `pnpm check:lint` - run OxLint.
 - `pnpm check:types` - run TypeScript type checking.
+- `pnpm turbo run test --affected` - run existing tests for affected JavaScript packages.
 - `pnpm fix` - apply repository formatting and lint fixes.
 - `pnpm turbo run <command> --filter=<package>` - run a command for an affected package or app.
 - `pnpm --filter=@plane/ui storybook` - start Storybook on port 6006.
@@ -30,8 +31,10 @@
 
 - Use OpenSpec for product changes. Its artifact rules are defined in `openspec/config.yaml`.
 - Keep artifacts proportional to the change. A design is needed only when architectural decisions, contracts, migrations, or rollout behavior require explanation.
-- The default implementation flow is: OpenSpec -> development -> one `scripts/test/deploy-test.ps1` deployment -> independent Tester acceptance.
-- The deploy script owns environment preparation and its internal checks. Do not duplicate full builds, local Docker suites, or the same checks in multiple workflow stages.
-- The Tester reads the change scenarios, uses the persistent test accounts and data, and verifies only the affected behavior plus basic availability. The Tester does not modify product code.
-- If acceptance fails, the implementation Agent fixes and redeploys; the same Tester may retest the failed scenarios and necessary nearby regression.
-- Record concise pass/fail evidence in `openspec/changes/<change>/verification.md`. Do not complete or archive a change while a required scenario is failing or cannot be tested.
+- The default runtime flow is: OpenSpec -> development -> affected CI checks/tests -> one `scripts/test/deploy-test.ps1` deployment -> independent Tester acceptance.
+- Evidence has one owner: pre-commit owns staged formatting/lint, CI owns affected static checks and automated tests, the deploy script owns migration/startup/health, and the Tester owns user-visible workflows.
+- Keep automated coverage focused on logic and risk boundaries such as authorization, secrets, data isolation, migrations, serialization, and event behavior. Do not introduce a new test harness for one isolated screen.
+- The Tester groups required scenarios into 3-7 minimal user journeys, uses persistent test accounts and data, and does not rerun CI commands or inspect normal-success logs.
+- A missing credential, account, observer, or usable environment is `blocked`, not a product failure. `fail` means the deployed product behaved incorrectly.
+- If acceptance fails, the implementation Agent fixes and redeploys; the same Tester retests the failed journey and one necessary nearby regression instead of repeating the full acceptance set.
+- Documentation-only and static-only changes do not require runtime deployment. Record concise `pass`/`fail`/`blocked` evidence in `openspec/changes/<change>/verification.md`; do not complete or archive while a required journey is failing or blocked.

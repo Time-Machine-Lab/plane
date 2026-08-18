@@ -69,10 +69,10 @@ apps
 
 ## 快速自检与验收
 
-- 开发 Agent 只检查修改的包和直接受影响消费者；不默认构建所有消费者。
-- 公共类型或 export 变化时，按需运行最小消费方类型检查；构建配置、依赖或发布变化时再运行对应 build。
-- UI/Propel 的 Storybook、Live 的 Vitest、codemod fixture 和 i18n 同步检查只在对应能力被直接修改时运行。
-- 日常最终证据来自部署后使用真实消费应用执行的 OpenSpec 场景，Tester 不重复开发检查。
+- 开发 Agent 可以检查修改的包和直接受影响消费者来定位问题；CI 不默认构建所有消费者。
+- 公共类型或 export 变化时，CI 运行受影响消费方类型/构建检查；已有 Vitest 和 codemod fixture 通过 affected test 运行。
+- UI/Propel 的 Storybook 和 i18n 同步检查只在对应能力被直接修改时运行。
+- Tester 只验证部署后真实消费应用中的最小 OpenSpec 用户旅程，不重复 CI 检查。
 
 ## 完成清单
 

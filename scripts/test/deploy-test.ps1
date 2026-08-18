@@ -1,9 +1,25 @@
+<#
+.SYNOPSIS
+Deploys the current Plane change to the persistent test environment.
+
+.PARAMETER Services
+Runtime services to deploy. The default, auto, derives services from changes relative to BaseRef.
+
+.PARAMETER BaseRef
+Git ref used to find committed changes for automatic service selection. Defaults to origin/preview.
+
+.PARAMETER SkipChecks
+Skips the lightweight package whitespace preflight. CI remains the owner of lint, types, builds, and tests.
+#>
 [CmdletBinding(SupportsShouldProcess)]
 param(
     [ValidateSet("auto", "all", "web", "admin", "space", "api", "worker", "beat-worker", "live", "proxy", "fixtures")]
     [string[]]$Services = @("auto"),
 
     [string]$ConfigPath,
+
+    [ValidateNotNullOrEmpty()]
+    [string]$BaseRef = "origin/preview",
 
     [switch]$SkipChecks,
     [switch]$KeepPackage,
@@ -72,20 +88,44 @@ function Ensure-TestTunnel {
     throw "Timed out waiting for Plane through the SSH tunnel. See $stdoutPath and $stderrPath"
 }
 
-function Get-ChangedPaths {
-    param([Parameter(Mandatory)][string]$RepoRoot)
+function Get-ComparisonBase {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$BaseRef
+    )
 
-    $tracked = & git -C $RepoRoot diff --name-only HEAD
-    if ($LASTEXITCODE -ne 0) { throw "Could not inspect tracked changes" }
+    $resolvedBase = & git -C $RepoRoot rev-parse --verify --quiet "$BaseRef^{commit}"
+    if ($LASTEXITCODE -ne 0 -or -not $resolvedBase) {
+        throw "Could not resolve deployment comparison base '$BaseRef'. Fetch it or specify -BaseRef."
+    }
+    $mergeBase = & git -C $RepoRoot merge-base HEAD $resolvedBase
+    if ($LASTEXITCODE -ne 0 -or -not $mergeBase) {
+        throw "Could not find a merge base between HEAD and '$BaseRef'."
+    }
+    return ([string]$mergeBase).Trim()
+}
+
+function Get-ChangedPaths {
+    param(
+        [Parameter(Mandatory)][string]$RepoRoot,
+        [Parameter(Mandatory)][string]$ComparisonBase
+    )
+
+    $committed = & git -C $RepoRoot diff --name-only "$ComparisonBase..HEAD"
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect committed changes" }
+    $workingTree = & git -C $RepoRoot diff --name-only HEAD
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect working tree changes" }
     $untracked = & git -C $RepoRoot ls-files --others --exclude-standard
     if ($LASTEXITCODE -ne 0) { throw "Could not inspect untracked changes" }
-    return @($tracked) + @($untracked) | Where-Object { $_ }
+    $paths = @($committed) + @($workingTree) + @($untracked)
+    return $paths | Where-Object { $_ } | Sort-Object -Unique
 }
 
 function Resolve-AutoServices {
     param([Parameter(Mandatory)][string[]]$Paths)
 
     $selected = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::OrdinalIgnoreCase)
+    $hasSharedPackageChange = $false
     foreach ($path in $Paths) {
         $normalized = $path.Replace("\", "/")
         switch -Regex ($normalized) {
@@ -96,52 +136,38 @@ function Resolve-AutoServices {
             '^apps/live/' { [void]$selected.Add("live"); continue }
             '^apps/proxy/' { [void]$selected.Add("proxy"); continue }
             '^scripts/test/' { [void]$selected.Add("fixtures"); continue }
-            '^packages/' {
-                foreach ($service in @("web", "admin", "space", "live")) { [void]$selected.Add($service) }
-                continue
-            }
+            '^packages/codemods/' { continue }
+            '^packages/' { $hasSharedPackageChange = $true; continue }
             '^(docker-compose\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml|package\.json|turbo\.json)$' {
                 [void]$selected.Add("all")
                 continue
             }
         }
     }
+    if ($selected.Contains("all")) { return @("all") }
+    if ($hasSharedPackageChange) {
+        throw "Automatic service selection cannot safely infer consumers of shared package changes. Specify only the affected runtime services with -Services."
+    }
     if ($selected.Count -eq 0) {
         throw "Automatic service selection found no runtime changes. Specify -Services explicitly if deployment is intentional."
     }
-    if ($selected.Contains("all")) { return @("all") }
     return @($selected | Sort-Object)
 }
 
-function Invoke-RequiredCheck {
+function Invoke-PackagePreflight {
     param(
         [Parameter(Mandatory)][string]$RepoRoot,
-        [Parameter(Mandatory)][string[]]$SelectedServices,
-        [Parameter(Mandatory)][string]$SystemPython
+        [AllowNull()][string]$ComparisonBase
     )
 
     Push-Location $RepoRoot
     try {
-        & git diff --check
-        if ($LASTEXITCODE -ne 0) { throw "Git conflict or whitespace check failed" }
-
-        $frontendApps = @($SelectedServices | Where-Object { $_ -in @("web", "admin", "space") })
-        if ($SelectedServices -contains "all") { $frontendApps = @("web", "admin", "space") }
-        if (($frontendApps.Count -gt 0 -or $SelectedServices -contains "live" -or $SelectedServices -contains "all") -and -not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
-            throw "pnpm is required for the selected frontend or live service checks"
+        if ($ComparisonBase) {
+            & git diff --check "$ComparisonBase..HEAD"
+            if ($LASTEXITCODE -ne 0) { throw "Committed change whitespace check failed" }
         }
-        foreach ($app in $frontendApps) {
-            & pnpm turbo run check:types --filter=$app
-            if ($LASTEXITCODE -ne 0) { throw "Type check failed for $app with exit code $LASTEXITCODE" }
-        }
-        if ($SelectedServices -contains "live" -or $SelectedServices -contains "all") {
-            & pnpm turbo run check:types --filter=live
-            if ($LASTEXITCODE -ne 0) { throw "Type check failed for live with exit code $LASTEXITCODE" }
-        }
-        if ($SelectedServices -contains "api" -or $SelectedServices -contains "worker" -or $SelectedServices -contains "beat-worker" -or $SelectedServices -contains "all") {
-            & $SystemPython -m compileall -q apps/api/plane
-            if ($LASTEXITCODE -ne 0) { throw "Python compile check failed with exit code $LASTEXITCODE" }
-        }
+        & git diff --check HEAD
+        if ($LASTEXITCODE -ne 0) { throw "Working tree whitespace check failed" }
     }
     finally { Pop-Location }
 }
@@ -215,9 +241,11 @@ $ConfigPath = Assert-PrivateConfig -RepoRoot $repoRoot -Path $ConfigPath
 if ($LASTEXITCODE -ne 0) { throw "Private test configuration validation failed" }
 
 $selectedServices = @($Services | Select-Object -Unique)
+$comparisonBase = $null
 if ($selectedServices -contains "auto") {
     if ($selectedServices.Count -ne 1) { throw "Use -Services auto by itself" }
-    $selectedServices = Resolve-AutoServices -Paths (Get-ChangedPaths -RepoRoot $repoRoot)
+    $comparisonBase = Get-ComparisonBase -RepoRoot $repoRoot -BaseRef $BaseRef
+    $selectedServices = Resolve-AutoServices -Paths (Get-ChangedPaths -RepoRoot $repoRoot -ComparisonBase $comparisonBase)
 }
 if ($selectedServices -contains "all" -and $selectedServices.Count -ne 1) { throw "Use -Services all by itself" }
 
@@ -233,7 +261,7 @@ Write-Host "Selected services: $serviceCsv"
 Write-Host "Release: $release"
 
 if (-not $SkipChecks -and $PSCmdlet.ShouldProcess($serviceCsv, "Run pre-deployment checks")) {
-    Invoke-RequiredCheck -RepoRoot $repoRoot -SelectedServices $selectedServices -SystemPython $systemPython
+    Invoke-PackagePreflight -RepoRoot $repoRoot -ComparisonBase $comparisonBase
 }
 
 if ($WhatIfPreference) {

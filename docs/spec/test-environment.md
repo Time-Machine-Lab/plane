@@ -1,7 +1,7 @@
 # 测试环境 Runbook
 
-本 Runbook 是日常运行时验收的唯一入口。Windows 不需要 Docker、Docker Compose 或 WSL2，也不经过
-GitHub Actions。AI 只需在开发完成后执行一次部署，再由独立 Tester 验证当前 OpenSpec 场景。
+本 Runbook 是日常运行时验收的唯一入口。Windows 不需要 Docker、Docker Compose 或 WSL2。受影响的静态检查和
+自动化测试由 CI 负责；开发完成后只执行一次测试部署，再由独立 Tester 验证当前 OpenSpec 用户旅程。
 
 ## 首次初始化
 
@@ -59,8 +59,13 @@ Admin 用于管理场景，Member 用于普通协作，Guest 用于低权限验�
 .\scripts\test\deploy-test.ps1
 ```
 
-默认 `-Services auto`。脚本负责校验私密配置、执行最小预检、打包当前工作区、自动选择服务、上传、迁移、
-更新服务、健康检查和幂等补种测试数据。AI 不需要判断测试等级，也不需要在部署前后重复运行完整 build、全库检查或本地 Docker 测试。
+默认 `-Services auto`，并以 `origin/preview` 为默认比较基线。脚本同时识别 merge-base 至 `HEAD` 的已提交改动和
+当前工作区的未提交改动，再选择需要部署的运行时服务。可以用 `-BaseRef` 指定其他基线。
+
+脚本负责校验私密配置、执行最小预检、打包当前工作区、上传、迁移、更新服务、健康检查和幂等补种测试数据。
+当共享包变更无法可靠推断运行时消费者时，`auto` 会停止并要求通过 `-Services` 明确列出实际消费者；不要因此
+默认部署所有应用。锁文件、根依赖或部署拓扑变化仍可触发 `all`。AI 不需要判断测试等级，也不需要在部署前后
+重复运行完整 build、全库检查或本地 Docker 测试。
 
 部署的是当前工作区快照，包括未提交但未被忽略的改动；`.git`、`.secrets`、`.runtime`、依赖缓存和构建缓存
 必须排除。成功输出只包含脱敏部署 ID、服务和测试地址。完整参数以脚本帮助为准：
@@ -82,9 +87,10 @@ Get-Help .\scripts\test\deploy-test.ps1 -Detailed
 
 1. 读取当前 OpenSpec 的 proposal、specs、design（存在时）和 tasks。
 2. 使用部署脚本输出的测试地址确认 Plane 和关键 API 可访问。
-3. 从 `.secrets/plane-test.env` 读取适合场景的默认账号并登录；不得输出凭据。
-4. 验证 OpenSpec 中本次变更的必需场景及必要的相邻回归，不重复开发阶段检查。
-5. 把脱敏的 pass/fail 结果写入 `openspec/changes/<change>/verification.md`。
+3. 从 `.secrets/plane-test.env` 读取适合场景的默认账号，并确认第三方凭据、观察渠道等前置条件；不得输出凭据。
+4. 把相邻必需场景组合成 3-7 条最小用户旅程，验证用户可见结果和一条必要的相邻回归。
+5. 不重复 CI 检查，不在正常成功路径分析日志，不手工排列可由 mocked contract test 覆盖的网络异常。
+6. 把脱敏的 `pass`/`fail`/`blocked` 结果写入 `openspec/changes/<change>/verification.md`。
 
 公网端口不可达时，使用部署脚本提供的 `http://localhost:8000` SSH 隧道验收，不擅自修改云安全组或服务器
 防火墙。本地前端默认由脚本接入同一测试 API；允许的 CORS、CSRF 和 Cookie 设置由测试环境配置维护。
@@ -95,8 +101,8 @@ Get-Help .\scripts\test\deploy-test.ps1 -Detailed
 ## 失败处理
 
 - 部署脚本失败：保留脱敏错误，开发 Agent 修复后重新运行同一部署命令；未成功部署的版本不能进入功能验收。
-- 场景失败：Tester 记录复现步骤和实际结果，开发 Agent 修复并重新部署，原 Tester 复测失败场景和必要回归。
-- 环境或账号不可用：结果记为 `fail` 并说明阻塞点，先修复共享测试环境；不能以代码审查代替验收。
+- 场景失败：Tester 记录复现步骤和实际结果，开发 Agent 修复并重新部署，原 Tester 只复测失败旅程和一条必要回归。
+- 环境、账号、凭据或观察渠道不可用：结果记为 `blocked`，记录责任方和下一步；不能以代码审查代替验收，也不能记为产品 `fail`。
 - 部署锁冲突：不要强删未知锁；确认其他部署结束后再重试。
 - 应用健康检查失败：脚本可以恢复上一应用版本，但不得清空持久数据。数据库 migration 无法自动逆转时必须明确报告回滚限制。
 
