@@ -21,10 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.requested_reviewers != null
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+        github.event.pull_request.requested_reviewers != null)
     env:
-      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
       TURBO_SCM_HEAD: ${{ github.sha }}
     steps:
       - name: Checkout code
@@ -63,10 +64,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.requested_reviewers != null
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+        github.event.pull_request.requested_reviewers != null)
     env:
-      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
       TURBO_SCM_HEAD: ${{ github.sha }}
       NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
@@ -121,10 +123,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     if: |
-      github.event.pull_request.draft == false &&
-      github.event.pull_request.requested_reviewers != null
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.draft == false &&
+        github.event.pull_request.requested_reviewers != null)
     env:
-      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
       TURBO_SCM_HEAD: ${{ github.sha }}
     steps:
       - name: Checkout code
@@ -167,7 +170,7 @@ jobs:
     needs: build
     timeout-minutes: 15
     env:
-      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha }}
+      TURBO_SCM_BASE: ${{ github.event.pull_request.base.sha || format('{0}^', github.sha) }}
       TURBO_SCM_HEAD: ${{ github.sha }}
       NODE_OPTIONS: "--max-old-space-size=4096"
     steps:
