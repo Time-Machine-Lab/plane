@@ -867,5 +867,29 @@
       "description": "Exportez les éléments de travail vers un fichier JSON.",
       "short_description": "Exporter en json"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Ouvrir le guide de Plane Skill",
+    "title": "Démarrage rapide de Plane Skill",
+    "description": "Connectez Codex à votre espace de travail Plane.",
+    "repository_label": "Dépôt",
+    "install_title": "Installer Plane Skill",
+    "install_prompt": "Installez .codex/skills/plane depuis https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Connecter votre espace de travail",
+    "connect_prompt": "$plane connecter l’espace de travail",
+    "copy_prompt": "Copier l’invite",
+    "provide_details": "Envoyez ensuite ces deux informations à Codex :",
+    "workspace_url_title": "URL actuelle de l’espace de travail Plane",
+    "workspace_url_format": "Format : https://votre-domaine-plane/identifiant-espace-de-travail",
+    "workspace_url_example": "Exemple : https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Utilisez l’URL de la page d’accueil de l’espace de travail, et non celle d’un projet ou d’un élément de travail.",
+    "api_token_title": "Jeton API dédié",
+    "api_token_path_label": "Comment le créer :",
+    "api_token_path": "Avatar → Paramètres → Developer → Jetons d’accès personnels → Ajouter un jeton d’accès → Générer un jeton",
+    "api_token_warning": "Copiez et conservez immédiatement le jeton. Vous ne pourrez plus l’afficher après avoir fermé la boîte de dialogue.",
+    "connected_title": "Connexion terminée",
+    "connected_description": "Ouvrez une nouvelle tâche Codex pour consulter, créer ou mettre à jour des éléments de travail Plane.",
+    "security_note": "Utilisez un jeton API dédié et révocable, avec uniquement les autorisations minimales nécessaires."
   }
 }

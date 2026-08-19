@@ -867,5 +867,29 @@
       "description": "Ekspor item kerja ke file JSON.",
       "short_description": "Ekspor sebagai json"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Buka panduan Plane Skill",
+    "title": "Panduan cepat Plane Skill",
+    "description": "Hubungkan Codex ke ruang kerja Plane Anda.",
+    "repository_label": "Repositori",
+    "install_title": "Instal Plane Skill",
+    "install_prompt": "Instal .codex/skills/plane dari https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Hubungkan ruang kerja Anda",
+    "connect_prompt": "$plane hubungkan ruang kerja",
+    "copy_prompt": "Salin perintah",
+    "provide_details": "Kemudian kirim dua informasi berikut ke Codex:",
+    "workspace_url_title": "URL ruang kerja Plane saat ini",
+    "workspace_url_format": "Format: https://domain-plane-anda/slug-ruang-kerja",
+    "workspace_url_example": "Contoh: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Gunakan URL beranda ruang kerja, bukan URL proyek atau item pekerjaan.",
+    "api_token_title": "Token API khusus",
+    "api_token_path_label": "Cara membuatnya:",
+    "api_token_path": "Avatar → Pengaturan → Developer → Token akses pribadi → Tambahkan token akses → Buat token",
+    "api_token_warning": "Segera salin dan simpan token. Anda tidak dapat melihatnya lagi setelah menutup dialog.",
+    "connected_title": "Koneksi selesai",
+    "connected_description": "Buka tugas Codex baru untuk mencari, membuat, atau memperbarui item pekerjaan Plane.",
+    "security_note": "Gunakan token API khusus yang dapat dicabut dan hanya memiliki izin minimum yang Anda perlukan."
   }
 }

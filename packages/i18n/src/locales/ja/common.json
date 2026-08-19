@@ -867,5 +867,29 @@
       "description": "作業項目をJSONファイルにエクスポートします。",
       "short_description": "JSONとしてエクスポート"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Plane Skill ガイドを開く",
+    "title": "Plane Skill クイックスタート",
+    "description": "Codex を Plane ワークスペースに接続します。",
+    "repository_label": "リポジトリ",
+    "install_title": "Plane Skill をインストール",
+    "install_prompt": "https://github.com/Time-Machine-Lab/plane から .codex/skills/plane をインストールします",
+    "connect_title": "ワークスペースに接続",
+    "connect_prompt": "$plane ワークスペースを接続",
+    "copy_prompt": "プロンプトをコピー",
+    "provide_details": "次の2項目を Codex に送信します。",
+    "workspace_url_title": "現在の Plane ワークスペース URL",
+    "workspace_url_format": "形式：https://your-plane-domain/workspace-slug",
+    "workspace_url_example": "例：https://plane.example.com/my-workspace",
+    "workspace_url_warning": "プロジェクトや作業項目の URL ではなく、ワークスペースのホーム URL を使用します。",
+    "api_token_title": "専用 API トークン",
+    "api_token_path_label": "作成方法：",
+    "api_token_path": "アバター → 設定 → Developer → パーソナルアクセストークン → アクセストークンを追加 → トークンを生成",
+    "api_token_warning": "トークンはすぐにコピーして保存してください。ダイアログを閉じると再表示できません。",
+    "connected_title": "接続完了",
+    "connected_description": "新しい Codex タスクを開くと、Plane の作業項目を検索、作成、または更新できます。",
+    "security_note": "必要最小限の権限のみを付与した、失効可能な専用 API トークンを使用してください。"
   }
 }

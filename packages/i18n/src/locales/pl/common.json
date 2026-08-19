@@ -867,5 +867,29 @@
       "description": "Eksportuj elementy do pliku JSON.",
       "short_description": "Eksportuj jako JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Otwieranie przewodnika Plane Skill",
+    "title": "Szybki start z Plane Skill",
+    "description": "Połączenie Codex z obszarem roboczym Plane.",
+    "repository_label": "Repozytorium",
+    "install_title": "Instalacja Plane Skill",
+    "install_prompt": "Instalacja .codex/skills/plane z https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Połączenie obszaru roboczego",
+    "connect_prompt": "$plane połączyć obszar roboczy",
+    "copy_prompt": "Kopiowanie polecenia",
+    "provide_details": "Następnie należy przesłać do Codex te dwie informacje:",
+    "workspace_url_title": "Bieżący URL obszaru roboczego Plane",
+    "workspace_url_format": "Format: https://domena-plane/identyfikator-obszaru-roboczego",
+    "workspace_url_example": "Przykład: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Należy użyć URL strony głównej obszaru roboczego, a nie URL projektu ani elementu roboczego.",
+    "api_token_title": "Dedykowany token API",
+    "api_token_path_label": "Sposób utworzenia:",
+    "api_token_path": "Awatar → Ustawienia → Developer → Osobiste tokeny dostępu → Dodaj token dostępu → Wygeneruj token",
+    "api_token_warning": "Token należy natychmiast skopiować i zapisać. Po zamknięciu okna dialogowego nie można go ponownie wyświetlić.",
+    "connected_title": "Połączenie zakończone",
+    "connected_description": "W nowym zadaniu Codex można wyszukiwać, tworzyć i aktualizować elementy robocze Plane.",
+    "security_note": "Należy użyć dedykowanego, odwoływalnego tokenu API z minimalnymi wymaganymi uprawnieniami."
   }
 }

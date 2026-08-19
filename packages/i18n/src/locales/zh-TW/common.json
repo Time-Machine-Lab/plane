@@ -867,5 +867,29 @@
       "description": "將工作事項匯出為 JSON 檔案。",
       "short_description": "匯出為 JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "開啟 Plane Skill 使用指南",
+    "title": "Plane Skill 快速入門",
+    "description": "將 Codex 連線至您的 Plane 工作區。",
+    "repository_label": "儲存庫",
+    "install_title": "安裝 Plane Skill",
+    "install_prompt": "從 https://github.com/Time-Machine-Lab/plane 安裝 .codex/skills/plane",
+    "connect_title": "連線您的工作區",
+    "connect_prompt": "$plane 連接工作區",
+    "copy_prompt": "複製提示詞",
+    "provide_details": "接著向 Codex 提供以下兩項：",
+    "workspace_url_title": "目前的 Plane 工作區 URL",
+    "workspace_url_format": "格式：https://Plane網域/工作區識別碼",
+    "workspace_url_example": "範例：https://plane.example.com/my-workspace",
+    "workspace_url_warning": "請使用工作區首頁 URL，而非專案或工作項目的 URL。",
+    "api_token_title": "專用 API Token",
+    "api_token_path_label": "建立方式：",
+    "api_token_path": "右上角頭像 → 設定 → Developer → 個人存取權杖 → 新增存取權杖 → 產生權杖",
+    "api_token_warning": "產生後請立即複製並妥善保存。關閉對話方塊後將無法再次查看。",
+    "connected_title": "連線完成",
+    "connected_description": "開啟新的 Codex 任務，即可查詢、建立或更新 Plane 工作項目。",
+    "security_note": "請使用專用且可撤銷的 API Token，並僅授予您所需的最低權限。"
   }
 }

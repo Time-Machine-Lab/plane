@@ -867,5 +867,29 @@
       "description": "Экспорт рабочих элементов в JSON-файл.",
       "short_description": "Экспорт в json"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Открыть руководство по Plane Skill",
+    "title": "Быстрый старт с Plane Skill",
+    "description": "Подключите Codex к Вашему рабочему пространству Plane.",
+    "repository_label": "Репозиторий",
+    "install_title": "Установить Plane Skill",
+    "install_prompt": "Установите .codex/skills/plane из https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Подключить рабочее пространство",
+    "connect_prompt": "$plane подключить рабочее пространство",
+    "copy_prompt": "Скопировать запрос",
+    "provide_details": "Затем отправьте Codex эти два значения:",
+    "workspace_url_title": "Текущий URL рабочего пространства Plane",
+    "workspace_url_format": "Формат: https://vash-domen-plane/identifikator-rabochego-prostranstva",
+    "workspace_url_example": "Пример: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Используйте URL главной страницы рабочего пространства, а не URL проекта или рабочего элемента.",
+    "api_token_title": "Отдельный API-токен",
+    "api_token_path_label": "Как его создать:",
+    "api_token_path": "Аватар → Настройки → Developer → Личные токены доступа → Добавить токен доступа → Создать токен",
+    "api_token_warning": "Сразу скопируйте и сохраните токен. После закрытия диалогового окна Вы не сможете снова его просмотреть.",
+    "connected_title": "Подключение завершено",
+    "connected_description": "Откройте новую задачу Codex, чтобы находить, создавать или обновлять рабочие элементы Plane.",
+    "security_note": "Используйте отдельный отзываемый API-токен только с минимально необходимыми правами."
   }
 }

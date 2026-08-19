@@ -867,5 +867,29 @@
       "description": "Експортуйте одиниці у формат JSON.",
       "short_description": "Експортувати як JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Відкрити посібник з Plane Skill",
+    "title": "Швидкий старт з Plane Skill",
+    "description": "Підключіть Codex до вашого робочого простору Plane.",
+    "repository_label": "Репозиторій",
+    "install_title": "Установити Plane Skill",
+    "install_prompt": "Установіть .codex/skills/plane з https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Підключити робочий простір",
+    "connect_prompt": "$plane підключити робочий простір",
+    "copy_prompt": "Скопіювати запит",
+    "provide_details": "Потім надішліть Codex ці дві позиції:",
+    "workspace_url_title": "Поточна URL-адреса робочого простору Plane",
+    "workspace_url_format": "Формат: https://vash-domen-plane/identyfikator-robochoho-prostoru",
+    "workspace_url_example": "Приклад: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Використовуйте URL-адресу головної сторінки робочого простору, а не URL-адресу проєкту чи робочого елемента.",
+    "api_token_title": "Окремий API-токен",
+    "api_token_path_label": "Як його створити:",
+    "api_token_path": "Аватар → Налаштування → Developer → Особисті токени доступу → Додати токен доступу → Створити токен",
+    "api_token_warning": "Одразу скопіюйте й збережіть токен. Після закриття діалогового вікна його неможливо переглянути знову.",
+    "connected_title": "Підключення завершено",
+    "connected_description": "Відкрийте нове завдання Codex, щоб знаходити, створювати чи оновлювати робочі елементи Plane.",
+    "security_note": "Використовуйте окремий відкличний API-токен лише з мінімально необхідними дозволами."
   }
 }

@@ -5,6 +5,7 @@
  */
 
 export * from "./app-rail-root";
+export * from "./plane-skill-guide";
 export * from "./tab-navigation-root";
 export * from "./top-nav-power-k";
 export * from "./use-active-tab";

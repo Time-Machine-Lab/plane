@@ -867,5 +867,29 @@
       "description": "Exportujte položky do JSON.",
       "short_description": "Exportovat jako JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Otevřít průvodce Plane Skill",
+    "title": "Rychlý start Plane Skill",
+    "description": "Připojte Codex ke svému pracovnímu prostoru Plane.",
+    "repository_label": "Repozitář",
+    "install_title": "Nainstalovat Plane Skill",
+    "install_prompt": "Nainstalujte .codex/skills/plane z https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Připojit pracovní prostor",
+    "connect_prompt": "$plane připojit pracovní prostor",
+    "copy_prompt": "Kopírovat pokyn",
+    "provide_details": "Poté odešlete do Codex tyto dvě položky:",
+    "workspace_url_title": "Aktuální URL pracovního prostoru Plane",
+    "workspace_url_format": "Formát: https://vase-domena-plane/identifikator-pracovniho-prostoru",
+    "workspace_url_example": "Příklad: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Použijte URL domovské stránky pracovního prostoru, nikoli URL projektu nebo pracovní položky.",
+    "api_token_title": "Vyhrazený token API",
+    "api_token_path_label": "Jak jej vytvořit:",
+    "api_token_path": "Avatar → Nastavení → Developer → Osobní přístupové tokeny → Přidat přístupový token → Vygenerovat token",
+    "api_token_warning": "Token ihned zkopírujte a uložte. Po zavření dialogového okna jej již nelze zobrazit.",
+    "connected_title": "Připojení dokončeno",
+    "connected_description": "Otevřete novou úlohu Codex, ve které můžete vyhledávat, vytvářet nebo aktualizovat pracovní položky Plane.",
+    "security_note": "Použijte vyhrazený a odvolatelný token API pouze s minimálními potřebnými oprávněními."
   }
 }

@@ -867,5 +867,29 @@
       "description": "Exportă activitățile într-un fișier JSON.",
       "short_description": "Exportă ca JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Deschideți ghidul Plane Skill",
+    "title": "Pornire rapidă pentru Plane Skill",
+    "description": "Conectați Codex la spațiul dumneavoastră de lucru Plane.",
+    "repository_label": "Depozit de cod",
+    "install_title": "Instalați Plane Skill",
+    "install_prompt": "Instalați .codex/skills/plane de la https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Conectați spațiul de lucru",
+    "connect_prompt": "$plane conectați spațiul de lucru",
+    "copy_prompt": "Copiați solicitarea",
+    "provide_details": "Apoi trimiteți aceste două informații către Codex:",
+    "workspace_url_title": "URL-ul actual al spațiului de lucru Plane",
+    "workspace_url_format": "Format: https://domeniul-plane/identificator-spatiu-de-lucru",
+    "workspace_url_example": "Exemplu: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Utilizați URL-ul paginii principale a spațiului de lucru, nu URL-ul unui proiect sau al unui element de lucru.",
+    "api_token_title": "Token API dedicat",
+    "api_token_path_label": "Cum îl creați:",
+    "api_token_path": "Avatar → Setări → Developer → Tokenuri de acces personale → Adăugați un token de acces → Generați tokenul",
+    "api_token_warning": "Copiați și salvați imediat tokenul. Nu îl mai puteți vedea după închiderea casetei de dialog.",
+    "connected_title": "Conectare finalizată",
+    "connected_description": "Deschideți o activitate Codex nouă pentru a căuta, crea sau actualiza elemente de lucru Plane.",
+    "security_note": "Utilizați un token API dedicat și revocabil, numai cu permisiunile minime de care aveți nevoie."
   }
 }

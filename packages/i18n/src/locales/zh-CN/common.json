@@ -867,5 +867,29 @@
       "description": "将工作项导出为 JSON 文件。",
       "short_description": "导出为 JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "打开 Plane Skill 使用指南",
+    "title": "Plane Skill 快速入门",
+    "description": "将 Codex 连接到您的 Plane 工作区。",
+    "repository_label": "仓库",
+    "install_title": "安装 Plane Skill",
+    "install_prompt": "从 https://github.com/Time-Machine-Lab/plane 安装 .codex/skills/plane",
+    "connect_title": "连接您的工作区",
+    "connect_prompt": "$plane 连接工作区",
+    "copy_prompt": "复制提示词",
+    "provide_details": "然后向 Codex 提供以下两项：",
+    "workspace_url_title": "当前 Plane 工作区 URL",
+    "workspace_url_format": "格式：https://Plane域名/工作区标识",
+    "workspace_url_example": "示例：https://plane.example.com/my-workspace",
+    "workspace_url_warning": "使用工作区首页地址，而非项目或工作项详情页。",
+    "api_token_title": "专用 API Token",
+    "api_token_path_label": "如何生成：",
+    "api_token_path": "右上角头像 → 设置 → Developer → 个人访问令牌 → 添加访问令牌 → 生成令牌",
+    "api_token_warning": "生成后请立即复制保存，关闭对话框后无法再次查看。",
+    "connected_title": "连接完成",
+    "connected_description": "打开新的 Codex 任务，即可查询、创建或更新 Plane 工作项。",
+    "security_note": "请使用专用且可撤销的 API Token，并仅授予您所需的最低权限。"
   }
 }

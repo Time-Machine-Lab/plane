@@ -867,5 +867,29 @@
       "description": "작업 항목을 JSON 파일로 내보냅니다.",
       "short_description": "JSON으로 내보내기"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Plane Skill 가이드 열기",
+    "title": "Plane Skill 빠른 시작",
+    "description": "Codex를 Plane 작업 공간에 연결합니다.",
+    "repository_label": "저장소",
+    "install_title": "Plane Skill 설치",
+    "install_prompt": "https://github.com/Time-Machine-Lab/plane에서 .codex/skills/plane을 설치합니다",
+    "connect_title": "작업 공간 연결",
+    "connect_prompt": "$plane 작업 공간 연결",
+    "copy_prompt": "프롬프트 복사",
+    "provide_details": "다음 두 항목을 Codex에 보냅니다:",
+    "workspace_url_title": "현재 Plane 작업 공간 URL",
+    "workspace_url_format": "형식: https://your-plane-domain/workspace-slug",
+    "workspace_url_example": "예: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "프로젝트나 작업 항목 URL이 아닌 작업 공간 홈 URL을 사용합니다.",
+    "api_token_title": "전용 API 토큰",
+    "api_token_path_label": "생성 방법:",
+    "api_token_path": "아바타 → 설정 → Developer → 개인용 액세스 토큰 → 액세스 토큰 추가 → 토큰 생성",
+    "api_token_warning": "토큰을 즉시 복사하여 보관하세요. 대화 상자를 닫으면 다시 볼 수 없습니다.",
+    "connected_title": "연결 완료",
+    "connected_description": "새 Codex 작업을 열어 Plane 작업 항목을 조회, 생성 또는 업데이트합니다.",
+    "security_note": "필요한 최소 권한만 부여한 전용 API 토큰을 사용하고, 필요할 때 폐기할 수 있게 하세요."
   }
 }

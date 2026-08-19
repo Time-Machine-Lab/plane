@@ -867,5 +867,29 @@
       "description": "Esporta elementi di lavoro in un file JSON.",
       "short_description": "Esporta come JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Aprire la guida di Plane Skill",
+    "title": "Guida introduttiva a Plane Skill",
+    "description": "Colleghi Codex al proprio spazio di lavoro Plane.",
+    "repository_label": "Repository",
+    "install_title": "Installare Plane Skill",
+    "install_prompt": "Installi .codex/skills/plane da https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Collegare lo spazio di lavoro",
+    "connect_prompt": "$plane collegare lo spazio di lavoro",
+    "copy_prompt": "Copiare il prompt",
+    "provide_details": "Invii quindi questi due dati a Codex:",
+    "workspace_url_title": "URL attuale dello spazio di lavoro Plane",
+    "workspace_url_format": "Formato: https://dominio-plane/identificativo-spazio-di-lavoro",
+    "workspace_url_example": "Esempio: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Utilizzi l’URL della home page dello spazio di lavoro, non quello di un progetto o di un elemento di lavoro.",
+    "api_token_title": "Token API dedicato",
+    "api_token_path_label": "Come crearlo:",
+    "api_token_path": "Avatar → Impostazioni → Developer → Token di accesso personali → Aggiungi token di accesso → Genera token",
+    "api_token_warning": "Copi e conservi subito il token. Dopo la chiusura della finestra di dialogo non potrà visualizzarlo di nuovo.",
+    "connected_title": "Connessione completata",
+    "connected_description": "Apra una nuova attività Codex per cercare, creare o aggiornare gli elementi di lavoro Plane.",
+    "security_note": "Utilizzi un token API dedicato e revocabile, con i soli permessi minimi necessari."
   }
 }

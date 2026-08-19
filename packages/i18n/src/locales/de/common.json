@@ -867,5 +867,29 @@
       "description": "Arbeitselemente in JSON exportieren.",
       "short_description": "Als JSON exportieren"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Anleitung zu Plane Skill öffnen",
+    "title": "Plane Skill – Schnellstart",
+    "description": "Codex mit Ihrem Plane-Arbeitsbereich verbinden.",
+    "repository_label": "Repository",
+    "install_title": "Plane Skill installieren",
+    "install_prompt": ".codex/skills/plane von https://github.com/Time-Machine-Lab/plane installieren",
+    "connect_title": "Arbeitsbereich verbinden",
+    "connect_prompt": "$plane Arbeitsbereich verbinden",
+    "copy_prompt": "Prompt kopieren",
+    "provide_details": "Senden Sie anschließend diese beiden Angaben an Codex:",
+    "workspace_url_title": "Aktuelle URL des Plane-Arbeitsbereichs",
+    "workspace_url_format": "Format: https://ihre-plane-domain/arbeitsbereichskennung",
+    "workspace_url_example": "Beispiel: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Verwenden Sie die URL der Arbeitsbereichsstartseite, nicht die URL eines Projekts oder Werkelements.",
+    "api_token_title": "Dediziertes API-Token",
+    "api_token_path_label": "So erstellen Sie es:",
+    "api_token_path": "Avatar → Einstellungen → Developer → Persönliche Zugriffstoken → Zugriffstoken hinzufügen → Token generieren",
+    "api_token_warning": "Kopieren und speichern Sie das Token sofort. Nach dem Schließen des Dialogfelds können Sie es nicht erneut anzeigen.",
+    "connected_title": "Verbindung hergestellt",
+    "connected_description": "Öffnen Sie eine neue Codex-Aufgabe, um Plane-Werkelemente abzufragen, zu erstellen oder zu aktualisieren.",
+    "security_note": "Verwenden Sie ein dediziertes, widerrufbares API-Token mit den mindestens erforderlichen Berechtigungen."
   }
 }

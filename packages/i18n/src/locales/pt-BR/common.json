@@ -867,5 +867,29 @@
       "description": "Exporte itens de trabalho para um arquivo JSON.",
       "short_description": "Exportar como JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Abrir o guia do Plane Skill",
+    "title": "Início rápido do Plane Skill",
+    "description": "Conecte o Codex ao seu espaço de trabalho do Plane.",
+    "repository_label": "Repositório",
+    "install_title": "Instalar o Plane Skill",
+    "install_prompt": "Instale .codex/skills/plane de https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Conectar seu espaço de trabalho",
+    "connect_prompt": "$plane conectar espaço de trabalho",
+    "copy_prompt": "Copiar prompt",
+    "provide_details": "Em seguida, envie estes dois itens ao Codex:",
+    "workspace_url_title": "URL atual do espaço de trabalho do Plane",
+    "workspace_url_format": "Formato: https://seu-dominio-plane/identificador-do-espaco-de-trabalho",
+    "workspace_url_example": "Exemplo: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Use a URL da página inicial do espaço de trabalho, não a URL de um projeto ou item de trabalho.",
+    "api_token_title": "Token de API dedicado",
+    "api_token_path_label": "Como criar:",
+    "api_token_path": "Avatar → Configurações → Developer → Tokens de acesso pessoal → Adicionar token de acesso → Gerar token",
+    "api_token_warning": "Copie e guarde o token imediatamente. Você não poderá visualizá-lo novamente depois de fechar a caixa de diálogo.",
+    "connected_title": "Conexão concluída",
+    "connected_description": "Abra uma nova tarefa do Codex para consultar, criar ou atualizar itens de trabalho do Plane.",
+    "security_note": "Use um token de API dedicado e revogável, somente com as permissões mínimas necessárias."
   }
 }

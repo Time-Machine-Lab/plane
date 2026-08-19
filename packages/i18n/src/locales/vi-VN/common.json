@@ -867,5 +867,29 @@
       "description": "Xuất mục công việc thành tệp JSON.",
       "short_description": "Xuất sang JSON"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Mở hướng dẫn Plane Skill",
+    "title": "Bắt đầu nhanh với Plane Skill",
+    "description": "Kết nối Codex với không gian làm việc Plane của bạn.",
+    "repository_label": "Kho mã nguồn",
+    "install_title": "Cài đặt Plane Skill",
+    "install_prompt": "Cài đặt .codex/skills/plane từ https://github.com/Time-Machine-Lab/plane",
+    "connect_title": "Kết nối không gian làm việc của bạn",
+    "connect_prompt": "$plane kết nối không gian làm việc",
+    "copy_prompt": "Sao chép câu lệnh",
+    "provide_details": "Sau đó, gửi hai thông tin sau cho Codex:",
+    "workspace_url_title": "URL không gian làm việc Plane hiện tại",
+    "workspace_url_format": "Định dạng: https://ten-mien-plane/ma-khong-gian-lam-viec",
+    "workspace_url_example": "Ví dụ: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Sử dụng URL trang chủ của không gian làm việc, không dùng URL của dự án hoặc hạng mục công việc.",
+    "api_token_title": "Mã thông báo API chuyên dụng",
+    "api_token_path_label": "Cách tạo:",
+    "api_token_path": "Ảnh đại diện → Cài đặt → Developer → Mã thông báo truy cập cá nhân → Thêm mã thông báo truy cập → Tạo mã thông báo",
+    "api_token_warning": "Sao chép và lưu mã thông báo ngay lập tức. Bạn không thể xem lại sau khi đóng hộp thoại.",
+    "connected_title": "Kết nối hoàn tất",
+    "connected_description": "Mở một tác vụ Codex mới để truy vấn, tạo hoặc cập nhật các hạng mục công việc Plane.",
+    "security_note": "Sử dụng mã thông báo API chuyên dụng, có thể thu hồi và chỉ có các quyền tối thiểu mà bạn cần."
   }
 }

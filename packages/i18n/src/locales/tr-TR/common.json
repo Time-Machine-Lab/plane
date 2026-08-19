@@ -867,5 +867,29 @@
       "description": "İş öğelerini JSON dosyasına aktarın.",
       "short_description": "JSON olarak aktar"
     }
+  },
+  "plane_skill_guide": {
+    "button_label": "AI",
+    "tooltip": "Plane Skill kılavuzunu açın",
+    "title": "Plane Skill hızlı başlangıç",
+    "description": "Codex'i Plane çalışma alanınıza bağlayın.",
+    "repository_label": "Depo",
+    "install_title": "Plane Skill'i yükleyin",
+    "install_prompt": ".codex/skills/plane dosyasını https://github.com/Time-Machine-Lab/plane adresinden yükleyin",
+    "connect_title": "Çalışma alanınızı bağlayın",
+    "connect_prompt": "$plane çalışma alanını bağlayın",
+    "copy_prompt": "İstemi kopyalayın",
+    "provide_details": "Ardından bu iki bilgiyi Codex'e gönderin:",
+    "workspace_url_title": "Geçerli Plane çalışma alanı URL'si",
+    "workspace_url_format": "Biçim: https://plane-alan-adiniz/calisma-alani-kodu",
+    "workspace_url_example": "Örnek: https://plane.example.com/my-workspace",
+    "workspace_url_warning": "Proje veya iş öğesi URL'sini değil, çalışma alanı ana sayfasının URL'sini kullanın.",
+    "api_token_title": "Özel API belirteci",
+    "api_token_path_label": "Oluşturma yolu:",
+    "api_token_path": "Avatar → Ayarlar → Developer → Kişisel erişim belirteçleri → Erişim belirteci ekle → Belirteç oluştur",
+    "api_token_warning": "Belirteci hemen kopyalayıp saklayın. İletişim kutusunu kapattıktan sonra yeniden görüntüleyemezsiniz.",
+    "connected_title": "Bağlantı tamamlandı",
+    "connected_description": "Plane iş öğelerini sorgulamak, oluşturmak veya güncellemek için yeni bir Codex görevi açın.",
+    "security_note": "Yalnızca ihtiyacınız olan en düşük izinlere sahip, özel ve iptal edilebilir bir API belirteci kullanın."
   }
 }
