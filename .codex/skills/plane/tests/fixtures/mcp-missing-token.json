@@ -3,10 +3,8 @@
   "enabled": true,
   "transport": {
     "type": "streamable_http",
-    "url": "https://old-plane.example.com/mcp",
+    "url": "https://plane.example.com/mcp",
     "bearer_token_env_var": null,
-    "http_headers": {
-      "Authorization": "Bearer old-plane-token"
-    }
+    "http_headers": null
   }
 }

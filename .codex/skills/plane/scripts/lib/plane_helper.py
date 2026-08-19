@@ -102,14 +102,63 @@ def redact(text: str) -> str:
     return re.sub(r"(?i)(X-Api-Key\s*:\s*)[^\s,;]+", r"\1[REDACTED]", text)
 
 
-def validate_token() -> None:
-    token = os.environ.get("PLANE_API_TOKEN", "")
+def validate_token_value(token: str) -> None:
     if not token:
         raise ValueError("PLANE_API_TOKEN is not available in this process.")
     if any(ord(character) < 32 or ord(character) == 127 for character in token):
         raise ValueError("Plane API token contains unsafe characters.")
     if '"' in token or "\\" in token:
         raise ValueError("Plane API token contains unsafe characters.")
+
+
+def validate_token() -> None:
+    validate_token_value(os.environ.get("PLANE_API_TOKEN", ""))
+
+
+def config_token(config: object) -> str:
+    transport = config.get("transport", {}) if isinstance(config, dict) else {}
+    headers = transport.get("http_headers", {}) if isinstance(transport, dict) else {}
+    authorization = next(
+        (value for key, value in headers.items() if key.lower() == "authorization"),
+        None,
+    ) if isinstance(headers, dict) else None
+    if not isinstance(authorization, str) or not authorization.startswith("Bearer "):
+        raise ValueError("The plane MCP entry does not contain a Bearer credential.")
+    token = authorization.removeprefix("Bearer ")
+    validate_token_value(token)
+    return token
+
+
+def write_config_token(path: Path) -> None:
+    token = os.environ.get("PLANE_API_TOKEN", "")
+    validate_token_value(token)
+    with path.open(encoding="utf-8", newline="") as handle:
+        content = handle.read()
+    if not re.search(r"(?m)^\[mcp_servers\.plane\]\s*$", content):
+        raise ValueError("Codex did not create the plane MCP configuration table.")
+    if re.search(r"(?m)^\[mcp_servers\.plane\.http_headers\]\s*$", content):
+        raise ValueError("The plane MCP authorization table already exists unexpectedly.")
+
+    newline = "\r\n" if "\r\n" in content else "\n"
+    prefix = content if content.endswith("\n") else content + newline
+    updated = (
+        prefix
+        + newline
+        + "[mcp_servers.plane.http_headers]"
+        + newline
+        + f'Authorization = "Bearer {token}"'
+        + newline
+    )
+    descriptor, temporary_name = tempfile.mkstemp(prefix="config.", suffix=".tmp", dir=path.parent)
+    temporary = Path(temporary_name)
+    mode = path.stat().st_mode & 0o777
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8", newline="") as handle:
+            handle.write(updated)
+        os.chmod(temporary, mode)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def plane_status_request(slug: str) -> dict[str, object]:
@@ -164,6 +213,11 @@ def main() -> int:
     match = subparsers.add_parser("config-match")
     match.add_argument("--url", required=True)
 
+    config_write = subparsers.add_parser("config-write-token")
+    config_write.add_argument("--path", required=True)
+
+    subparsers.add_parser("config-token")
+
     write = subparsers.add_parser("profile-write")
     write.add_argument("--path", required=True)
     write.add_argument("--origin", required=True)
@@ -211,13 +265,18 @@ def main() -> int:
         elif args.command == "config-match":
             config = read_json_stream()
             transport = config.get("transport", {}) if isinstance(config, dict) else {}
+            expected_token = os.environ.get("PLANE_API_TOKEN", "")
             matches = (
                 config.get("enabled") is not False
                 and transport.get("type") == "streamable_http"
                 and str(transport.get("url", "")).rstrip("/") == args.url.rstrip("/")
-                and transport.get("bearer_token_env_var") == "PLANE_API_TOKEN"
+                and config_token(config) == expected_token
             )
             return 0 if matches else 1
+        elif args.command == "config-write-token":
+            write_config_token(Path(args.path))
+        elif args.command == "config-token":
+            print(config_token(read_json_stream()))
         elif args.command == "profile-write":
             write_profile(Path(args.path), args.origin, args.slug)
         elif args.command == "profile-read":
@@ -267,14 +326,15 @@ def main() -> int:
                 "mcp_configuration": args.mcp_state,
                 "configuration_changed": args.mcp_state != "reused",
                 "token_source": args.token_source,
-                "token_persisted": False,
+                "token_persisted": True,
+                "token_storage": "codex_user_mcp_config",
                 "profile_path": args.profile_path,
                 "new_task_required": True,
-                "restart_note": "Open a new Codex task; restart Codex if it was launched before PLANE_API_TOKEN was available.",
+                "restart_note": "Open a new Codex task if this task does not refresh the Plane MCP tool catalog. No terminal command or application relaunch is required.",
             }
             if args.human:
                 print(f"Plane MCP is configured for {args.origin}/{args.slug}.")
-                print(f"MCP entry: {args.mcp_state}; token persisted: no.")
+                print(f"MCP entry: {args.mcp_state}; credential stored in Codex user configuration.")
                 print(payload["restart_note"])
             else:
                 print(json.dumps(payload, separators=(",", ":")))

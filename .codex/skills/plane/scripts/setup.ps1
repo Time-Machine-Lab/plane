@@ -18,7 +18,7 @@ try {
     }
     else {
         Write-Host "Plane MCP is configured for $($result.origin)/$($result.workspace_slug)."
-        Write-Host "MCP entry: $($result.mcp_configuration); token persisted: no."
+        Write-Host "MCP entry: $($result.mcp_configuration); credential stored in Codex user configuration."
         Write-Host $result.restart_note
     }
 }

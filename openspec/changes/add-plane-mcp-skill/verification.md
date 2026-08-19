@@ -26,3 +26,44 @@
 ## Residual risks
 
 - The `[AI-TEST]` work item and comment created during acceptance remain in the persistent test project because the initial MCP tool catalog intentionally exposes no delete capability.
+
+## Guided connection amendment
+
+- Tester: `tester_guided_connection`
+- Verification method: static and offline local verification; no deployment or live Plane credential was required
+- Verdict: pass after focused rework
+
+| Goal                          | Result | Evidence                                                                                                                                                                                                                  |
+| ----------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Operating-system entry points | pass   | Windows includes `connect.cmd` and `connect.ps1`; macOS/POSIX includes `connect.command` and `connect.sh`, with both POSIX launchers recorded as executable mode `100755` and LF line endings.                            |
+| Derived token-management link | pass   | Both implementations derive `<origin>/settings/profile/api-tokens/` from the normalized workspace origin without adding the token to the URL.                                                                             |
+| Masked setup reuse            | pass   | Guided flows delegate to the existing setup functions, preserving masked token input, validation-before-configuration, and idempotent MCP registration.                                                                   |
+| Process-scoped relaunch       | pass   | Windows and POSIX child-process checks confirmed that a launched Codex process inherits `PLANE_API_TOKEN` without writing it to the profile or long-lived environment configuration.                                      |
+| Relaunch fallback             | pass   | Missing executables display a visible retry/select/quit prompt. Immediate POSIX child failure is detected and returns to the same connector process, preserving the process-scoped token until the user explicitly quits. |
+| Focused regression            | pass   | `node --test .codex/skills/plane/tests/plane-skill.test.mjs` completed 21 tests with 21 passes; PowerShell/POSIX syntax, `git diff --check`, and strict OpenSpec validation also passed.                                  |
+
+### Rework resolved during independent verification
+
+- Corrected the POSIX launcher Git modes from non-executable to `100755`.
+- Replaced the non-actionable relaunch warning with interactive executable discovery and retry.
+- Removed stderr suppression that hid the POSIX selection prompt.
+- Added immediate POSIX child-exit detection so failed launches do not report success.
+
+## Agent-managed connection revision
+
+- Tester: `tester_agent_managed_connection`
+- Verification method: isolated local Codex profile plus focused offline Windows/POSIX checks; no real token or external Plane instance
+- Verdict: pass
+
+| Goal                           | Result | Evidence                                                                                                                                                                         |
+| ------------------------------ | ------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Agent-owned setup              | pass   | Skill guidance accepts a workspace URL and dedicated token, requires the Agent to perform setup, and includes no user-facing operating-system launcher or terminal-command step. |
+| Codex credential configuration | pass   | In an isolated user profile, setup replaced the `plane` entry, stored a static Bearer header in user-level `config.toml`, and reused the identical entry on the second run.      |
+| Configuration containment      | pass   | An unrelated MCP entry remained unchanged, the Plane profile contained no credential, and no repository or generated output contained the token.                                 |
+| Diagnosis and redaction        | pass   | Doctor loaded the saved header credential, returned `healthy`, and emitted neither the token nor a complete authorization header.                                                |
+| Focused regression             | pass   | The 18-case offline suite, PowerShell/POSIX/Python syntax checks, Skill validation, strict OpenSpec validation, and `git diff --check` passed.                                   |
+
+### Residual risks
+
+- The real Codex user-configuration path was exercised on Windows. POSIX behavior was verified through the shared offline suite rather than a native macOS/Linux Codex installation.
+- Plain-text token storage in the Agent client's user configuration is intentional for this first release and is disclosed in the Skill; use a dedicated, revocable token.

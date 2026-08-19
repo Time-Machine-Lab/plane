@@ -32,14 +32,14 @@ The base Skill SHALL contain only connection handling, safe tool-selection guida
 - **WHEN** the installed base Skill is reviewed
 - **THEN** it does not contain organization-specific work-item lifecycle, approval, deployment, or project rules
 
-### Requirement: Credential-safe behavior
+### Requirement: Credential-contained behavior
 
-The base Skill MUST NOT place API tokens in prompts, tool arguments, Plane comments, generated documentation, or repository files.
+The base Skill SHALL accept an explicitly supplied API token for first-release connection setup but MUST NOT repeat it in responses or place it in command arguments, Plane comments, generated documentation, non-secret profiles, or repository files.
 
 #### Scenario: A tool requires authentication
 
-- **WHEN** the Skill invokes an authenticated Plane MCP tool
-- **THEN** authentication is supplied by the configured MCP connection rather than the model-generated tool input
+- **WHEN** the Skill invokes an authenticated Plane MCP tool after setup
+- **THEN** authentication is supplied by the user-level MCP connection rather than a model-generated tool argument
 
 ### Requirement: Independent extension layers
 

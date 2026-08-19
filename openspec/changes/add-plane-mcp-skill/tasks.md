@@ -26,3 +26,22 @@
 - [x] 5.1 Add focused setup, idempotency, configuration-preservation, URL parsing, redaction, and doctor fixtures for Windows and POSIX behavior.
 - [x] 5.2 Confirm the independently deployed and accepted Plane MCP test endpoint from `add-plane-mcp-server`; do not duplicate the Plane deployment for this Skill-only change.
 - [x] 5.3 Have an independent Tester install the Skill in an isolated Codex profile, execute the required setup and guidance scenarios, and record pass/fail evidence in `verification.md`.
+
+## 6. Guided Connection
+
+- [x] 6.1 Add Windows and macOS/POSIX guided connection entry points that prompt for missing non-secret inputs, open the derived token-management page, and reuse the existing masked setup workflow.
+- [x] 6.2 Add process-scoped Codex relaunch handling with an actionable fallback, without persisting or printing the API token.
+- [x] 6.3 Update the core Skill and connection reference to select the operating-system-specific helper for first-time connection requests.
+
+## 7. Guided Connection Verification
+
+- [x] 7.1 Add and run focused offline regression coverage for platform routing, derived token links, setup reuse, relaunch fallback, and secret non-persistence.
+- [x] 7.2 Have a fresh independent Tester verify the amended guided-connection requirement and record the result in `verification.md`.
+
+## 8. Agent-Managed Connection Revision
+
+- [x] 8.1 Replace the user-operated guided connector contract with Agent-managed workspace URL and chat-token setup in the existing proposal, design, and specs.
+- [x] 8.2 Persist the dedicated token in the Codex user-level MCP authorization header, preserve unrelated configuration, and keep all setup and doctor output redacted.
+- [x] 8.3 Remove the user-facing operating-system launchers and update the Plane Skill so platform-specific setup adapters are invoked only by the Agent.
+- [x] 8.4 Add and run focused regression coverage for static authentication, idempotency, redaction, configuration preservation, and no-command guidance.
+- [x] 8.5 Have a fresh independent Tester verify the revised Agent-managed connection requirement and append the result to `verification.md`.

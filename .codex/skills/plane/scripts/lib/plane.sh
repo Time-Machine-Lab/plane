@@ -1,7 +1,6 @@
 #!/bin/sh
 
 PLANE_MCP_NAME=plane
-PLANE_TOKEN_VARIABLE=PLANE_API_TOKEN
 PLANE_MCP_PROTOCOL_VERSION=2025-03-26
 
 plane_python() {
@@ -37,6 +36,10 @@ plane_profile_path() {
     fi
 }
 
+plane_codex_config_path() {
+    printf '%s/config.toml\n' "$(plane_codex_home)"
+}
+
 plane_codex() {
     codex "$@"
 }
@@ -53,12 +56,18 @@ plane_assert_preflight() {
     plane_python --version >/dev/null 2>&1 || return 1
     help_output=$(plane_codex mcp add --help 2>&1) || return 1
     case "$help_output" in
-        *--bearer-token-env-var*) ;;
+        *--url*) ;;
         *)
-            printf '%s\n' "This Codex CLI does not support remote MCP bearer-token environment references." >&2
+            printf '%s\n' "This Codex CLI does not support remote HTTP MCP servers." >&2
             return 1
             ;;
     esac
+}
+
+plane_write_static_token() {
+    config_path=$(plane_codex_config_path)
+    plane_helper config-write-token --path "$config_path" || return 1
+    chmod 600 "$config_path" 2>/dev/null || true
 }
 
 plane_get_token() {
@@ -223,11 +232,13 @@ plane_setup_main() {
                 case "$answer" in y|Y|yes|YES) ;; *) printf '%s\n' "The existing plane MCP entry was not changed." >&2; return 1 ;; esac
             fi
             plane_codex mcp remove "$PLANE_MCP_NAME" >/dev/null || return 1
-            plane_codex mcp add "$PLANE_MCP_NAME" --url "$mcp_url" --bearer-token-env-var "$PLANE_TOKEN_VARIABLE" >/dev/null || return 1
+            plane_codex mcp add "$PLANE_MCP_NAME" --url "$mcp_url" >/dev/null || return 1
+            plane_write_static_token || return 1
             mcp_state=replaced
         fi
     else
-        plane_codex mcp add "$PLANE_MCP_NAME" --url "$mcp_url" --bearer-token-env-var "$PLANE_TOKEN_VARIABLE" >/dev/null || return 1
+        plane_codex mcp add "$PLANE_MCP_NAME" --url "$mcp_url" >/dev/null || return 1
+        plane_write_static_token || return 1
         mcp_state=added
     fi
 
@@ -283,6 +294,8 @@ plane_doctor_main() {
     slug=
     mcp_url=
     user=
+    PLANE_API_TOKEN=
+    export PLANE_API_TOKEN
 
     if plane_assert_preflight >/dev/null 2>&1; then
         plane_add_check codex pass local_configuration "Codex remote MCP support is available."
@@ -301,9 +314,15 @@ plane_doctor_main() {
     fi
 
     if [ -n "$mcp_url" ]; then
-        if existing=$(plane_codex mcp get "$PLANE_MCP_NAME" --json 2>/dev/null) && printf '%s' "$existing" | plane_helper config-match --url "$mcp_url"; then
+        if existing=$(plane_codex mcp get "$PLANE_MCP_NAME" --json 2>/dev/null) &&
+            PLANE_API_TOKEN=$(printf '%s' "$existing" | plane_helper config-token 2>/dev/null) &&
+            export PLANE_API_TOKEN &&
+            printf '%s' "$existing" | plane_helper config-match --url "$mcp_url" >/dev/null 2>&1
+        then
             plane_add_check mcp_configuration pass local_configuration "The plane MCP entry matches the profile."
         else
+            PLANE_API_TOKEN=
+            export PLANE_API_TOKEN
             plane_add_check mcp_configuration fail local_configuration "The plane MCP entry is missing or does not match the profile."
         fi
     else
@@ -311,7 +330,7 @@ plane_doctor_main() {
     fi
 
     if [ -z "${PLANE_API_TOKEN:-}" ]; then
-        plane_add_check authentication fail authentication "PLANE_API_TOKEN is not available in this process."
+        plane_add_check authentication fail authentication "The plane MCP entry does not contain a Bearer credential."
         plane_add_check reachability skipped reachability_tls "Skipped because connection inputs are unavailable."
         plane_add_check workspace skipped workspace_authorization "Skipped because connection inputs are unavailable."
     elif [ -n "$mcp_url" ]; then

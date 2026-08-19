@@ -23,19 +23,33 @@ The setup workflow SHALL detect the supported Codex environment and current Plan
 - **WHEN** setup cannot find the required Codex MCP configuration capability
 - **THEN** setup stops with a specific prerequisite error and does not alter configuration
 
-### Requirement: Secure connection input
+### Requirement: Agent-managed connection input
 
-Setup MUST accept a Plane workspace URL and API token without placing the token in Skill content, prompts, repository files, command history, or non-secret profile data.
+Setup SHALL let a user provide a Plane workspace URL and dedicated API token to the Agent, and the Agent SHALL complete setup without requiring the user to run a command or configure the operating system.
 
-#### Scenario: Token is entered during setup
+#### Scenario: User provides connection values
 
-- **WHEN** setup needs a Plane API token
-- **THEN** it obtains the token from an approved environment value or masked terminal input and does not echo it
+- **WHEN** a user provides a workspace URL and API token in conversation
+- **THEN** the Agent invokes the appropriate host adapter, does not repeat the token, and completes validation and MCP registration on the user's behalf
 
-#### Scenario: User attempts chat-based token entry
+#### Scenario: A connection value is missing
 
-- **WHEN** the Skill determines that a token is missing
-- **THEN** it directs the user to the masked setup workflow rather than requesting the token in conversation
+- **WHEN** the workspace URL or API token is unavailable
+- **THEN** the Skill asks only for the missing value and does not direct the user to a terminal or operating-system-specific launcher
+
+### Requirement: First-release credential persistence
+
+Setup SHALL persist an explicitly supplied token only in the current Agent client's user-level MCP authentication configuration and SHALL disclose that the token is conversation-visible and locally stored.
+
+#### Scenario: Codex connection is configured
+
+- **WHEN** the Agent validates a workspace URL and token in Codex
+- **THEN** setup stores the token as the `plane` MCP entry's static Bearer authorization header, stores no token in the repository or non-secret Plane profile, and recommends a dedicated revocable token
+
+#### Scenario: Setup output is produced
+
+- **WHEN** setup, doctor, or an error reports connection state
+- **THEN** the output contains no token value or complete authentication header
 
 ### Requirement: Connection validation before configuration
 
@@ -67,17 +81,17 @@ Setup SHALL add or update only the Plane MCP entry and SHALL preserve unrelated 
 
 #### Scenario: Different Plane MCP entry exists
 
-- **WHEN** setup finds a conflicting `plane` MCP entry
-- **THEN** it presents a clear replacement decision and makes no replacement without confirmation
+- **WHEN** setup finds a conflicting `plane` MCP entry after the user explicitly supplied the current workspace URL and token
+- **THEN** the Agent replaces only that `plane` entry using the explicit replacement option and preserves all unrelated client configuration
 
-### Requirement: Actionable restart state
+### Requirement: Actionable tool readiness
 
-Setup SHALL report whether the configured credential and MCP entry are usable by the current Codex process or require a restart or new task.
+Setup SHALL report whether the configured MCP entry is usable in the current task or requires a new task to refresh the tool catalog, without requiring a setup command or application relaunch.
 
 #### Scenario: Environment change is not visible to the current process
 
-- **WHEN** setup persists a credential reference that the running Codex process has not inherited
-- **THEN** setup reports that Codex must be restarted or a new task opened before MCP use
+- **WHEN** the running task cannot refresh its MCP catalog after setup
+- **THEN** setup reports that the user should open a new task and confirms that no terminal command or environment configuration is needed
 
 ### Requirement: Connection diagnosis
 

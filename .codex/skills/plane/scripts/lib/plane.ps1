@@ -54,6 +54,10 @@ function Get-PlaneProfilePath {
     return Join-Path (Get-PlaneCodexHome) "plane/profile.json"
 }
 
+function Get-PlaneCodexConfigPath {
+    return Join-Path (Get-PlaneCodexHome) "config.toml"
+}
+
 function ConvertTo-PlaneConnectionProfile {
     param(
         [Parameter(Mandatory = $true)]
@@ -168,8 +172,8 @@ function Assert-PlaneCodexPreflight {
         throw "Codex CLI is not installed or is not available on PATH."
     }
     $help = Invoke-PlaneCodex -Arguments @("mcp", "add", "--help")
-    if ($help.ExitCode -ne 0 -or $help.Output -notmatch '--bearer-token-env-var') {
-        throw "This Codex CLI does not support remote MCP bearer-token environment references."
+    if ($help.ExitCode -ne 0 -or $help.Output -notmatch '--url') {
+        throw "This Codex CLI does not support remote HTTP MCP servers."
     }
 }
 
@@ -186,21 +190,73 @@ function Get-PlaneMcpConfig {
     }
 }
 
+function Get-PlaneTokenFromMcpConfig {
+    param([AllowNull()]$Config)
+
+    if ($null -eq $Config -or $null -eq $Config.transport -or $null -eq $Config.transport.http_headers) {
+        return $null
+    }
+    $authorization = $Config.transport.http_headers.PSObject.Properties |
+        Where-Object { $_.Name -ieq "Authorization" } |
+        Select-Object -First 1
+    if ($null -eq $authorization -or [string]$authorization.Value -notmatch '^Bearer\s+(.+)$') {
+        return $null
+    }
+    $token = $Matches[1]
+    Assert-PlaneApiTokenSafe -Token $token
+    return $token
+}
+
 function Test-PlaneMcpConfigMatch {
     param(
         [AllowNull()]$Config,
-        [Parameter(Mandatory = $true)][string]$McpUrl
+        [Parameter(Mandatory = $true)][string]$McpUrl,
+        [Parameter(Mandatory = $true)][string]$Token
     )
 
     if ($null -eq $Config -or $null -eq $Config.transport) {
         return $false
     }
+    $configuredToken = Get-PlaneTokenFromMcpConfig -Config $Config
     return (
         $Config.enabled -ne $false -and
         $Config.transport.type -eq "streamable_http" -and
         $Config.transport.url.TrimEnd("/") -eq $McpUrl.TrimEnd("/") -and
-        $Config.transport.bearer_token_env_var -eq $script:PlaneTokenVariable
+        $configuredToken -ceq $Token
     )
+}
+
+function Set-PlaneMcpStaticToken {
+    param([Parameter(Mandatory = $true)][string]$Token)
+
+    Assert-PlaneApiTokenSafe -Token $Token
+    $path = Get-PlaneCodexConfigPath
+    if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+        throw "Codex did not create its user-level configuration file."
+    }
+    $content = Get-Content -Raw -LiteralPath $path
+    if ($content -notmatch '(?m)^\[mcp_servers\.plane\]\s*$') {
+        throw "Codex did not create the plane MCP configuration table."
+    }
+    if ($content -match '(?m)^\[mcp_servers\.plane\.http_headers\]\s*$') {
+        throw "The plane MCP authorization table already exists unexpectedly."
+    }
+
+    $newline = if ($content.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $prefix = if ($content.EndsWith("`n")) { $content } else { "$content$newline" }
+    $updated = "$prefix$newline[mcp_servers.plane.http_headers]$newline" +
+        "Authorization = `"Bearer $Token`"$newline"
+    $directory = Split-Path -Parent $path
+    $temporary = Join-Path $directory ("config.{0}.tmp" -f [Guid]::NewGuid().ToString("N"))
+    try {
+        [IO.File]::WriteAllText($temporary, $updated, [Text.UTF8Encoding]::new($false))
+        Move-Item -LiteralPath $temporary -Destination $path -Force
+    }
+    finally {
+        if (Test-Path -LiteralPath $temporary) {
+            Remove-Item -LiteralPath $temporary -Force
+        }
+    }
 }
 
 function Invoke-PlaneHttpRequest {
@@ -359,7 +415,7 @@ function Invoke-PlaneSetup {
 
     $existing = Get-PlaneMcpConfig
     $configurationChanged = $false
-    if (Test-PlaneMcpConfigMatch -Config $existing -McpUrl $profile.mcp_url) {
+    if (Test-PlaneMcpConfigMatch -Config $existing -McpUrl $profile.mcp_url -Token $token.Value) {
         $configurationState = "reused"
     }
     else {
@@ -380,11 +436,16 @@ function Invoke-PlaneSetup {
         }
         $added = Invoke-PlaneCodex -Arguments @(
             "mcp", "add", $script:PlaneMcpName,
-            "--url", $profile.mcp_url,
-            "--bearer-token-env-var", $script:PlaneTokenVariable
+            "--url", $profile.mcp_url
         )
         if ($added.ExitCode -ne 0) {
             throw (Protect-PlaneText -Text "Codex could not add the plane MCP entry: $($added.Output)" -Token $token.Value)
+        }
+        try {
+            Set-PlaneMcpStaticToken -Token $token.Value
+        }
+        catch {
+            throw (Protect-PlaneText -Text "Codex could not store the plane MCP credential: $($_.Exception.Message)" -Token $token.Value)
         }
         $configurationChanged = $true
         $configurationState = if ($null -eq $existing) { "added" } else { "replaced" }
@@ -399,10 +460,11 @@ function Invoke-PlaneSetup {
         mcp_configuration     = $configurationState
         configuration_changed = $configurationChanged
         token_source          = $token.Source
-        token_persisted       = $false
+        token_persisted       = $true
+        token_storage         = "codex_user_mcp_config"
         profile_path          = $profilePath
         new_task_required     = $true
-        restart_note          = "Open a new Codex task; restart Codex if it was launched before PLANE_API_TOKEN was available."
+        restart_note          = "Open a new Codex task if this task does not refresh the Plane MCP tool catalog. No terminal command or application relaunch is required."
     }
 }
 
@@ -473,7 +535,8 @@ function Invoke-PlaneStatusProbe {
 
 function Invoke-PlaneDoctor {
     $checks = [System.Collections.Generic.List[object]]::new()
-    $token = [Environment]::GetEnvironmentVariable($script:PlaneTokenVariable, "Process")
+    $token = $null
+    $config = $null
     $profile = $null
     $user = $null
 
@@ -496,7 +559,8 @@ function Invoke-PlaneDoctor {
     if ($null -ne $profile) {
         try {
             $config = Get-PlaneMcpConfig
-            if (-not (Test-PlaneMcpConfigMatch $config $profile.mcp_url)) {
+            $token = Get-PlaneTokenFromMcpConfig -Config $config
+            if ([string]::IsNullOrWhiteSpace($token) -or -not (Test-PlaneMcpConfigMatch $config $profile.mcp_url $token)) {
                 throw "The plane MCP entry is missing or does not match the profile."
             }
             Add-PlaneDoctorCheck $checks "mcp_configuration" "pass" "local_configuration" "The plane MCP entry matches the profile."
@@ -510,7 +574,7 @@ function Invoke-PlaneDoctor {
     }
 
     if ([string]::IsNullOrWhiteSpace($token)) {
-        Add-PlaneDoctorCheck $checks "authentication" "fail" "authentication" "PLANE_API_TOKEN is not available in this process."
+        Add-PlaneDoctorCheck $checks "authentication" "fail" "authentication" "The plane MCP entry does not contain a Bearer credential."
     }
     elseif ($null -ne $profile) {
         try {

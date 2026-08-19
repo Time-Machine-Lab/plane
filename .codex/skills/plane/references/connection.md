@@ -8,44 +8,30 @@ Setup requires a deployed Plane instance that includes the accepted `add-plane-m
 
 The distributable source is `.codex/skills/plane` in this repository. Install it from the repository path with Codex's `skill-installer`, or copy that directory unchanged to `$CODEX_HOME/skills/plane`. Restart Codex or open a new task after installation so the Skill is discovered.
 
-Windows setup requires PowerShell 7. POSIX setup requires a POSIX shell, Python 3, and curl.
+The Codex adapter requires PowerShell 7 on Windows. The POSIX adapter requires a POSIX shell, Python 3, and curl.
 
-Installing the Skill does not change MCP configuration. Run setup explicitly:
+## Agent-managed setup
 
-```powershell
-./scripts/setup.ps1 -WorkspaceUrl "https://plane.example.com/my-workspace"
-```
+The user supplies a workspace URL and a dedicated, revocable Plane API token. The Agent performs every remaining action:
 
-```sh
-./scripts/setup.sh --workspace-url "https://plane.example.com/my-workspace"
-```
+1. Detect the current Agent host and operating system.
+2. Normalize the workspace URL and derive `<origin>/mcp` plus the workspace slug.
+3. Invoke the matching setup adapter itself, supplying the token through masked stdin or a process-scoped environment facility rather than a command argument.
+4. Validate the identity, workspace access, and MCP endpoint before changing client configuration.
+5. Register or replace only the `plane` MCP entry and run doctor.
 
 Remote URLs must use HTTPS. HTTP is accepted only for loopback addresses (`localhost`, `127.0.0.1`, or `::1`) so local development and an SSH tunnel can be tested without sending the API token over an untrusted network. The first path segment is the workspace slug. For an origin-only URL, also pass `-WorkspaceSlug` or `--workspace-slug`.
 
-Setup uses an existing `PLANE_API_TOKEN` environment value or reads it with a masked terminal prompt. It never persists the token. If the prompt is used, configure the same variable through your approved secret manager or process-launch environment before starting Codex. Do not put the token on a command line, in chat, in a shell profile, or in a repository file.
+For Codex, setup creates a user-level remote MCP entry with a static `Authorization: Bearer <token>` header. This is the deliberately chosen first-release trade-off: the token is present in conversation context and stored as plain text in local Codex configuration. Use a dedicated least-privilege token and revoke or rotate it if the conversation or client profile is exposed.
 
-Setup stores only `origin` and `workspace_slug` at `$CODEX_HOME/plane/profile.json` (or the corresponding default `~/.codex/plane/profile.json`). It registers `plane` through:
+The non-secret profile at `$CODEX_HOME/plane/profile.json` (or `~/.codex/plane/profile.json`) still stores only `origin` and `workspace_slug`. Setup must never print the token, put it in a command argument, or write it to the repository, profile, generated documentation, Plane content, shell startup files, or long-lived environment configuration.
 
-```text
-codex mcp add plane --url <origin>/mcp --bearer-token-env-var PLANE_API_TOKEN
-```
+The Windows adapter is `scripts/setup.ps1`; the POSIX adapter is `scripts/setup.sh`. These are internal Skill resources for the Agent, not commands the user must run.
 
-An identical entry is reused. A different entry is not replaced without confirmation; non-interactive callers must pass the explicit replacement flag.
+An identical URL and credential are reused. Supplying a current workspace URL and token authorizes the Agent to pass the explicit replacement option for the `plane` entry only; unrelated MCP and Codex configuration must remain unchanged.
 
 ## Diagnose
 
-Run doctor from a terminal that already has `PLANE_API_TOKEN`:
+The Agent invokes `scripts/doctor.ps1` on Windows or `scripts/doctor.sh` on POSIX. Doctor reads the configured Bearer credential internally and checks the local profile, MCP configuration, reachability/TLS, API-token authentication, workspace access, and a read-only `plane_status` probe. Output is redacted.
 
-```powershell
-./scripts/doctor.ps1
-./scripts/doctor.ps1 -Json
-```
-
-```sh
-./scripts/doctor.sh
-./scripts/doctor.sh --json
-```
-
-Doctor checks local profile and MCP configuration, reachability/TLS, API-token authentication, workspace access, and a read-only `plane_status` probe through Codex's built-in MCP client. Use the JSON form for automation. Output is redacted.
-
-After setup or an environment change, open a new Codex task. Restart the Codex desktop app if it was launched before `PLANE_API_TOKEN` became available to its environment.
+If the current task does not refresh its MCP catalog after setup, the Agent tells the user to open a new task. No terminal command, environment configuration, or application relaunch is required.
