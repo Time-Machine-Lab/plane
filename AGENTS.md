@@ -24,17 +24,18 @@
 
 - Before planning or editing code, read `docs/spec/README.md` and the standards it maps to the affected paths.
 - Read `docs/spec/module-structure.md` before adding or moving directories, packages, or runtime modules.
-- Read `docs/spec/test-environment.md` before deploying or testing a runtime change.
+- Read `docs/spec/test-environment.md` before using the shared test environment or deploying a runtime change.
 - More specific `AGENTS.md` files still apply inside their directory scope.
 
 ## OpenSpec workflow
 
 - Use OpenSpec for product changes. Its artifact rules are defined in `openspec/config.yaml`.
 - Keep artifacts proportional to the change. A design is needed only when architectural decisions, contracts, migrations, or rollout behavior require explanation.
-- The default runtime flow is: OpenSpec -> development -> affected CI checks/tests -> one `scripts/test/deploy-test.ps1` deployment -> independent Tester acceptance.
-- Evidence has one owner: pre-commit owns staged formatting/lint, CI owns affected static checks and automated tests, the deploy script owns migration/startup/health, and the Tester owns user-visible workflows.
-- Keep automated coverage focused on logic and risk boundaries such as authorization, secrets, data isolation, migrations, serialization, and event behavior. Do not introduce a new test harness for one isolated screen.
-- The Tester groups required scenarios into 3-7 minimal user journeys, uses persistent test accounts and data, and does not rerun CI commands or inspect normal-success logs.
-- A missing credential, account, observer, or usable environment is `blocked`, not a product failure. `fail` means the deployed product behaved incorrectly.
-- If acceptance fails, the implementation Agent fixes and redeploys; the same Tester retests the failed journey and one necessary nearby regression instead of repeating the full acceptance set.
-- Documentation-only and static-only changes do not require runtime deployment. Record concise `pass`/`fail`/`blocked` evidence in `openspec/changes/<change>/verification.md`; do not complete or archive while a required journey is failing or blocked.
+- The default flow is: OpenSpec -> development and necessary checks -> verification by a new Tester sub-agent that did not participate in implementation -> completion or focused rework.
+- The implementation Agent performs development checks but does not issue the final acceptance verdict. The primary Agent must create a fresh Tester sub-agent after implementation.
+- Automated tests are added or run only when they provide clear regression value for the affected logic or risk boundary. Do not introduce a new test harness for one isolated screen.
+- The Tester independently verifies only the requirement goal, directly affected behavior, and any necessary adjacent regression. There is no fixed journey count, and the Tester does not modify product code.
+- Use static, offline, or local verification when sufficient. Only when the core goal requires a runtime environment should `scripts/test/deploy-test.ps1` deploy the affected services, without deploying or testing unrelated areas.
+- A missing prerequisite is `blocked` only when it prevents validation of the core requirement. Skipping unrelated checks, unnecessary deployment, or an unauthorized third-party call is not blocked.
+- If acceptance fails, the implementation Agent fixes the affected scope and the same Tester rechecks only the failure and necessary adjacent behavior.
+- Create `openspec/changes/<change>/verification.md` only when OpenSpec, the user, or the change risk requires durable evidence. Do not complete or archive before independent Tester verification passes.

@@ -7,15 +7,17 @@ Before creating or editing an artifact, read `../docs/spec/README.md` and the mo
 - Proposal: state the goal, scope, non-goals, affected modules, and applicable standards.
 - Specs: describe observable requirements and scenarios, including important failure and authorization behavior.
 - Design: document only decisions that need explanation, such as cross-module contracts, migrations, compatibility, rollout, or rollback.
-- Tasks: keep the plan proportional and separate implementation, automated verification, one runtime deployment, and independent acceptance.
+- Tasks: keep the plan proportional and separate implementation, necessary development checks, and independent Tester verification. Add automated tests or runtime deployment only when the requirement and risk make them necessary.
 
 Do not copy command matrices or test levels into artifacts. Do not require a new test harness for one isolated screen or make
-the Tester rerun CI checks. The evidence owners, deployment entry point, and acceptance process are defined by
+the Tester rerun implementation checks. Validation selection, the optional deployment entry point, and acceptance are defined by
 `../docs/spec/testing-quality.md` and `../docs/spec/test-environment.md`.
 
-After affected CI checks and tests pass, deploy runtime changes once with `scripts/test/deploy-test.ps1`, then hand the change
-to an independent Tester. The Tester groups required scenarios into 3-7 minimal user journeys, uses persistent test accounts
-and data, leaves product code unchanged, and writes `changes/<change>/verification.md`. If verification fails, the
-implementation Agent fixes and redeploys; the same Tester retests the failed journey and one necessary nearby regression.
-Use `blocked` for missing environment prerequisites and `fail` only for incorrect product behavior. Do not complete or
-archive a change with a failing, blocked, or untested required journey.
+After implementation and necessary development checks, the primary Agent MUST create a new Tester sub-agent that did not
+participate in implementation. The Tester independently reads the requirements, leaves product code unchanged, and uses the
+least expensive sufficient method: static, offline, local, or test-environment validation. Deploy with
+`scripts/test/deploy-test.ps1` only when the core goal requires a runtime environment, and deploy only affected services.
+Do not require a fixed number of journeys or a `verification.md` unless OpenSpec, the user, or the change risk requires a
+durable record. If validation fails, the implementation Agent fixes the issue and the same Tester rechecks only the failed
+scope and necessary adjacent behavior. Use `blocked` only when the core goal cannot be validated because a required
+prerequisite is unavailable. Do not complete or archive a change before independent Tester verification passes.

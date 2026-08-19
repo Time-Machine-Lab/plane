@@ -1,7 +1,8 @@
 # 测试环境 Runbook
 
-本 Runbook 是日常运行时验收的唯一入口。Windows 不需要 Docker、Docker Compose 或 WSL2。受影响的静态检查和
-自动化测试由 CI 负责；开发完成后只执行一次测试部署，再由独立 Tester 验证当前 OpenSpec 用户旅程。
+本 Runbook 只用于确实需要运行环境才能确认目标的需求。Windows 不需要 Docker、Docker Compose 或 WSL2。
+本地或离线能够完整验证的改动不进入本流程；需要测试环境时，只部署受影响服务，再由未参与实现的 Tester
+子 Agent 验证本次需求目标。
 
 ## 首次初始化
 
@@ -51,9 +52,9 @@ Admin 用于管理场景，Member 用于普通协作，Guest 用于低权限验�
 远端初始化和所有写操作只能发生在私密配置指定的 Plane 测试根目录及 Compose project 内。不得扫描、停止、
 修改或删除服务器上的其他项目、容器、网络、卷和数据。禁止全局 Docker prune 和销毁数据卷。
 
-## 日常部署
+## 按需部署
 
-开发完成后只运行：
+当需求必须依赖测试环境验证时运行：
 
 ```powershell
 .\scripts\test\deploy-test.ps1
@@ -83,14 +84,14 @@ Get-Help .\scripts\test\deploy-test.ps1 -Detailed
 
 ## 测试
 
-部署成功后，由独立 Tester 执行验收：
+部署成功后，由主 Agent 创建一个未参与实现的新 Tester 子 Agent 执行验收：
 
 1. 读取当前 OpenSpec 的 proposal、specs、design（存在时）和 tasks。
 2. 使用部署脚本输出的测试地址确认 Plane 和关键 API 可访问。
 3. 从 `.secrets/plane-test.env` 读取适合场景的默认账号，并确认第三方凭据、观察渠道等前置条件；不得输出凭据。
-4. 把相邻必需场景组合成 3-7 条最小用户旅程，验证用户可见结果和一条必要的相邻回归。
-5. 不重复 CI 检查，不在正常成功路径分析日志，不手工排列可由 mocked contract test 覆盖的网络异常。
-6. 把脱敏的 `pass`/`fail`/`blocked` 结果写入 `openspec/changes/<change>/verification.md`。
+4. 使用完成需求目标所需的最少场景，验证本次改动和确有必要的相邻回归，不设置固定数量。
+5. 不重复实现 Agent 的开发检查，不在正常成功路径分析日志，不手工排列与需求无关的异常。
+6. 在交付说明中记录脱敏结果；只有 OpenSpec、用户或风险明确要求时才写入 `verification.md`。
 
 公网端口不可达时，使用部署脚本提供的 `http://localhost:8000` SSH 隧道验收，不擅自修改云安全组或服务器
 防火墙。本地前端默认由脚本接入同一测试 API；允许的 CORS、CSRF 和 Cookie 设置由测试环境配置维护。
@@ -101,8 +102,9 @@ Get-Help .\scripts\test\deploy-test.ps1 -Detailed
 ## 失败处理
 
 - 部署脚本失败：保留脱敏错误，开发 Agent 修复后重新运行同一部署命令；未成功部署的版本不能进入功能验收。
-- 场景失败：Tester 记录复现步骤和实际结果，开发 Agent 修复并重新部署，原 Tester 只复测失败旅程和一条必要回归。
-- 环境、账号、凭据或观察渠道不可用：结果记为 `blocked`，记录责任方和下一步；不能以代码审查代替验收，也不能记为产品 `fail`。
+- 场景失败：Tester 记录复现步骤和实际结果，开发 Agent 修复；需要重新部署时只部署受影响服务，原 Tester 只复验失败范围和必要的相邻回归。
+- 环境、账号、凭据或观察渠道不可用且导致需求核心目标无法验证：结果记为 `blocked`，记录缺失条件和下一步；
+  与核心目标无关或未经授权的外部验证直接跳过，不构成 `blocked`，也不能记为产品 `fail`。
 - 部署锁冲突：不要强删未知锁；确认其他部署结束后再重试。
 - 应用健康检查失败：脚本可以恢复上一应用版本，但不得清空持久数据。数据库 migration 无法自动逆转时必须明确报告回滚限制。
 
