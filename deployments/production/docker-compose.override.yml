@@ -11,6 +11,9 @@ services:
   live:
     image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-live:${APP_RELEASE:?APP_RELEASE must be set}
 
+  mcp:
+    image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-mcp:${APP_RELEASE:?APP_RELEASE must be set}
+
   api:
     image: ${DOCKER_USERNAME:?DOCKER_USERNAME must be set}/plane-api:${APP_RELEASE:?APP_RELEASE must be set}
 

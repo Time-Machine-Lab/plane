@@ -10,6 +10,9 @@
     handle /live/* {
         reverse_proxy localhost:3005
     }
+	handle /mcp* {
+        reverse_proxy localhost:3006
+    }
 	handle /api/* {
         reverse_proxy localhost:3004
     }

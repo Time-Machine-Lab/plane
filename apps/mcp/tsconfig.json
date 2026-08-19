@@ -1,0 +1,15 @@
+{
+  "extends": "@plane/typescript-config/base.json",
+  "compilerOptions": {
+    "exactOptionalPropertyTypes": false,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["src", "tests", "tsdown.config.ts", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist"]
+}

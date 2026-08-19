@@ -17,6 +17,7 @@ print_header(){
     echo "    APP_PROTOCOL (http or https)"
     echo "    SECRET_KEY (auto-generated on first boot if not set)"
     echo "    LIVE_SERVER_SECRET_KEY (auto-generated on first boot if not set)"
+    echo "    MCP_ENABLED (default: 'false')"
     echo ""
     echo ""
 }
@@ -128,6 +129,9 @@ update_env_file(){
         update_env_value "SITE_ADDRESS" ":80"
     fi
     update_env_value "WEB_URL" "$app_protocol://$DOMAIN_NAME"
+    update_env_value "PLANE_BASE_URL" "$app_protocol://$DOMAIN_NAME"
+    update_env_value "PLANE_API_BASE_URL" "http://localhost:3004/api/v1"
+    update_env_value "MCP_ENABLED" "${MCP_ENABLED:-false}"
     update_env_value "CORS_ALLOWED_ORIGINS" "http://$DOMAIN_NAME,https://$DOMAIN_NAME"
 
     # update database url

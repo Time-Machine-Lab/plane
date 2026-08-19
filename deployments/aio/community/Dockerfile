@@ -11,6 +11,7 @@ FROM makeplane/plane-backend:${PLANE_VERSION} AS backend-img
 FROM makeplane/plane-space:${PLANE_VERSION} AS space-img
 FROM makeplane/plane-admin:${PLANE_VERSION} AS admin-img
 FROM makeplane/plane-live:${PLANE_VERSION} AS live-img
+FROM makeplane/plane-mcp:${PLANE_VERSION} AS mcp-img
 FROM makeplane/plane-proxy:${PLANE_VERSION} AS proxy-img
 
 # **************************************************
@@ -35,6 +36,7 @@ COPY --from=web-img /usr/share/nginx/html /app/web
 COPY --from=space-img /app /app/space
 COPY --from=admin-img /usr/share/nginx/html/god-mode /app/admin
 COPY --from=live-img /app /app/live
+COPY --from=mcp-img /app /app/mcp
 
 RUN rm -rf /app/space/apps/space/.next/cache
 

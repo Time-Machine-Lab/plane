@@ -18,7 +18,8 @@ upsert_env() {
 
   case "${key}" in
     APP_RELEASE | APP_DOMAIN | WEB_URL | CORS_ALLOWED_ORIGINS | SITE_ADDRESS | LISTEN_HTTP_PORT | LISTEN_HTTPS_PORT | \
-      CERT_EMAIL | CERT_ACME_CA | CERT_ACME_DNS | ADMIN_BASE_URL | SPACE_BASE_URL | APP_BASE_URL | LIVE_BASE_URL) ;;
+      CERT_EMAIL | CERT_ACME_CA | CERT_ACME_DNS | ADMIN_BASE_URL | SPACE_BASE_URL | APP_BASE_URL | LIVE_BASE_URL | \
+      MCP_ENABLED | PLANE_BASE_URL | PLANE_API_BASE_URL) ;;
     *) die "Refusing to update unsupported environment key: ${key}" ;;
   esac
 
@@ -99,6 +100,9 @@ APP_BASE_URL=${base_url}
 APP_BASE_PATH=
 LIVE_BASE_URL=${base_url}
 LIVE_BASE_PATH=/live
+MCP_ENABLED=true
+PLANE_BASE_URL=${base_url}
+PLANE_API_BASE_URL=http://api:8000/api/v1
 COOKIE_DOMAIN=
 EOF
   chmod 600 "${shared_env}"
@@ -107,11 +111,27 @@ EOF
 
 write_compose_override() {
   local override="${release_dir}/docker-compose.test.override.yml"
-  if [[ "${bootstrap_mode}" == true || -n "${selected[fixtures]:-}" ]]; then
+  if [[ -n "${selected[fixtures]:-}" ]]; then
     printf 'services: {}\n' >"${override}"
     return
   fi
   printf 'services:\n' >"${override}"
+
+  if [[ "${bootstrap_mode}" == true ]]; then
+    cat >>"${override}" <<EOF
+  mcp:
+    image: "${project}-mcp:${release}"
+    build:
+      context: "${release_dir}"
+      dockerfile: "./apps/mcp/Dockerfile.mcp"
+  proxy:
+    image: "${project}-proxy:${release}"
+    build:
+      context: "${release_dir}/apps/proxy"
+      dockerfile: "Dockerfile.ce"
+EOF
+    return
+  fi
 
   for frontend in web admin space; do
     if [[ -n "${selected[${frontend}]:-}" ]]; then
@@ -160,6 +180,16 @@ EOF
 EOF
   fi
 
+  if [[ -n "${selected[mcp]:-}" ]]; then
+    cat >>"${override}" <<EOF
+  mcp:
+    image: "${project}-mcp:${release}"
+    build:
+      context: "${release_dir}"
+      dockerfile: "./apps/mcp/Dockerfile.mcp"
+EOF
+  fi
+
   if [[ -n "${selected[proxy]:-}" ]]; then
     cat >>"${override}" <<EOF
   proxy:
@@ -189,8 +219,10 @@ health_check() {
   for _ in $(seq 1 45); do
     if curl --fail --silent --max-time 10 "${local_url}" >/dev/null 2>&1 \
       && "${compose[@]}" exec -T api python -c \
-        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=10).read()" >/dev/null 2>&1; then
-      echo "Proxy and API health checks passed."
+        "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/', timeout=10).read()" >/dev/null 2>&1 \
+      && "${compose[@]}" exec -T mcp node -e \
+        "fetch('http://127.0.0.1:3100/health').then(r=>{if(!r.ok)process.exit(1)})" >/dev/null 2>&1; then
+      echo "Proxy, API, and MCP health checks passed."
       return 0
     fi
     sleep 4
@@ -203,7 +235,7 @@ rollback_on_error() {
   trap - ERR
   set +e
   echo "Deployment ${release} failed (exit ${exit_code})." >&2
-  "${compose[@]}" logs --tail=100 api proxy >&2
+  "${compose[@]}" logs --tail=100 api mcp proxy >&2
   if [[ -n "${previous_release_dir}" && -d "${previous_release_dir}" && "${#previous_images[@]}" -gt 0 ]]; then
     echo "Restoring the previously running images for the affected Plane services." >&2
     ln -sfn "${previous_release_dir}" "${root}/current"
@@ -224,12 +256,16 @@ rollback_on_error() {
       --file "${previous_release_dir}/docker-compose.test.override.yml"
       --file "${rollback_override}"
     )
-    "${previous_compose[@]}" up -d --no-build "${start_services[@]}" >&2
+    local -a restore_services=()
+    for service in "${!previous_images[@]}"; do restore_services+=("${service}"); done
+    if [[ "${#restore_services[@]}" -gt 0 ]]; then
+      "${previous_compose[@]}" up -d --no-build "${restore_services[@]}" >&2
+    fi
   else
     echo "No previously running affected images are available for automatic application rollback." >&2
     if [[ "${bootstrap_mode:-false}" == true ]]; then
       echo "Removing failed Plane application containers while preserving infrastructure and volumes." >&2
-      "${compose[@]}" rm -s -f proxy web admin space live api worker beat-worker >&2
+      "${compose[@]}" rm -s -f proxy web admin space live mcp api worker beat-worker >&2
     fi
   fi
   if [[ -n "${release_dir:-}" && "${release_dir}" == "${root}/releases/"* && -d "${release_dir}" ]]; then
@@ -363,6 +399,9 @@ else
   upsert_env SPACE_BASE_URL "${base_url}"
   upsert_env APP_BASE_URL "${base_url}"
   upsert_env LIVE_BASE_URL "${base_url}"
+  upsert_env MCP_ENABLED "true"
+  upsert_env PLANE_BASE_URL "${base_url}"
+  upsert_env PLANE_API_BASE_URL "http://api:8000/api/v1"
 fi
 mkdir -p "${release_dir}/apps/api"
 ln -sfn "${shared_env}" "${release_dir}/.env"
@@ -385,7 +424,7 @@ declare -A selected=()
 for service in "${requested_services[@]}"; do
   case "${service}" in
     all) selected[all]=1 ;;
-    web | admin | space | api | worker | beat-worker | live | proxy | fixtures) selected["${service}"]=1 ;;
+    web | admin | space | api | worker | beat-worker | live | mcp | proxy | fixtures) selected["${service}"]=1 ;;
     *) die "Unsupported service: ${service}" ;;
   esac
 done
@@ -404,10 +443,11 @@ declare -a build_services=()
 declare -a start_services=()
 run_migrator=false
 if [[ "${bootstrap_mode}" == true ]]; then
-  start_services=(web admin space api worker beat-worker live proxy)
+  start_services=(web admin space api worker beat-worker live mcp proxy)
+  build_services=(mcp proxy)
   run_migrator=true
 else
-  for service in web admin space live proxy; do
+  for service in web admin space live mcp proxy; do
     if [[ -n "${selected[${service}]:-}" ]]; then
       build_services+=("${service}")
       start_services+=("${service}")
@@ -453,7 +493,8 @@ if [[ "${run_migrator}" == true && -n "${previous_release_dir}" ]]; then
 fi
 
 if [[ "${bootstrap_mode}" == true ]]; then
-  echo "Bootstrapping Plane from prebuilt makeplane images tagged ${bootstrap_release}; no source images will be built."
+  echo "Bootstrapping Plane from prebuilt makeplane images tagged ${bootstrap_release} with source MCP and proxy images."
+  "${compose[@]}" build "${build_services[@]}"
 elif [[ "${#build_services[@]}" -gt 0 ]]; then
   echo "Building only affected source services: ${build_services[*]}"
   "${compose[@]}" build "${build_services[@]}"

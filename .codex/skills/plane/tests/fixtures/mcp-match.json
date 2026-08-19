@@ -1,0 +1,9 @@
+{
+  "name": "plane",
+  "enabled": true,
+  "transport": {
+    "type": "streamable_http",
+    "url": "https://plane.example.com/mcp",
+    "bearer_token_env_var": "PLANE_API_TOKEN"
+  }
+}

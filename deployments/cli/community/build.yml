@@ -23,6 +23,12 @@ services:
       context: ../../
       dockerfile: apps/live/Dockerfile.live
 
+  mcp:
+    image: ${DOCKERHUB_USER:-local}/plane-mcp:${APP_RELEASE:-latest}
+    build:
+      context: ../../
+      dockerfile: apps/mcp/Dockerfile.mcp
+
   api:
     image: ${DOCKERHUB_USER:-local}/plane-backend:${APP_RELEASE:-latest}
     build:

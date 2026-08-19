@@ -84,6 +84,26 @@ services:
     ports:
       - "8000:8000"
 
+  mcp:
+    build:
+      context: .
+      dockerfile: ./apps/mcp/Dockerfile.mcp
+      args:
+        DOCKER_BUILDKIT: 1
+    restart: unless-stopped
+    networks:
+      - dev_env
+    environment:
+      MCP_ENABLED: ${MCP_ENABLED:-true}
+      PLANE_API_BASE_URL: ${PLANE_API_BASE_URL:-http://api:8000/api/v1}
+      PLANE_BASE_URL: ${WEB_URL:-http://localhost:3000}
+      PLANE_API_TIMEOUT_MS: ${PLANE_API_TIMEOUT_MS:-10000}
+      PLANE_API_RESPONSE_LIMIT_BYTES: ${PLANE_API_RESPONSE_LIMIT_BYTES:-1048576}
+    depends_on:
+      - api
+    ports:
+      - "3100:3100"
+
   worker:
     build:
       context: ./apps/api

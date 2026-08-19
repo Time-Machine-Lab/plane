@@ -1,6 +1,6 @@
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet("auto", "all", "web", "admin", "space", "api", "worker", "beat-worker", "live", "proxy", "fixtures")]
+    [ValidateSet("auto", "all", "web", "admin", "space", "api", "worker", "beat-worker", "live", "mcp", "proxy", "fixtures")]
     [string[]]$Services = @("auto"),
 
     [string]$ConfigPath,
@@ -29,7 +29,7 @@ function Get-PythonCommand {
 
 function Test-PlaneReady {
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:8000/api/instances/" -Method Get -TimeoutSec 5 -UseBasicParsing
+        $response = Invoke-WebRequest -Uri "http://127.0.0.1:8000/api/instances/" -Method Get -TimeoutSec 5 -UseBasicParsing
         return $response.StatusCode -ge 200 -and $response.StatusCode -lt 500
     }
     catch {
@@ -94,10 +94,11 @@ function Resolve-AutoServices {
             '^apps/admin/' { [void]$selected.Add("admin"); continue }
             '^apps/space/' { [void]$selected.Add("space"); continue }
             '^apps/live/' { [void]$selected.Add("live"); continue }
+            '^apps/mcp/' { [void]$selected.Add("mcp"); continue }
             '^apps/proxy/' { [void]$selected.Add("proxy"); continue }
             '^scripts/test/' { [void]$selected.Add("fixtures"); continue }
             '^packages/' {
-                foreach ($service in @("web", "admin", "space", "live")) { [void]$selected.Add($service) }
+                foreach ($service in @("web", "admin", "space", "live", "mcp")) { [void]$selected.Add($service) }
                 continue
             }
             '^(docker-compose\.yml|pnpm-lock\.yaml|pnpm-workspace\.yaml|package\.json|turbo\.json)$' {
@@ -127,8 +128,8 @@ function Invoke-RequiredCheck {
 
         $frontendApps = @($SelectedServices | Where-Object { $_ -in @("web", "admin", "space") })
         if ($SelectedServices -contains "all") { $frontendApps = @("web", "admin", "space") }
-        if (($frontendApps.Count -gt 0 -or $SelectedServices -contains "live" -or $SelectedServices -contains "all") -and -not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
-            throw "pnpm is required for the selected frontend or live service checks"
+        if (($frontendApps.Count -gt 0 -or $SelectedServices -contains "live" -or $SelectedServices -contains "mcp" -or $SelectedServices -contains "all") -and -not (Get-Command pnpm -ErrorAction SilentlyContinue)) {
+            throw "pnpm is required for the selected frontend, live, or MCP service checks"
         }
         foreach ($app in $frontendApps) {
             & pnpm turbo run check:types --filter=$app
@@ -137,6 +138,10 @@ function Invoke-RequiredCheck {
         if ($SelectedServices -contains "live" -or $SelectedServices -contains "all") {
             & pnpm turbo run check:types --filter=live
             if ($LASTEXITCODE -ne 0) { throw "Type check failed for live with exit code $LASTEXITCODE" }
+        }
+        if ($SelectedServices -contains "mcp" -or $SelectedServices -contains "all") {
+            & pnpm turbo run check:types --filter=mcp
+            if ($LASTEXITCODE -ne 0) { throw "Type check failed for MCP with exit code $LASTEXITCODE" }
         }
         if ($SelectedServices -contains "api" -or $SelectedServices -contains "worker" -or $SelectedServices -contains "beat-worker" -or $SelectedServices -contains "all") {
             & $SystemPython -m compileall -q apps/api/plane
@@ -217,7 +222,7 @@ if ($LASTEXITCODE -ne 0) { throw "Private test configuration validation failed" 
 $selectedServices = @($Services | Select-Object -Unique)
 if ($selectedServices -contains "auto") {
     if ($selectedServices.Count -ne 1) { throw "Use -Services auto by itself" }
-    $selectedServices = Resolve-AutoServices -Paths (Get-ChangedPaths -RepoRoot $repoRoot)
+    $selectedServices = @(Resolve-AutoServices -Paths (Get-ChangedPaths -RepoRoot $repoRoot))
 }
 if ($selectedServices -contains "all" -and $selectedServices.Count -ne 1) { throw "Use -Services all by itself" }
 
@@ -260,7 +265,7 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Deployment failed with exit code $LASTEXITCODE" }
         Ensure-TestTunnel -Python $transportPython -Helper $helper -Config $ConfigPath -RepoRoot $repoRoot `
             -RuntimeRoot $runtimeRoot
-        Write-Host "Test Plane: http://localhost:8000"
+        Write-Host "Test Plane: http://127.0.0.1:8000"
     }
 }
 finally {
