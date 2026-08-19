@@ -17,6 +17,12 @@
     "choose_project": "Chọn dự án...",
     "skip_backward_state_movement": "Ngăn các vấn đề chuyển về trạng thái trước đó do cập nhật PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Bản tóm tắt công việc hằng ngày",
+      "description": "Mỗi ngày lúc 08:00 theo múi giờ của không gian làm việc đã chọn, bản tóm tắt các mục công việc đang hoạt động có ngày bắt đầu là hôm nay hoặc sớm hơn sẽ được gửi."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Kết nối và đồng bộ các mục công việc GitHub của bạn với Plane",

@@ -17,6 +17,12 @@
     "choose_project": "Alege Proiectul...",
     "skip_backward_state_movement": "Împiedică mutarea problemelor într-o stare anterioară din cauza actualizărilor PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Rezumat zilnic al elementelor de lucru",
+      "description": "În fiecare zi, la 08:00, în fusul orar al spațiului de lucru selectat, se trimite un rezumat al elementelor de lucru active a căror dată de început este astăzi sau mai devreme."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Conectează și sincronizează elementele tale de lucru GitHub cu Plane",

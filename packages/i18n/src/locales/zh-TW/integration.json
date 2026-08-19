@@ -17,6 +17,12 @@
     "choose_project": "選擇專案...",
     "skip_backward_state_movement": "防止因 PR 更新而將問題移回較早的狀態"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "每日任務簡報",
+      "description": "每天 08:00 依所選工作區的時區，傳送開始日期為今天或更早的進行中任務簡報。"
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "將您的 GitHub 工作項目與 Plane 連接並同步",
