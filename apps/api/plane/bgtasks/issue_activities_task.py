@@ -1514,6 +1514,7 @@ def issue_activity(
     notification=False,
     origin=None,
     intake=None,
+    discord_assignee_ids=None,
 ):
     try:
         issue_activities = []
@@ -1599,7 +1600,12 @@ def issue_activity(
                 current_instance=current_instance,
             )
 
-        if type in {"issue.activity.created", "issue.activity.updated"}:
+        if type in {
+            "issue.activity.created",
+            "issue.activity.updated",
+            "comment.activity.created",
+            "comment.activity.updated",
+        }:
             discord_issue_notification.delay(
                 activity_type=type,
                 requested_data=requested_data,
@@ -1607,6 +1613,8 @@ def issue_activity(
                 issue_id=issue_id,
                 actor_id=actor_id,
                 origin=origin,
+                assignee_ids=discord_assignee_ids,
+                event_timestamp=epoch,
             )
 
         return

@@ -17,6 +17,20 @@
     "choose_project": "Proje Seçin...",
     "skip_backward_state_movement": "PR güncellemeleri nedeniyle sorunların önceki bir duruma taşınmasını önle"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Günlük iş öğesi özeti",
+      "description": "Seçilen çalışma alanının saat diliminde her gün 08:00'da, başlangıç tarihi bugün veya daha önce olan etkin iş öğelerinin özeti gönderilir."
+    },
+    "user_mentioned": {
+      "label": "Sizden bahsedildi",
+      "description": "Bir iş öğesinde veya herkese açık Plane sayfasında yeni bahsedilen eşlenmiş üyeleri bilgilendirin."
+    },
+    "comment_activity": {
+      "label": "İş öğenizde yeni yorum",
+      "description": "Bir yorum eklendiğinde veya yeni bahsedildiğinde eşlenmiş sorumluları bilgilendirin."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "GitHub iş öğelerinizi Plane ile bağlayın ve senkronize edin",

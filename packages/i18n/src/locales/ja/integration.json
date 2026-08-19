@@ -17,6 +17,20 @@
     "choose_project": "プロジェクトを選択...",
     "skip_backward_state_movement": "PRの更新により課題が以前の状態に戻ることを防ぐ"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "日次作業項目サマリー",
+      "description": "選択したワークスペースのタイムゾーンで毎日 08:00 に、開始日が当日以前のアクティブな作業項目のサマリーを送信します。"
+    },
+    "user_mentioned": {
+      "label": "あなたがメンションされました",
+      "description": "作業項目または公開 Plane ページで新たにメンションされた連携済みメンバーに通知します。"
+    },
+    "comment_activity": {
+      "label": "作業項目への新しいコメント",
+      "description": "コメントが追加された場合、または新たにメンションされた場合に、連携済みの担当者へ通知します。"
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "GitHubの作業項目をPlaneと連携・同期します。",

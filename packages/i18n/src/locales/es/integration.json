@@ -17,6 +17,20 @@
     "choose_project": "Elegir proyecto...",
     "skip_backward_state_movement": "Evitar que los issues vuelvan a un estado anterior debido a actualizaciones de PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Resumen diario de elementos de trabajo",
+      "description": "Todos los días a las 08:00, según la zona horaria del espacio de trabajo seleccionado, se envía un resumen de los elementos de trabajo activos cuya fecha de inicio sea hoy o anterior."
+    },
+    "user_mentioned": {
+      "label": "Se le ha mencionado",
+      "description": "Notificar a los miembros vinculados cuando se les mencione por primera vez en un elemento de trabajo o una página pública de Plane."
+    },
+    "comment_activity": {
+      "label": "Nuevo comentario en su elemento de trabajo",
+      "description": "Notificar a los responsables vinculados cuando se añada un comentario o se les mencione por primera vez."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Conecta y sincroniza tus elementos de trabajo de GitHub con Plane",

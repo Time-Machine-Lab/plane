@@ -17,6 +17,20 @@
     "choose_project": "Alege Proiectul...",
     "skip_backward_state_movement": "Împiedică mutarea problemelor într-o stare anterioară din cauza actualizărilor PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Rezumat zilnic al elementelor de lucru",
+      "description": "În fiecare zi, la 08:00, în fusul orar al spațiului de lucru selectat, se trimite un rezumat al elementelor de lucru active a căror dată de început este astăzi sau mai devreme."
+    },
+    "user_mentioned": {
+      "label": "Ați fost menționat",
+      "description": "Notifică membrii asociați când sunt menționați pentru prima dată într-un element de lucru sau într-o pagină Plane publică."
+    },
+    "comment_activity": {
+      "label": "Comentariu nou la elementul dumneavoastră de lucru",
+      "description": "Notifică responsabilii asociați când este adăugat un comentariu sau sunt menționați pentru prima dată."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Conectează și sincronizează elementele tale de lucru GitHub cu Plane",

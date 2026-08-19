@@ -17,6 +17,20 @@
     "choose_project": "Pilih Projek...",
     "skip_backward_state_movement": "Cegah item berpindah ke status sebelumnya karena pembaruan PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Ringkasan item kerja harian",
+      "description": "Setiap hari pukul 08.00 dalam zona waktu ruang kerja yang dipilih, ringkasan item kerja aktif dengan tanggal mulai hari ini atau sebelumnya akan dikirim."
+    },
+    "user_mentioned": {
+      "label": "Anda disebut",
+      "description": "Beri tahu anggota yang dipetakan saat mereka baru disebut dalam item kerja atau halaman Plane publik."
+    },
+    "comment_activity": {
+      "label": "Komentar baru pada item kerja Anda",
+      "description": "Beri tahu penerima tugas yang dipetakan saat komentar ditambahkan atau baru menyebut mereka."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Hubungkan dan sinkronkan item kerja GitHub Anda dengan Plane",

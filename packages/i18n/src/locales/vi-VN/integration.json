@@ -17,6 +17,20 @@
     "choose_project": "Chọn dự án...",
     "skip_backward_state_movement": "Ngăn các vấn đề chuyển về trạng thái trước đó do cập nhật PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Bản tóm tắt công việc hằng ngày",
+      "description": "Mỗi ngày lúc 08:00 theo múi giờ của không gian làm việc đã chọn, bản tóm tắt các mục công việc đang hoạt động có ngày bắt đầu là hôm nay hoặc sớm hơn sẽ được gửi."
+    },
+    "user_mentioned": {
+      "label": "Bạn đã được đề cập",
+      "description": "Thông báo cho thành viên đã liên kết khi họ mới được đề cập trong mục công việc hoặc trang Plane công khai."
+    },
+    "comment_activity": {
+      "label": "Bình luận mới trên mục công việc của bạn",
+      "description": "Thông báo cho người được giao đã liên kết khi có bình luận mới hoặc họ mới được đề cập."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Kết nối và đồng bộ các mục công việc GitHub của bạn với Plane",

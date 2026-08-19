@@ -8,6 +8,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { Button } from "@plane/propel/button";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
+import { useTranslation } from "@plane/i18n";
 import type {
   IDiscordConfiguration,
   IDiscordConfigurationUpdate,
@@ -43,12 +44,14 @@ const EVENT_OPTIONS: { key: TDiscordEventKey; label: string; description: string
 const DISCORD_USER_ID_PATTERN = /^\d{17,20}$/;
 
 export function DiscordConfigForm({ config }: Props) {
+  const { t } = useTranslation();
   const { discordMembers, fetchDiscordWorkspaceMembers, sendDiscordTestMessage, updateDiscordConfiguration } =
     useInstance();
   const [enabled, setEnabled] = useState(config.enabled);
   const [workspaceId, setWorkspaceId] = useState<string | null>(config.workspace_id);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [enabledEvents, setEnabledEvents] = useState<TDiscordEventKey[]>(config.enabled_events);
+  const enabledEventKeys = useMemo(() => new Set(enabledEvents), [enabledEvents]);
   const [memberMappings, setMemberMappings] = useState<IDiscordMemberMapping[]>(config.member_mappings);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -73,6 +76,24 @@ export function DiscordConfigForm({ config }: Props) {
     () => new Map(discordMembers.map((member) => [member.id, member.display_name])),
     [discordMembers]
   );
+  const eventOptions: { key: TDiscordEventKey; label: string; description: string }[] = [
+    ...EVENT_OPTIONS,
+    {
+      key: "work_item.daily_reminder",
+      label: t("discord_integration.daily_task_brief.label"),
+      description: t("discord_integration.daily_task_brief.description"),
+    },
+    {
+      key: "user.mentioned",
+      label: t("discord_integration.user_mentioned.label"),
+      description: t("discord_integration.user_mentioned.description"),
+    },
+    {
+      key: "work_item.comment_activity",
+      label: t("discord_integration.comment_activity.label"),
+      description: t("discord_integration.comment_activity.description"),
+    },
+  ];
 
   const handleWorkspaceChange = (nextWorkspaceId: string) => {
     if (nextWorkspaceId === workspaceId) return;
@@ -236,11 +257,11 @@ export function DiscordConfigForm({ config }: Props) {
           <p className="mt-1 text-13 text-tertiary">Choose which work item events are sent.</p>
         </div>
         <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-          {EVENT_OPTIONS.map((option) => (
+          {eventOptions.map((option) => (
             <div key={option.key} className="flex items-start gap-2">
               <Checkbox
                 id={`discord-event-${option.key}`}
-                checked={enabledEvents.includes(option.key)}
+                checked={enabledEventKeys.has(option.key)}
                 onChange={() => toggleEvent(option.key)}
               />
               <label className="cursor-pointer" htmlFor={`discord-event-${option.key}`}>

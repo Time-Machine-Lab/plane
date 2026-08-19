@@ -55,6 +55,7 @@ from plane.app.serializers import (
 )
 from plane.db.models import (
     Issue,
+    IssueAssignee,
     IssueComment,
     IssueLink,
     IssueReaction,
@@ -271,6 +272,11 @@ class IssueCommentPublicViewSet(BaseViewSet):
                 actor=request.user,
                 access="EXTERNAL",
             )
+            assignee_ids = list(
+                IssueAssignee.objects.filter(issue_id=issue_id, deleted_at__isnull=True).values_list(
+                    "assignee_id", flat=True
+                )
+            )
             issue_activity.delay(
                 type="comment.activity.created",
                 requested_data=json.dumps(serializer.data, cls=DjangoJSONEncoder),
@@ -279,6 +285,7 @@ class IssueCommentPublicViewSet(BaseViewSet):
                 project_id=str(project_deploy_board.project_id),
                 current_instance=None,
                 epoch=int(timezone.now().timestamp()),
+                discord_assignee_ids=[str(user_id) for user_id in assignee_ids],
             )
             if not ProjectMember.objects.filter(
                 project_id=project_deploy_board.project_id,
@@ -304,15 +311,22 @@ class IssueCommentPublicViewSet(BaseViewSet):
         comment = IssueComment.objects.get(pk=pk, actor=request.user)
         serializer = IssueCommentSerializer(comment, data=request.data, partial=True)
         if serializer.is_valid():
+            current_instance = json.dumps(IssueCommentSerializer(comment).data, cls=DjangoJSONEncoder)
             serializer.save()
+            assignee_ids = list(
+                IssueAssignee.objects.filter(issue_id=issue_id, deleted_at__isnull=True).values_list(
+                    "assignee_id", flat=True
+                )
+            )
             issue_activity.delay(
                 type="comment.activity.updated",
                 requested_data=json.dumps(request.data, cls=DjangoJSONEncoder),
                 actor_id=str(request.user.id),
                 issue_id=str(issue_id),
                 project_id=str(project_deploy_board.project_id),
-                current_instance=json.dumps(IssueCommentSerializer(comment).data, cls=DjangoJSONEncoder),
+                current_instance=current_instance,
                 epoch=int(timezone.now().timestamp()),
+                discord_assignee_ids=[str(user_id) for user_id in assignee_ids],
             )
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

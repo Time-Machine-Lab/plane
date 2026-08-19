@@ -17,6 +17,20 @@
     "choose_project": "Choose Project...",
     "skip_backward_state_movement": "Prevent issues from moving to an earlier state due to PR updates"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Daily task brief",
+      "description": "Every day at 08:00 in the selected workspace's timezone, send a brief for active work items whose start date is today or earlier."
+    },
+    "user_mentioned": {
+      "label": "You were mentioned",
+      "description": "Notify mapped members when they are newly mentioned in a work item or public Plane Page."
+    },
+    "comment_activity": {
+      "label": "New comment on your work item",
+      "description": "Notify mapped assignees when a comment is added or newly mentions them."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Connect and sync your GitHub work items with Plane",
