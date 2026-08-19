@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 import requests
+from django.utils import timezone
 
 from plane.db.models import Issue, IssueAssignee, Project, State, User, Workspace, WorkspaceMember
 from plane.db.models.state import StateGroup
@@ -14,6 +15,7 @@ from plane.integrations.discord import (
     DISCORD_EVENT_WORK_ITEM_ASSIGNEE_ADDED,
     DISCORD_EVENT_WORK_ITEM_COMPLETED,
     DISCORD_EVENT_WORK_ITEM_CREATED,
+    DiscordEmbedField,
     DiscordIntegrationConfiguration,
     DiscordIssueContext,
     DiscordNotification,
@@ -157,8 +159,11 @@ def test_registry_matches_created_added_and_completed_events(discord_issue):
     assert created is not None
     assert created.recipient_plane_user_ids == (assignee_id,)
     assert created.url.endswith(f"/discord-workspace/browse/DISC-{issue.sequence_id}/")
+    assert created.source_text == "Plane · Discord Project"
+    assert created.title == f"🆕 新任务｜DISC-{issue.sequence_id} · Notify Discord"
     assert "Owner" in created.description
-    assert "Assignee" in created.description
+    assert [field.name for field in created.fields] == ["📍 状态", "⚡ 优先级", "👤 负责人"]
+    assert "Assignee" in created.fields[2].value
 
     IssueAssignee.objects.create(
         issue=issue,
@@ -177,6 +182,8 @@ def test_registry_matches_created_added_and_completed_events(discord_issue):
     added = DISCORD_EVENT_REGISTRY[DISCORD_EVENT_WORK_ITEM_ASSIGNEE_ADDED](added_context)
     assert added is not None
     assert added.recipient_plane_user_ids == (second_assignee_id,)
+    assert added.title == f"👤 分配给你｜DISC-{issue.sequence_id} · Notify Discord"
+    assert [field.name for field in added.fields] == ["📍 状态", "⚡ 优先级", "⏰ 截止"]
 
     removed_only_context = DiscordIssueContext(
         **{
@@ -197,6 +204,8 @@ def test_registry_matches_created_added_and_completed_events(discord_issue):
     )
     completed = DISCORD_EVENT_REGISTRY[DISCORD_EVENT_WORK_ITEM_COMPLETED](completed_context)
     assert completed is not None
+    assert completed.title == f"✅ 已完成｜DISC-{issue.sequence_id} · Notify Discord"
+    assert [field.name for field in completed.fields] == ["👤 负责人", "📍 状态", "🗓️ 完成时间"]
     already_completed_context = DiscordIssueContext(
         **{
             **completed_context.__dict__,
@@ -210,10 +219,14 @@ def test_registry_matches_created_added_and_completed_events(discord_issue):
 def test_payload_mentions_only_explicit_mapped_users():
     notification = DiscordNotification(
         event_key=DISCORD_EVENT_WORK_ITEM_CREATED,
+        source_text="Plane · Project",
         title="Created",
         description="@everyone should stay plain text",
         url="https://plane.example.com/work-item",
         color=1,
+        fields=(DiscordEmbedField(name="📍 状态", value="🟡 `进行中`"),),
+        footer_text="查看详情",
+        timestamp=timezone.now(),
         recipient_plane_user_ids=(),
     )
     payload = build_discord_payload(notification, ("123456789012345678", "234567890123456789"))
@@ -223,6 +236,11 @@ def test_payload_mentions_only_explicit_mapped_users():
         "users": ["123456789012345678", "234567890123456789"],
         "roles": [],
     }
+    embed = payload["embeds"][0]
+    assert embed["author"] == {"name": "Plane · Project"}
+    assert embed["fields"] == [{"name": "📍 状态", "value": "🟡 `进行中`", "inline": True}]
+    assert embed["footer"] == {"text": "查看详情"}
+    assert embed["timestamp"] == notification.timestamp.isoformat()
 
     unmapped_payload = build_discord_payload(notification, ())
     assert unmapped_payload["content"] == ""

@@ -6,11 +6,13 @@ import json
 import logging
 import re
 from dataclasses import dataclass
+from datetime import date, datetime
 from typing import Any, Callable, TypedDict
 from urllib.parse import urlsplit
 
 import requests
 from django.conf import settings
+from django.utils import timezone
 
 from plane.db.models import Issue, IssueAssignee, State, User, Workspace, WorkspaceMember
 from plane.db.models.state import StateGroup
@@ -50,6 +52,38 @@ DISCORD_WEBHOOK_PATH_PATTERN = re.compile(r"^/api(?:/v\d+)?/webhooks/\d{17,20}/[
 DISCORD_USER_ID_PATTERN = re.compile(r"^\d{17,20}$")
 DISCORD_WEBHOOK_TIMEOUT_SECONDS = 5
 
+DISCORD_COLOR_CREATED = 0x5865F2
+DISCORD_COLOR_ASSIGNED = 0xF0B232
+DISCORD_COLOR_COMPLETED = 0x57F287
+
+DISCORD_FIELD_STATUS = "📍 状态"
+DISCORD_FIELD_PRIORITY = "⚡ 优先级"
+DISCORD_FIELD_DEADLINE = "⏰ 截止"
+DISCORD_FIELD_ASSIGNEE = "👤 负责人"
+DISCORD_FIELD_COMPLETED_AT = "🗓️ 完成时间"
+
+DISCORD_DOT_RED = "🔴"
+DISCORD_DOT_YELLOW = "🟡"
+DISCORD_DOT_GREEN = "🟢"
+DISCORD_DOT_BLUE = "🔵"
+DISCORD_DOT_WHITE = "⚪"
+
+DISCORD_STATE_DOTS = {
+    StateGroup.BACKLOG: DISCORD_DOT_BLUE,
+    StateGroup.UNSTARTED: DISCORD_DOT_BLUE,
+    StateGroup.STARTED: DISCORD_DOT_YELLOW,
+    StateGroup.COMPLETED: DISCORD_DOT_GREEN,
+    StateGroup.CANCELLED: DISCORD_DOT_WHITE,
+    StateGroup.TRIAGE: DISCORD_DOT_WHITE,
+}
+DISCORD_PRIORITY_PRESENTATION = {
+    "urgent": (DISCORD_DOT_RED, "紧急"),
+    "high": (DISCORD_DOT_RED, "高"),
+    "medium": (DISCORD_DOT_YELLOW, "中"),
+    "low": (DISCORD_DOT_BLUE, "低"),
+    "none": (DISCORD_DOT_WHITE, "无优先级"),
+}
+
 logger = logging.getLogger("plane.worker")
 
 
@@ -68,13 +102,28 @@ class DiscordIntegrationConfiguration:
 
 
 @dataclass(frozen=True)
+class DiscordEmbedField:
+    name: str
+    value: str
+    inline: bool = True
+
+
+@dataclass(frozen=True)
 class DiscordNotification:
     event_key: str
+    source_text: str
     title: str
     description: str
     url: str
     color: int
+    fields: tuple[DiscordEmbedField, ...]
+    footer_text: str
+    timestamp: datetime
     recipient_plane_user_ids: tuple[str, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.fields) > 3:
+            raise ValueError("Discord single-event cards support at most three fields.")
 
 
 @dataclass(frozen=True)
@@ -258,18 +307,88 @@ def _canonical_work_item_url(context: DiscordIssueContext) -> str:
     return f"{base_url}/{issue.workspace.slug}/browse/{issue.project.identifier}-{issue.sequence_id}/"
 
 
-def _notification_description(context: DiscordIssueContext, event_summary: str) -> str:
+def _truncate(value: str, limit: int) -> str:
+    if len(value) <= limit:
+        return value
+    return f"{value[: limit - 1]}…"
+
+
+def _escape_markdown(value: str) -> str:
+    return re.sub(r"([\\`*_{}\[\]()<>#+\-.!|~])", r"\\\1", value)
+
+
+def _inline_code_badge(value: str, dot: str | None = None) -> str:
+    normalized = " ".join(str(value or "").split()).replace("`", "ˋ") or "未设置"
+    badge = f"`{_truncate(normalized, 1000)}`"
+    return f"{dot} {badge}" if dot else badge
+
+
+def _actor_name(context: DiscordIssueContext) -> str:
+    if not context.actor:
+        return "Plane 用户"
+    return context.actor.display_name or context.actor.full_name or "Plane 用户"
+
+
+def _source_text(context: DiscordIssueContext) -> str:
+    return _truncate(f"Plane · {context.issue.project.name}", 256)
+
+
+def _work_item_title(context: DiscordIssueContext, event_label: str) -> str:
     issue = context.issue
-    identifier = f"{issue.project.identifier}-{issue.sequence_id}"
-    actor_name = context.actor.display_name if context.actor and context.actor.display_name else "Plane user"
-    assignees = ", ".join(context.assignee_names) if context.assignee_names else "None"
-    return (
-        f"**{identifier}** {issue.name}\n"
-        f"{event_summary}\n"
-        f"Project: {issue.project.name}\n"
-        f"Actor: {actor_name}\n"
-        f"Assignees: {assignees}"
+    return _truncate(f"{event_label}｜{issue.project.identifier}-{issue.sequence_id} · {issue.name}", 256)
+
+
+def _state_field(issue: Issue) -> DiscordEmbedField:
+    state_name = issue.state.name if issue.state else "未设置"
+    state_group = issue.state.group if issue.state else None
+    return DiscordEmbedField(
+        name=DISCORD_FIELD_STATUS,
+        value=_inline_code_badge(state_name, DISCORD_STATE_DOTS.get(state_group, DISCORD_DOT_WHITE)),
     )
+
+
+def _priority_field(issue: Issue) -> DiscordEmbedField:
+    dot, label = DISCORD_PRIORITY_PRESENTATION.get(
+        issue.priority,
+        (DISCORD_DOT_WHITE, "无优先级"),
+    )
+    return DiscordEmbedField(name=DISCORD_FIELD_PRIORITY, value=_inline_code_badge(label, dot))
+
+
+def _assignee_field(assignee_names: tuple[str, ...]) -> DiscordEmbedField:
+    names = "、".join(assignee_names) if assignee_names else "未分配"
+    dot = None if assignee_names else DISCORD_DOT_WHITE
+    return DiscordEmbedField(name=DISCORD_FIELD_ASSIGNEE, value=_inline_code_badge(names, dot))
+
+
+def _format_date(value: date) -> str:
+    return f"{value.month}月{value.day}日"
+
+
+def _deadline_field(target_date: date | None) -> DiscordEmbedField:
+    if not target_date:
+        return DiscordEmbedField(
+            name=DISCORD_FIELD_DEADLINE,
+            value=_inline_code_badge("未设置", DISCORD_DOT_WHITE),
+        )
+
+    today = timezone.localdate()
+    if target_date < today:
+        dot, label = DISCORD_DOT_RED, f"已逾期 · {_format_date(target_date)}"
+    elif target_date == today:
+        dot, label = DISCORD_DOT_YELLOW, "今天"
+    else:
+        dot, label = DISCORD_DOT_BLUE, _format_date(target_date)
+    return DiscordEmbedField(name=DISCORD_FIELD_DEADLINE, value=_inline_code_badge(label, dot))
+
+
+def _format_datetime(value: datetime) -> str:
+    localized = timezone.localtime(value) if timezone.is_aware(value) else value
+    return f"{localized.month}月{localized.day}日 {localized:%H:%M}"
+
+
+def _completed_at_field(value: datetime) -> DiscordEmbedField:
+    return DiscordEmbedField(name=DISCORD_FIELD_COMPLETED_AT, value=_inline_code_badge(_format_datetime(value)))
 
 
 def _created_handler(context: DiscordIssueContext) -> DiscordNotification | None:
@@ -277,10 +396,18 @@ def _created_handler(context: DiscordIssueContext) -> DiscordNotification | None
         return None
     return DiscordNotification(
         event_key=DISCORD_EVENT_WORK_ITEM_CREATED,
-        title="Work item created",
-        description=_notification_description(context, "A work item was created."),
+        source_text=_source_text(context),
+        title=_work_item_title(context, "🆕 新任务"),
+        description=f"**{_escape_markdown(_actor_name(context))}** 创建了这个任务。",
         url=_canonical_work_item_url(context),
-        color=0x3B82F6,
+        color=DISCORD_COLOR_CREATED,
+        fields=(
+            _state_field(context.issue),
+            _priority_field(context.issue),
+            _assignee_field(context.assignee_names),
+        ),
+        footer_text="点击标题，在 Plane 中查看任务详情",
+        timestamp=context.issue.created_at,
         recipient_plane_user_ids=context.assignee_ids,
     )
 
@@ -300,14 +427,26 @@ def _assignee_added_handler(context: DiscordIssueContext) -> DiscordNotification
     if not added_assignees:
         return None
 
-    added_names = list(User.objects.filter(pk__in=added_assignees).values_list("display_name", flat=True))
-    summary = f"New assignees: {', '.join(name or 'Plane user' for name in added_names)}"
+    added_name_by_id = {
+        str(user_id): display_name or "Plane 用户"
+        for user_id, display_name in User.objects.filter(pk__in=added_assignees).values_list("id", "display_name")
+    }
+    added_names = tuple(added_name_by_id.get(user_id, "Plane 用户") for user_id in added_assignees)
+    assigned_to = "、".join(_escape_markdown(name) for name in added_names)
     return DiscordNotification(
         event_key=DISCORD_EVENT_WORK_ITEM_ASSIGNEE_ADDED,
-        title="Work item assigned",
-        description=_notification_description(context, summary),
+        source_text=_source_text(context),
+        title=_work_item_title(context, "👤 分配给你"),
+        description=f"**{_escape_markdown(_actor_name(context))}** 将任务分配给 {assigned_to}。",
         url=_canonical_work_item_url(context),
-        color=0xF59E0B,
+        color=DISCORD_COLOR_ASSIGNED,
+        fields=(
+            _state_field(context.issue),
+            _priority_field(context.issue),
+            _deadline_field(context.issue.target_date),
+        ),
+        footer_text="请及时查看并推进任务",
+        timestamp=context.issue.updated_at,
         recipient_plane_user_ids=added_assignees,
     )
 
@@ -335,12 +474,24 @@ def _completed_handler(context: DiscordIssueContext) -> DiscordNotification | No
     ):
         return None
 
+    completed_at = context.issue.completed_at or timezone.now()
     return DiscordNotification(
         event_key=DISCORD_EVENT_WORK_ITEM_COMPLETED,
-        title="Work item completed",
-        description=_notification_description(context, "The work item moved to a completed state."),
+        source_text=_source_text(context),
+        title=_work_item_title(context, "✅ 已完成"),
+        description=f"**{_escape_markdown(_actor_name(context))}** 完成了这个任务。",
         url=_canonical_work_item_url(context),
-        color=0x22C55E,
+        color=DISCORD_COLOR_COMPLETED,
+        fields=(
+            _assignee_field(context.assignee_names),
+            DiscordEmbedField(
+                name=DISCORD_FIELD_STATUS,
+                value=_inline_code_badge("已完成", DISCORD_DOT_GREEN),
+            ),
+            _completed_at_field(completed_at),
+        ),
+        footer_text="任务已完成，点击标题查看详情",
+        timestamp=completed_at,
         recipient_plane_user_ids=context.assignee_ids,
     )
 
@@ -372,7 +523,7 @@ def build_issue_context(
         actor=actor,
         assignee_ids=tuple(str(link.assignee_id) for link in assignee_links),
         assignee_names=tuple(
-            link.assignee.display_name or link.assignee.full_name or "Plane user" for link in assignee_links
+            link.assignee.display_name or link.assignee.full_name or "Plane 用户" for link in assignee_links
         ),
         origin=origin,
     )
@@ -397,17 +548,21 @@ def build_discord_payload(
     allowed_user_ids = tuple(
         dict.fromkeys(user_id for user_id in discord_user_ids if DISCORD_USER_ID_PATTERN.fullmatch(user_id))
     )
+    embed = {
+        "author": {"name": notification.source_text},
+        "title": notification.title,
+        "description": notification.description,
+        "url": notification.url,
+        "color": notification.color,
+        "fields": [
+            {"name": field.name, "value": field.value, "inline": field.inline} for field in notification.fields
+        ],
+        "footer": {"text": notification.footer_text},
+        "timestamp": notification.timestamp.isoformat(),
+    }
     return {
         "content": " ".join(f"<@{user_id}>" for user_id in allowed_user_ids),
-        "embeds": [
-            {
-                "title": notification.title,
-                "description": notification.description,
-                "url": notification.url,
-                "color": notification.color,
-                "footer": {"text": "Plane"},
-            }
-        ],
+        "embeds": [embed],
         "allowed_mentions": {
             "parse": [],
             "users": list(allowed_user_ids),
@@ -420,12 +575,21 @@ def build_test_notification(origin: str | None = None) -> DiscordNotification:
     base_url = (origin or settings.ADMIN_BASE_URL or settings.WEB_URL or "").rstrip("/")
     return DiscordNotification(
         event_key="discord.test",
-        title="Plane Discord test",
-        description="Your Plane Discord integration is configured correctly.",
+        source_text="Plane · Discord 集成",
+        title="🔔 Discord 连接测试",
+        description="这是一条连接测试消息，用于确认 Discord 通知配置可用。",
         url=f"{base_url}/discord/"
         if origin
         else (f"{base_url}/god-mode/discord/" if base_url else "https://plane.so/"),
-        color=0x5865F2,
+        color=DISCORD_COLOR_CREATED,
+        fields=(
+            DiscordEmbedField(
+                name=DISCORD_FIELD_STATUS,
+                value=_inline_code_badge("连接正常", DISCORD_DOT_GREEN),
+            ),
+        ),
+        footer_text="点击标题，返回 God Mode 查看配置",
+        timestamp=timezone.now(),
         recipient_plane_user_ids=(),
     )
 

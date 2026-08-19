@@ -16,6 +16,9 @@
 [测试与质量规范](./testing-quality.md) 和 [测试环境 Runbook](./test-environment.md)。更深目录存在
 `AGENTS.md` 时，还必须遵守距离目标文件最近的指令。
 
+Discord 通知卡片的新增或调整同时遵守
+[Discord 通知卡片设计规范](./discord-card-design.md)。
+
 ## AI 读取规则
 
 1. 先根据上表读取受影响模块规范；跨模块变更读取所有相关规范。
