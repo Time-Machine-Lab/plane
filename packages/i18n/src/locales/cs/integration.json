@@ -21,6 +21,14 @@
     "daily_task_brief": {
       "label": "Denní přehled pracovních položek",
       "description": "Každý den v 08:00 v časovém pásmu vybraného pracovního prostoru se odešle přehled aktivních pracovních položek s datem zahájení dnes nebo dříve."
+    },
+    "user_mentioned": {
+      "label": "Někdo vás zmínil",
+      "description": "Upozornit propojené členy, když jsou nově zmíněni v pracovní položce nebo veřejné stránce Plane."
+    },
+    "comment_activity": {
+      "label": "Nový komentář k vaší pracovní položce",
+      "description": "Upozornit propojené řešitele, když je přidán komentář nebo je v něm někdo nově zmíněn."
     }
   },
   "github_integration": {

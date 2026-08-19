@@ -21,6 +21,14 @@
     "daily_task_brief": {
       "label": "일일 작업 항목 요약",
       "description": "선택한 워크스페이스의 시간대를 기준으로 매일 08:00에 시작일이 오늘이거나 이전인 활성 작업 항목의 요약을 전송합니다."
+    },
+    "user_mentioned": {
+      "label": "회원님이 멘션되었습니다",
+      "description": "작업 항목 또는 공개 Plane 페이지에서 새로 멘션된 연결된 멤버에게 알립니다."
+    },
+    "comment_activity": {
+      "label": "작업 항목의 새 댓글",
+      "description": "댓글이 추가되거나 새로 멘션된 경우 연결된 담당자에게 알립니다."
     }
   },
   "github_integration": {

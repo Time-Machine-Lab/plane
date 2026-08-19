@@ -28,7 +28,12 @@ from django.db.models import Subquery
 
 # Third Party imports
 from celery import shared_task
-from bs4 import BeautifulSoup
+
+from plane.utils.rich_text_mentions import (
+    extract_user_mentions,
+    get_new_user_mentions,
+    get_removed_user_mentions,
+)
 
 
 # =========== Issue Description Html Parsing and notification Functions ======================
@@ -55,14 +60,7 @@ def get_new_mentions(requested_instance, current_instance):
     # current_instance is the older instance of the current issue, saved in the database
 
     # extract mentions from both the instance of data
-    mentions_older = extract_mentions(current_instance)
-
-    mentions_newer = extract_mentions(requested_instance)
-
-    # Getting Set Difference from mentions_newer
-    new_mentions = [mention for mention in mentions_newer if mention not in mentions_older]
-
-    return new_mentions
+    return list(get_new_user_mentions(requested_instance, current_instance, field="description_html"))
 
 
 # Get Removed Mention
@@ -71,13 +69,7 @@ def get_removed_mentions(requested_instance, current_instance):
     # current_instance is the older instance of the current issue, saved in the database
 
     # extract mentions from both the instance of data
-    mentions_older = extract_mentions(current_instance)
-    mentions_newer = extract_mentions(requested_instance)
-
-    # Getting Set Difference from mentions_newer
-    removed_mentions = [mention for mention in mentions_older if mention not in mentions_newer]
-
-    return removed_mentions
+    return list(get_removed_user_mentions(requested_instance, current_instance, field="description_html"))
 
 
 # Adds mentions as subscribers
@@ -113,45 +105,16 @@ def extract_mentions_as_subscribers(project_id, issue_id, mentions):
 
 # Parse Issue Description & extracts mentions
 def extract_mentions(issue_instance):
-    try:
-        # issue_instance has to be a dictionary passed, containing the description_html and other set of activity data. # noqa: E501
-        mentions = []
-        # Convert string to dictionary
-        data = json.loads(issue_instance)
-        html = data.get("description_html")
-        soup = BeautifulSoup(html, "html.parser")
-        mention_tags = soup.find_all("mention-component", attrs={"entity_name": "user_mention"})
-
-        mentions = [mention_tag["entity_identifier"] for mention_tag in mention_tags]
-
-        return list(set(mentions))
-    except Exception:
-        return []
+    return list(extract_user_mentions(issue_instance, field="description_html"))
 
 
 # =========== Comment Parsing and notification Functions ======================
 def extract_comment_mentions(comment_value):
-    try:
-        mentions = []
-        soup = BeautifulSoup(comment_value, "html.parser")
-        mentions_tags = soup.find_all("mention-component", attrs={"entity_name": "user_mention"})
-        for mention_tag in mentions_tags:
-            mentions.append(mention_tag["entity_identifier"])
-        return list(set(mentions))
-    except Exception:
-        return []
+    return list(extract_user_mentions(comment_value))
 
 
 def get_new_comment_mentions(new_value, old_value):
-    mentions_newer = extract_comment_mentions(new_value)
-    if old_value is None:
-        return mentions_newer
-
-    mentions_older = extract_comment_mentions(old_value)
-    # Getting Set Difference from mentions_newer
-    new_mentions = [mention for mention in mentions_newer if mention not in mentions_older]
-
-    return new_mentions
+    return list(get_new_user_mentions(new_value, old_value))
 
 
 def create_mention_notification(project, notification_comment, issue, actor_id, mention_id, issue_id, activity):

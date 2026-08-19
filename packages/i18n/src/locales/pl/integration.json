@@ -21,6 +21,14 @@
     "daily_task_brief": {
       "label": "Dzienny przegląd elementów pracy",
       "description": "Codziennie o 08:00 w strefie czasowej wybranego obszaru roboczego wysyłany jest przegląd aktywnych elementów pracy, których data rozpoczęcia przypada dzisiaj lub wcześniej."
+    },
+    "user_mentioned": {
+      "label": "Wspomniano o Tobie",
+      "description": "Powiadamiaj połączonych członków, gdy zostaną po raz pierwszy wspomniani w elemencie pracy lub publicznej stronie Plane."
+    },
+    "comment_activity": {
+      "label": "Nowy komentarz do Twojego elementu pracy",
+      "description": "Powiadamiaj połączone osoby przypisane, gdy dodano komentarz lub wspomniano je po raz pierwszy."
     }
   },
   "github_integration": {

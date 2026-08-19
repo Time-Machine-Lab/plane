@@ -68,6 +68,7 @@ from plane.bgtasks.issue_activities_task import issue_activity
 from plane.db.models import (
     Issue,
     IssueActivity,
+    IssueAssignee,
     FileAsset,
     IssueComment,
     IssueLink,
@@ -1487,6 +1488,12 @@ class IssueCommentListCreateAPIEndpoint(BaseAPIView):
             issue_comment.actor_id = request.data.get("created_by", request.user.id)
             issue_comment.save(update_fields=["created_at", "created_by"])
 
+            assignee_ids = list(
+                IssueAssignee.objects.filter(issue_id=issue_id, deleted_at__isnull=True).values_list(
+                    "assignee_id", flat=True
+                )
+            )
+
             issue_activity.delay(
                 type="comment.activity.created",
                 requested_data=json.dumps(serializer.data, cls=DjangoJSONEncoder),
@@ -1495,6 +1502,7 @@ class IssueCommentListCreateAPIEndpoint(BaseAPIView):
                 project_id=str(self.kwargs.get("project_id")),
                 current_instance=None,
                 epoch=int(timezone.now().timestamp()),
+                discord_assignee_ids=[str(user_id) for user_id in assignee_ids],
             )
 
             # Send the model activity
@@ -1627,6 +1635,11 @@ class IssueCommentDetailAPIEndpoint(BaseAPIView):
         serializer = IssueCommentCreateSerializer(issue_comment, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
+            assignee_ids = list(
+                IssueAssignee.objects.filter(issue_id=issue_id, deleted_at__isnull=True).values_list(
+                    "assignee_id", flat=True
+                )
+            )
             issue_activity.delay(
                 type="comment.activity.updated",
                 requested_data=requested_data,
@@ -1635,6 +1648,7 @@ class IssueCommentDetailAPIEndpoint(BaseAPIView):
                 project_id=str(project_id),
                 current_instance=current_instance,
                 epoch=int(timezone.now().timestamp()),
+                discord_assignee_ids=[str(user_id) for user_id in assignee_ids],
             )
             # Send the model activity
             model_activity.delay(

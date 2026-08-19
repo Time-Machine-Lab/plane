@@ -21,6 +21,14 @@
     "daily_task_brief": {
       "label": "Récapitulatif quotidien des éléments de travail",
       "description": "Tous les jours à 08:00, dans le fuseau horaire de l’espace de travail sélectionné, un récapitulatif des éléments de travail actifs dont la date de début est aujourd’hui ou antérieure est envoyé."
+    },
+    "user_mentioned": {
+      "label": "Vous avez été mentionné",
+      "description": "Notifier les membres associés lorsqu’ils sont nouvellement mentionnés dans un élément de travail ou une page Plane publique."
+    },
+    "comment_activity": {
+      "label": "Nouveau commentaire sur votre élément de travail",
+      "description": "Notifier les responsables associés lorsqu’un commentaire est ajouté ou les mentionne pour la première fois."
     }
   },
   "github_integration": {

@@ -21,6 +21,14 @@
     "daily_task_brief": {
       "label": "每日任务简报",
       "description": "每天 08:00 按所选工作区的时区，发送开始日期为今天或更早的活跃任务简报。"
+    },
+    "user_mentioned": {
+      "label": "提到了你",
+      "description": "当任务或公开 Plane 页面中新增对成员的提及时，通知已映射的成员。"
+    },
+    "comment_activity": {
+      "label": "任务收到新评论",
+      "description": "当任务新增评论或评论中新提及负责人时，通知已映射的负责人。"
     }
   },
   "github_integration": {

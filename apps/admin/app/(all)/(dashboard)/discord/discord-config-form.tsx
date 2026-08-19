@@ -51,6 +51,7 @@ export function DiscordConfigForm({ config }: Props) {
   const [workspaceId, setWorkspaceId] = useState<string | null>(config.workspace_id);
   const [webhookUrl, setWebhookUrl] = useState("");
   const [enabledEvents, setEnabledEvents] = useState<TDiscordEventKey[]>(config.enabled_events);
+  const enabledEventKeys = useMemo(() => new Set(enabledEvents), [enabledEvents]);
   const [memberMappings, setMemberMappings] = useState<IDiscordMemberMapping[]>(config.member_mappings);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -81,6 +82,16 @@ export function DiscordConfigForm({ config }: Props) {
       key: "work_item.daily_reminder",
       label: t("discord_integration.daily_task_brief.label"),
       description: t("discord_integration.daily_task_brief.description"),
+    },
+    {
+      key: "user.mentioned",
+      label: t("discord_integration.user_mentioned.label"),
+      description: t("discord_integration.user_mentioned.description"),
+    },
+    {
+      key: "work_item.comment_activity",
+      label: t("discord_integration.comment_activity.label"),
+      description: t("discord_integration.comment_activity.description"),
     },
   ];
 
@@ -250,7 +261,7 @@ export function DiscordConfigForm({ config }: Props) {
             <div key={option.key} className="flex items-start gap-2">
               <Checkbox
                 id={`discord-event-${option.key}`}
-                checked={enabledEvents.includes(option.key)}
+                checked={enabledEventKeys.has(option.key)}
                 onChange={() => toggleEvent(option.key)}
               />
               <label className="cursor-pointer" htmlFor={`discord-event-${option.key}`}>

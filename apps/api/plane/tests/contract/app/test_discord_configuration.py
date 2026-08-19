@@ -79,6 +79,8 @@ def valid_payload(workspace, user):
             "work_item.assignee_added",
             "work_item.completed",
             "work_item.daily_reminder",
+            "user.mentioned",
+            "work_item.comment_activity",
         ],
         "member_mappings": [
             {
@@ -117,6 +119,8 @@ def test_valid_update_masks_encrypts_and_retains_webhook(admin_client, configure
     assert response.status_code == 200
     assert response.data["webhook_configured"] is True
     assert "work_item.daily_reminder" in response.data["enabled_events"]
+    assert "user.mentioned" in response.data["enabled_events"]
+    assert "work_item.comment_activity" in response.data["enabled_events"]
     assert "webhook_url" not in response.data
 
     stored = InstanceConfiguration.objects.get(key="DISCORD_WEBHOOK_URL")
@@ -138,6 +142,17 @@ def test_valid_update_masks_encrypts_and_retains_webhook(admin_client, configure
     assert response.data["webhook_configured"] is True
     assert InstanceConfiguration.objects.get(key="DISCORD_WEBHOOK_URL").value == retained_ciphertext
     assert "webhook_url" not in admin_client.get(CONFIGURATION_PATH).data
+
+
+@pytest.mark.contract
+@pytest.mark.django_db
+@pytest.mark.parametrize("event_key", ["user.mentioned", "work_item.comment_activity"])
+def test_interaction_events_are_independently_opt_in(admin_client, configured_workspace, admin_user, event_key):
+    payload = valid_payload(configured_workspace, admin_user)
+    payload["enabled_events"] = [event_key]
+    response = admin_client.patch(CONFIGURATION_PATH, payload, format="json")
+    assert response.status_code == 200
+    assert response.data["enabled_events"] == [event_key]
 
 
 @pytest.mark.contract
@@ -181,7 +196,7 @@ def test_invalid_url_and_mapping_do_not_partially_update(admin_client, configure
 
     unsupported_event_payload = {
         **initial_payload,
-        "enabled_events": ["work_item.daily_reminder", "work_item.unsupported"],
+        "enabled_events": ["user.mentioned", "work_item.comment_activity", "work_item.unsupported"],
     }
     response = admin_client.patch(CONFIGURATION_PATH, unsupported_event_payload, format="json")
     assert response.status_code == 400

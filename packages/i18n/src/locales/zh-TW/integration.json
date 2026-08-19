@@ -21,6 +21,14 @@
     "daily_task_brief": {
       "label": "每日任務簡報",
       "description": "每天 08:00 依所選工作區的時區，傳送開始日期為今天或更早的進行中任務簡報。"
+    },
+    "user_mentioned": {
+      "label": "提及了您",
+      "description": "當工作項目或公開 Plane 頁面新增對成員的提及時，通知已對應的成員。"
+    },
+    "comment_activity": {
+      "label": "工作項目收到新留言",
+      "description": "當工作項目新增留言或留言中新提及負責人時，通知已對應的負責人。"
     }
   },
   "github_integration": {

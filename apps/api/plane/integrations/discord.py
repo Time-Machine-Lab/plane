@@ -20,18 +20,27 @@ from plane.db.models.state import StateGroup
 from plane.license.utils.instance_value import get_configuration_value
 from plane.utils.url_security import pinned_fetch
 from plane.utils.uuid import is_valid_uuid
+from plane.utils.rich_text_mentions import (
+    build_safe_rich_text_excerpt,
+    classify_interaction_recipients,
+    get_new_user_mentions,
+)
 
 
 DISCORD_EVENT_WORK_ITEM_CREATED = "work_item.created"
 DISCORD_EVENT_WORK_ITEM_ASSIGNEE_ADDED = "work_item.assignee_added"
 DISCORD_EVENT_WORK_ITEM_COMPLETED = "work_item.completed"
 DISCORD_EVENT_WORK_ITEM_DAILY_REMINDER = "work_item.daily_reminder"
+DISCORD_EVENT_USER_MENTIONED = "user.mentioned"
+DISCORD_EVENT_WORK_ITEM_COMMENT_ACTIVITY = "work_item.comment_activity"
 DISCORD_SUPPORTED_EVENT_KEYS = frozenset(
     {
         DISCORD_EVENT_WORK_ITEM_CREATED,
         DISCORD_EVENT_WORK_ITEM_ASSIGNEE_ADDED,
         DISCORD_EVENT_WORK_ITEM_COMPLETED,
         DISCORD_EVENT_WORK_ITEM_DAILY_REMINDER,
+        DISCORD_EVENT_USER_MENTIONED,
+        DISCORD_EVENT_WORK_ITEM_COMMENT_ACTIVITY,
     }
 )
 
@@ -61,6 +70,8 @@ DISCORD_COLOR_COMPLETED = 0x57F287
 DISCORD_COLOR_OVERDUE = 0xED4245
 DISCORD_COLOR_DUE_TODAY = 0xF0B232
 DISCORD_COLOR_PENDING = 0x5865F2
+DISCORD_COLOR_MENTION = 0xEB459E
+DISCORD_COLOR_COMMENT = 0x57F287
 
 DISCORD_MAX_EMBEDS_PER_MESSAGE = 10
 DISCORD_MAX_EMBED_CHARACTERS_PER_MESSAGE = 6000
@@ -158,6 +169,22 @@ class DiscordIssueContext:
     actor: User | None
     assignee_ids: tuple[str, ...]
     assignee_names: tuple[str, ...]
+    origin: str | None
+    event_timestamp: datetime | None = None
+
+
+@dataclass(frozen=True)
+class DiscordPageMentionContext:
+    workspace_id: str
+    page_name: str
+    project_name: str
+    workspace_slug: str
+    project_id: str
+    page_id: str
+    actor_name: str
+    recipient_plane_user_ids: tuple[str, ...]
+    excerpt: str
+    timestamp: datetime
     origin: str | None
 
 
@@ -354,6 +381,11 @@ def _canonical_work_item_url(context: DiscordIssueContext) -> str:
     return f"{base_url}/{issue.workspace.slug}/browse/{issue.project.identifier}-{issue.sequence_id}/"
 
 
+def _canonical_page_url(context: DiscordPageMentionContext) -> str:
+    base_url = (context.origin or settings.APP_BASE_URL or settings.WEB_URL or "").rstrip("/")
+    return f"{base_url}/{context.workspace_slug}/projects/{context.project_id}/pages/{context.page_id}"
+
+
 def _truncate(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
@@ -362,6 +394,74 @@ def _truncate(value: str, limit: int) -> str:
 
 def _escape_markdown(value: str) -> str:
     return re.sub(r"([\\`*_{}\[\]()<>#+\-.!|~])", r"\\\1", value)
+
+
+def _interaction_excerpt_field(excerpt: str) -> DiscordEmbedField:
+    return DiscordEmbedField(name="💬 内容", value=f"> {excerpt or '未提供文字内容'}", inline=False)
+
+
+def _interaction_notification(
+    *,
+    event_key: str,
+    context: DiscordIssueContext,
+    recipients: tuple[str, ...],
+    excerpt: str,
+    comment_id: str | None,
+    source_location: str,
+    is_update: bool = False,
+) -> DiscordNotification:
+    actor_name = _escape_markdown(_actor_name(context))
+    if is_update:
+        label = "💬 评论更新"
+    elif event_key == DISCORD_EVENT_WORK_ITEM_COMMENT_ACTIVITY:
+        label = "💬 新评论"
+    else:
+        label = "🔔 提到了你"
+    action = "发表了新评论。" if event_key == DISCORD_EVENT_WORK_ITEM_COMMENT_ACTIVITY else "提到了你。"
+    description = (
+        f"**{actor_name}** 更新评论并提到了你。"
+        if is_update
+        else f"**{actor_name}** {action}"
+    )
+    url = _canonical_work_item_url(context)
+    if comment_id:
+        url = f"{url}#comment-{comment_id}"
+    event_time = context.event_timestamp or context.issue.updated_at
+    return DiscordNotification(
+        event_key=event_key,
+        source_text=_source_text(context),
+        title=_work_item_title(context, label),
+        description=description,
+        url=url,
+        color=DISCORD_COLOR_COMMENT if event_key == DISCORD_EVENT_WORK_ITEM_COMMENT_ACTIVITY else DISCORD_COLOR_MENTION,
+        fields=(
+            _interaction_excerpt_field(excerpt),
+            DiscordEmbedField(name="📍 位置", value=_inline_code_badge(source_location)),
+            DiscordEmbedField(name="👤 发起人", value=_inline_code_badge(_actor_name(context))),
+        ),
+        footer_text="点击标题，在 Plane 中查看上下文",
+        timestamp=event_time,
+        recipient_plane_user_ids=recipients,
+    )
+
+
+def build_page_mention_notification(context: DiscordPageMentionContext) -> DiscordNotification:
+    return DiscordNotification(
+        event_key=DISCORD_EVENT_USER_MENTIONED,
+        source_text=_truncate(f"Plane · {context.project_name}", DISCORD_MAX_AUTHOR_CHARACTERS),
+        title=_truncate(f"🔔 提到了你｜{context.page_name}", DISCORD_MAX_TITLE_CHARACTERS),
+        description=f"**{_escape_markdown(context.actor_name)}** 在页面中提到了你。",
+        url=_canonical_page_url(context),
+        color=DISCORD_COLOR_MENTION,
+        fields=(
+            _interaction_excerpt_field(context.excerpt),
+            DiscordEmbedField(name="📍 位置", value=_inline_code_badge("Plane 页面")),
+            DiscordEmbedField(name="👤 发起人", value=_inline_code_badge(context.actor_name)),
+        ),
+        footer_text="点击标题，在 Plane 中查看页面",
+        timestamp=context.timestamp,
+        recipient_plane_user_ids=context.recipient_plane_user_ids,
+    )
 
 
 def _inline_code_badge(value: str, dot: str | None = None) -> str:
@@ -558,21 +658,37 @@ def build_issue_context(
     issue: Issue,
     actor: User | None,
     origin: str | None,
+    assignee_ids: tuple[str, ...] | None = None,
+    event_timestamp: datetime | None = None,
 ) -> DiscordIssueContext:
     assignee_links = list(
         IssueAssignee.objects.filter(issue_id=issue.id).select_related("assignee").order_by("created_at")
     )
+    resolved_assignee_ids = (
+        tuple(str(link.assignee_id) for link in assignee_links) if assignee_ids is None else assignee_ids
+    )
+    name_by_id = {
+        str(link.assignee_id): link.assignee.display_name or link.assignee.full_name or "Plane 用户"
+        for link in assignee_links
+    }
+    missing_ids = set(resolved_assignee_ids) - set(name_by_id)
+    if missing_ids:
+        name_by_id.update(
+            {
+                str(user_id): display_name or "Plane 用户"
+                for user_id, display_name in User.objects.filter(pk__in=missing_ids).values_list("id", "display_name")
+            }
+        )
     return DiscordIssueContext(
         activity_type=activity_type,
         requested_data=requested_data,
         current_instance=current_instance,
         issue=issue,
         actor=actor,
-        assignee_ids=tuple(str(link.assignee_id) for link in assignee_links),
-        assignee_names=tuple(
-            link.assignee.display_name or link.assignee.full_name or "Plane 用户" for link in assignee_links
-        ),
+        assignee_ids=resolved_assignee_ids,
+        assignee_names=tuple(name_by_id.get(user_id, "Plane 用户") for user_id in resolved_assignee_ids),
         origin=origin,
+        event_timestamp=event_timestamp,
     )
 
 
@@ -1001,6 +1117,8 @@ def deliver_issue_notifications(
     issue_id: str,
     actor_id: str,
     origin: str | None,
+    assignee_ids: tuple[str, ...] | None = None,
+    event_timestamp: datetime | None = None,
 ) -> None:
     configuration = get_discord_configuration()
     if not configuration.enabled or not configuration.workspace_id or not configuration.webhook_url:
@@ -1021,6 +1139,8 @@ def deliver_issue_notifications(
         issue=issue,
         actor=User.objects.filter(pk=actor_id).first(),
         origin=origin,
+        event_timestamp=event_timestamp,
+        assignee_ids=assignee_ids,
     )
     for event_key in configuration.enabled_events:
         handler = DISCORD_EVENT_REGISTRY.get(event_key)
@@ -1041,3 +1161,120 @@ def deliver_issue_notifications(
             workspace_id=str(issue.workspace_id),
             issue_id=str(issue.id),
         )
+
+    supported_activity_types = {
+        "comment.activity.created",
+        "comment.activity.updated",
+        "issue.activity.created",
+        "issue.activity.updated",
+    }
+    if activity_type not in supported_activity_types:
+        return
+
+    if activity_type.startswith("comment.activity"):
+        new_html = requested_data.get("comment_html", "")
+        old_html = (current_instance or {}).get("comment_html", "")
+        comment_id = str(requested_data.get("id") or (current_instance or {}).get("id") or "") or None
+        source_location = "任务评论"
+        classifier_origin = "comment_created" if activity_type == "comment.activity.created" else "comment_updated"
+    elif "description_html" in requested_data:
+        new_html = requested_data.get("description_html", "")
+        old_html = (current_instance or {}).get("description_html", "")
+        comment_id = None
+        source_location = "任务描述"
+        classifier_origin = "work_item_description"
+    else:
+        return
+
+    newly_mentioned = get_new_user_mentions(new_html, old_html)
+    recipients = classify_interaction_recipients(
+        origin=classifier_origin,
+        actor_id=str(actor_id),
+        assignee_ids=context.assignee_ids,
+        newly_mentioned_user_ids=newly_mentioned,
+    )
+    candidate_ids = tuple(dict.fromkeys((*recipients.comment_user_ids, *recipients.mention_user_ids)))
+    active_ids = {
+        str(member_id)
+        for member_id in WorkspaceMember.objects.filter(
+            workspace_id=configuration.workspace_id,
+            member_id__in=candidate_ids,
+            is_active=True,
+        ).values_list("member_id", flat=True)
+    }
+    display_names = {
+        str(user_id): display_name or "Plane 用户"
+        for user_id, display_name in User.objects.filter(pk__in=newly_mentioned).values_list("id", "display_name")
+    }
+    excerpt = build_safe_rich_text_excerpt(
+        new_html,
+        display_names=display_names,
+        relevant_user_ids=newly_mentioned,
+    )
+
+    interaction_sets = (
+        (
+            DISCORD_EVENT_WORK_ITEM_COMMENT_ACTIVITY,
+            tuple(user_id for user_id in recipients.comment_user_ids if user_id in active_ids),
+        ),
+        (
+            DISCORD_EVENT_USER_MENTIONED,
+            tuple(user_id for user_id in recipients.mention_user_ids if user_id in active_ids),
+        ),
+    )
+    for event_key, plane_user_ids in interaction_sets:
+        if event_key not in configuration.enabled_events or not plane_user_ids:
+            continue
+        discord_user_ids = resolve_discord_recipients(plane_user_ids, configuration.member_mappings)
+        if not discord_user_ids:
+            continue
+        notification = _interaction_notification(
+            event_key=event_key,
+            context=context,
+            recipients=plane_user_ids,
+            excerpt=excerpt,
+            comment_id=comment_id,
+            source_location=source_location,
+            is_update=activity_type == "comment.activity.updated",
+        )
+        send_discord_webhook(
+            webhook_url=configuration.webhook_url,
+            payload=build_discord_payload(notification, discord_user_ids),
+            event_key=event_key,
+            workspace_id=str(issue.workspace_id),
+            issue_id=str(issue.id),
+        )
+
+
+def deliver_page_mention_notification(context: DiscordPageMentionContext) -> None:
+    configuration = get_discord_configuration()
+    if (
+        not configuration.enabled
+        or not configuration.workspace_id
+        or not configuration.webhook_url
+        or DISCORD_EVENT_USER_MENTIONED not in configuration.enabled_events
+    ):
+        return
+    if configuration.workspace_id != context.workspace_id:
+        return
+    active_ids = {
+        str(member_id)
+        for member_id in WorkspaceMember.objects.filter(
+            workspace_id=configuration.workspace_id,
+            member_id__in=context.recipient_plane_user_ids,
+            is_active=True,
+        ).values_list("member_id", flat=True)
+    }
+    plane_user_ids = tuple(user_id for user_id in context.recipient_plane_user_ids if user_id in active_ids)
+    discord_user_ids = resolve_discord_recipients(plane_user_ids, configuration.member_mappings)
+    if not discord_user_ids:
+        return
+    notification = build_page_mention_notification(
+        DiscordPageMentionContext(**{**context.__dict__, "recipient_plane_user_ids": plane_user_ids})
+    )
+    send_discord_webhook(
+        webhook_url=configuration.webhook_url,
+        payload=build_discord_payload(notification, discord_user_ids),
+        event_key=notification.event_key,
+        workspace_id=configuration.workspace_id,
+    )

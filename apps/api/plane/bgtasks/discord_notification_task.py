@@ -4,9 +4,11 @@
 
 import json
 import logging
+from datetime import datetime
 from typing import Any
 
 from celery import shared_task
+from django.utils import timezone
 
 from plane.integrations.discord import deliver_issue_notifications
 
@@ -32,6 +34,8 @@ def discord_issue_notification(
     issue_id,
     actor_id,
     origin=None,
+    assignee_ids=None,
+    event_timestamp=None,
 ):
     try:
         parsed_requested_data = _deserialize_activity_value(requested_data)
@@ -47,6 +51,12 @@ def discord_issue_notification(
             issue_id=str(issue_id),
             actor_id=str(actor_id),
             origin=origin,
+            assignee_ids=(tuple(str(user_id) for user_id in assignee_ids) if assignee_ids is not None else None),
+            event_timestamp=(
+                datetime.fromtimestamp(event_timestamp, tz=timezone.get_current_timezone())
+                if event_timestamp is not None
+                else None
+            ),
         )
     except Exception:
         logger.exception(

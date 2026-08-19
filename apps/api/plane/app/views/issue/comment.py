@@ -19,7 +19,7 @@ from rest_framework import status
 from .. import BaseViewSet
 from plane.app.serializers import IssueCommentSerializer, CommentReactionSerializer
 from plane.app.permissions import allow_permission, ROLE
-from plane.db.models import IssueComment, ProjectMember, CommentReaction, Project, Issue
+from plane.db.models import IssueAssignee, IssueComment, ProjectMember, CommentReaction, Project, Issue
 from plane.bgtasks.issue_activities_task import issue_activity
 from plane.utils.host import base_host
 from plane.bgtasks.webhook_task import model_activity
@@ -82,6 +82,11 @@ class IssueCommentViewSet(BaseViewSet):
         serializer = IssueCommentSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save(project_id=project_id, issue_id=issue_id, actor=request.user)
+            assignee_ids = list(
+                IssueAssignee.objects.filter(issue_id=issue_id, deleted_at__isnull=True).values_list(
+                    "assignee_id", flat=True
+                )
+            )
             issue_activity.delay(
                 type="comment.activity.created",
                 requested_data=json.dumps(serializer.data, cls=DjangoJSONEncoder),
@@ -92,6 +97,7 @@ class IssueCommentViewSet(BaseViewSet):
                 epoch=int(timezone.now().timestamp()),
                 notification=True,
                 origin=base_host(request=request, is_app=True),
+                discord_assignee_ids=[str(user_id) for user_id in assignee_ids],
             )
             # Send the model activity
             model_activity.delay(
@@ -117,6 +123,11 @@ class IssueCommentViewSet(BaseViewSet):
                 serializer.save(edited_at=timezone.now())
             else:
                 serializer.save()
+            assignee_ids = list(
+                IssueAssignee.objects.filter(issue_id=issue_id, deleted_at__isnull=True).values_list(
+                    "assignee_id", flat=True
+                )
+            )
             issue_activity.delay(
                 type="comment.activity.updated",
                 requested_data=requested_data,
@@ -127,6 +138,7 @@ class IssueCommentViewSet(BaseViewSet):
                 epoch=int(timezone.now().timestamp()),
                 notification=True,
                 origin=base_host(request=request, is_app=True),
+                discord_assignee_ids=[str(user_id) for user_id in assignee_ids],
             )
             # Send the model activity
             model_activity.delay(
