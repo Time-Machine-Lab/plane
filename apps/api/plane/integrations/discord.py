@@ -12,6 +12,7 @@ from urllib.parse import urlsplit
 
 import requests
 from django.conf import settings
+from django.db.models import Prefetch
 from django.utils import timezone
 
 from plane.db.models import Issue, IssueAssignee, State, User, Workspace, WorkspaceMember
@@ -24,11 +25,13 @@ from plane.utils.uuid import is_valid_uuid
 DISCORD_EVENT_WORK_ITEM_CREATED = "work_item.created"
 DISCORD_EVENT_WORK_ITEM_ASSIGNEE_ADDED = "work_item.assignee_added"
 DISCORD_EVENT_WORK_ITEM_COMPLETED = "work_item.completed"
+DISCORD_EVENT_WORK_ITEM_DAILY_REMINDER = "work_item.daily_reminder"
 DISCORD_SUPPORTED_EVENT_KEYS = frozenset(
     {
         DISCORD_EVENT_WORK_ITEM_CREATED,
         DISCORD_EVENT_WORK_ITEM_ASSIGNEE_ADDED,
         DISCORD_EVENT_WORK_ITEM_COMPLETED,
+        DISCORD_EVENT_WORK_ITEM_DAILY_REMINDER,
     }
 )
 
@@ -55,12 +58,25 @@ DISCORD_WEBHOOK_TIMEOUT_SECONDS = 5
 DISCORD_COLOR_CREATED = 0x5865F2
 DISCORD_COLOR_ASSIGNED = 0xF0B232
 DISCORD_COLOR_COMPLETED = 0x57F287
+DISCORD_COLOR_OVERDUE = 0xED4245
+DISCORD_COLOR_DUE_TODAY = 0xF0B232
+DISCORD_COLOR_PENDING = 0x5865F2
+
+DISCORD_MAX_EMBEDS_PER_MESSAGE = 10
+DISCORD_MAX_EMBED_CHARACTERS_PER_MESSAGE = 6000
+DISCORD_MAX_CONTENT_CHARACTERS = 2000
+DISCORD_MAX_AUTHOR_CHARACTERS = 256
+DISCORD_MAX_TITLE_CHARACTERS = 256
+DISCORD_MAX_DESCRIPTION_CHARACTERS = 4096
+DISCORD_MAX_FIELD_VALUE_CHARACTERS = 1024
+DISCORD_MAX_FOOTER_CHARACTERS = 2048
 
 DISCORD_FIELD_STATUS = "📍 状态"
 DISCORD_FIELD_PRIORITY = "⚡ 优先级"
 DISCORD_FIELD_DEADLINE = "⏰ 截止"
 DISCORD_FIELD_ASSIGNEE = "👤 负责人"
 DISCORD_FIELD_COMPLETED_AT = "🗓️ 完成时间"
+DISCORD_FIELD_TASK_TIME = "🗓️ 任务时间"
 
 DISCORD_DOT_RED = "🔴"
 DISCORD_DOT_YELLOW = "🟡"
@@ -82,6 +98,13 @@ DISCORD_PRIORITY_PRESENTATION = {
     "medium": (DISCORD_DOT_YELLOW, "中"),
     "low": (DISCORD_DOT_BLUE, "低"),
     "none": (DISCORD_DOT_WHITE, "无优先级"),
+}
+DISCORD_PRIORITY_ORDER = {
+    "urgent": 0,
+    "high": 1,
+    "medium": 2,
+    "low": 3,
+    "none": 4,
 }
 
 logger = logging.getLogger("plane.worker")
@@ -136,6 +159,30 @@ class DiscordIssueContext:
     assignee_ids: tuple[str, ...]
     assignee_names: tuple[str, ...]
     origin: str | None
+
+
+@dataclass(frozen=True)
+class DiscordTaskBriefItem:
+    issue_id: str
+    identifier: str
+    name: str
+    project_identifier: str
+    project_name: str
+    workspace_slug: str
+    state_name: str
+    state_group: str
+    priority: str
+    sequence_id: int
+    start_date: date
+    target_date: date | None
+
+
+@dataclass(frozen=True)
+class DiscordTaskBriefGroup:
+    plane_user_id: str | None
+    display_name: str
+    local_date: date
+    items: tuple[DiscordTaskBriefItem, ...]
 
 
 DiscordEventHandler = Callable[[DiscordIssueContext], DiscordNotification | None]
@@ -539,6 +586,322 @@ def resolve_discord_recipients(
             mapping_by_plane_id[user_id] for user_id in recipient_plane_user_ids if user_id in mapping_by_plane_id
         )
     )
+
+
+def _daily_reminder_risk_rank(item: DiscordTaskBriefItem, local_date: date) -> int:
+    if item.target_date is None:
+        return 3
+    if item.target_date < local_date:
+        return 0
+    if item.target_date == local_date:
+        return 1
+    return 2
+
+
+def _daily_reminder_sort_key(item: DiscordTaskBriefItem, local_date: date) -> tuple[Any, ...]:
+    return (
+        _daily_reminder_risk_rank(item, local_date),
+        DISCORD_PRIORITY_ORDER.get(item.priority, DISCORD_PRIORITY_ORDER["none"]),
+        item.target_date or date.max,
+        item.project_identifier.casefold(),
+        item.sequence_id,
+        item.issue_id,
+    )
+
+
+def collect_daily_reminder_groups(
+    *,
+    workspace_id: str,
+    local_date: date,
+) -> tuple[DiscordTaskBriefGroup, ...]:
+    assignee_prefetch = Prefetch(
+        "issue_assignee",
+        queryset=IssueAssignee.objects.select_related("assignee").order_by("assignee_id"),
+        to_attr="discord_reminder_assignee_links",
+    )
+    issues = (
+        Issue.issue_objects.filter(
+            workspace_id=workspace_id,
+            start_date__isnull=False,
+            start_date__lte=local_date,
+            state__group__in=(StateGroup.BACKLOG, StateGroup.UNSTARTED, StateGroup.STARTED),
+            archived_at__isnull=True,
+            is_draft=False,
+            project__archived_at__isnull=True,
+            project__deleted_at__isnull=True,
+        )
+        .select_related("workspace", "project", "state")
+        .prefetch_related(assignee_prefetch)
+    )
+
+    grouped_items: dict[str, tuple[str, list[DiscordTaskBriefItem]]] = {}
+    unassigned_items: list[DiscordTaskBriefItem] = []
+    for issue in issues:
+        item = DiscordTaskBriefItem(
+            issue_id=str(issue.id),
+            identifier=f"{issue.project.identifier}-{issue.sequence_id}",
+            name=issue.name,
+            project_identifier=issue.project.identifier,
+            project_name=issue.project.name,
+            workspace_slug=issue.workspace.slug,
+            state_name=issue.state.name,
+            state_group=issue.state.group,
+            priority=issue.priority,
+            sequence_id=issue.sequence_id,
+            start_date=issue.start_date,
+            target_date=issue.target_date,
+        )
+        assignee_links = issue.discord_reminder_assignee_links
+        if not assignee_links:
+            unassigned_items.append(item)
+            continue
+
+        for link in assignee_links:
+            plane_user_id = str(link.assignee_id)
+            display_name = link.assignee.display_name or link.assignee.full_name or "Plane 用户"
+            grouped_items.setdefault(plane_user_id, (display_name, []))[1].append(item)
+
+    groups = [
+        DiscordTaskBriefGroup(
+            plane_user_id=plane_user_id,
+            display_name=display_name,
+            local_date=local_date,
+            items=tuple(sorted(items, key=lambda item: _daily_reminder_sort_key(item, local_date))),
+        )
+        for plane_user_id, (display_name, items) in grouped_items.items()
+    ]
+    groups.sort(key=lambda group: (group.display_name.casefold(), group.plane_user_id or ""))
+    if unassigned_items:
+        groups.append(
+            DiscordTaskBriefGroup(
+                plane_user_id=None,
+                display_name="未分配",
+                local_date=local_date,
+                items=tuple(
+                    sorted(unassigned_items, key=lambda item: _daily_reminder_sort_key(item, local_date))
+                ),
+            )
+        )
+    return tuple(groups)
+
+
+def _task_brief_group_label(group: DiscordTaskBriefGroup, *, markdown: bool = True) -> str:
+    if group.plane_user_id is None:
+        return "未分配任务简报"
+    display_name = _truncate(" ".join(group.display_name.split()) or "Plane 用户", 200)
+    if markdown:
+        display_name = _escape_markdown(display_name)
+    return f"{display_name} 的任务简报"
+
+
+def _task_brief_summary(group: DiscordTaskBriefGroup, discord_user_id: str | None) -> str:
+    overdue = sum(item.target_date is not None and item.target_date < group.local_date for item in group.items)
+    due_today = sum(item.target_date == group.local_date for item in group.items)
+    pending = len(group.items) - overdue - due_today
+    summary_date = f"{group.local_date.year}年{group.local_date.month}月{group.local_date.day}日"
+    lines = [
+        f"**{_task_brief_group_label(group)} · {summary_date} · 共 {len(group.items)} 项**",
+        f"逾期 {overdue} 项 · 今日截止 {due_today} 项 · 待推进 {pending} 项",
+    ]
+    if discord_user_id:
+        lines.insert(0, f"<@{discord_user_id}>")
+    return _truncate("\n".join(lines), DISCORD_MAX_CONTENT_CHARACTERS)
+
+
+def _task_brief_risk_presentation(item: DiscordTaskBriefItem, local_date: date) -> tuple[str, int]:
+    if item.target_date is not None and item.target_date < local_date:
+        overdue_days = (local_date - item.target_date).days
+        return f"{DISCORD_DOT_RED} **已逾期 {overdue_days} 天**", DISCORD_COLOR_OVERDUE
+    if item.target_date == local_date:
+        return f"{DISCORD_DOT_YELLOW} **今天截止**", DISCORD_COLOR_DUE_TODAY
+    if item.target_date is not None:
+        remaining_days = (item.target_date - local_date).days
+        return f"{DISCORD_DOT_BLUE} **还有 {remaining_days} 天截止**", DISCORD_COLOR_PENDING
+    return f"{DISCORD_DOT_BLUE} **待推进**", DISCORD_COLOR_PENDING
+
+
+def _task_brief_footer(
+    item: DiscordTaskBriefItem,
+    group: DiscordTaskBriefGroup,
+    part_number: int,
+    total_parts: int,
+) -> str:
+    if group.plane_user_id is None:
+        reminder = "这项任务还没有负责人，记得尽快认领或分配喵~"
+    elif item.target_date is not None and item.target_date < group.local_date:
+        overdue_days = (group.local_date - item.target_date).days
+        reminder = f"主人，这项任务已经逾期 {overdue_days} 天，今天优先处理一下喵~"
+    elif item.target_date == group.local_date:
+        reminder = "主人，这项任务今天截止，记得及时收尾喵~"
+    else:
+        reminder = "主人，今天也一起稳稳推进这项任务喵~"
+    return _truncate(
+        f"{_task_brief_group_label(group, markdown=False)} · 第 {part_number}/{total_parts} 部分 · {reminder}",
+        DISCORD_MAX_FOOTER_CHARACTERS,
+    )
+
+
+def _build_task_brief_embed(
+    item: DiscordTaskBriefItem,
+    group: DiscordTaskBriefGroup,
+    base_url: str,
+    part_number: int,
+    total_parts: int,
+) -> dict[str, Any]:
+    risk_text, color = _task_brief_risk_presentation(item, group.local_date)
+    priority_dot, priority_label = DISCORD_PRIORITY_PRESENTATION.get(
+        item.priority,
+        (DISCORD_DOT_WHITE, "无优先级"),
+    )
+    task_time = f"{_format_date(item.start_date)} → {_format_date(item.target_date) if item.target_date else '未设置'}"
+    url = f"{base_url.rstrip('/')}/{item.workspace_slug}/browse/{item.identifier}/"
+    return {
+        "author": {
+            "name": _truncate(
+                f"Plane · {' '.join(item.project_name.split())}",
+                DISCORD_MAX_AUTHOR_CHARACTERS,
+            )
+        },
+        "title": _truncate(
+            f"{item.identifier} · {_escape_markdown(item.name)}",
+            DISCORD_MAX_TITLE_CHARACTERS,
+        ),
+        "description": _truncate(risk_text, DISCORD_MAX_DESCRIPTION_CHARACTERS),
+        "url": url,
+        "color": color,
+        "fields": [
+            {
+                "name": DISCORD_FIELD_PRIORITY,
+                "value": _truncate(
+                    _inline_code_badge(priority_label, priority_dot),
+                    DISCORD_MAX_FIELD_VALUE_CHARACTERS,
+                ),
+                "inline": True,
+            },
+            {
+                "name": DISCORD_FIELD_STATUS,
+                "value": _truncate(
+                    _inline_code_badge(
+                        item.state_name,
+                        DISCORD_STATE_DOTS.get(item.state_group, DISCORD_DOT_WHITE),
+                    ),
+                    DISCORD_MAX_FIELD_VALUE_CHARACTERS,
+                ),
+                "inline": True,
+            },
+            {
+                "name": DISCORD_FIELD_TASK_TIME,
+                "value": _truncate(
+                    _inline_code_badge(task_time),
+                    DISCORD_MAX_FIELD_VALUE_CHARACTERS,
+                ),
+                "inline": True,
+            },
+        ],
+        "footer": {"text": _task_brief_footer(item, group, part_number, total_parts)},
+    }
+
+
+def discord_embed_character_count(embed: dict[str, Any]) -> int:
+    fields = embed.get("fields", [])
+    return sum(
+        (
+            len(str(embed.get("author", {}).get("name", ""))),
+            len(str(embed.get("title", ""))),
+            len(str(embed.get("description", ""))),
+            len(str(embed.get("footer", {}).get("text", ""))),
+            *(len(str(field.get("name", ""))) + len(str(field.get("value", ""))) for field in fields),
+        )
+    )
+
+
+def _pack_task_brief_embeds(
+    group: DiscordTaskBriefGroup,
+    base_url: str,
+) -> tuple[tuple[dict[str, Any], ...], ...]:
+    if not group.items:
+        return ()
+
+    total_parts = 1
+    while True:
+        parts: list[list[dict[str, Any]]] = []
+        current_part: list[dict[str, Any]] = []
+        current_characters = 0
+        for item in group.items:
+            part_number = len(parts) + 1
+            embed = _build_task_brief_embed(item, group, base_url, part_number, total_parts)
+            embed_characters = discord_embed_character_count(embed)
+            if current_part and (
+                len(current_part) >= DISCORD_MAX_EMBEDS_PER_MESSAGE
+                or current_characters + embed_characters > DISCORD_MAX_EMBED_CHARACTERS_PER_MESSAGE
+            ):
+                parts.append(current_part)
+                current_part = []
+                current_characters = 0
+                part_number = len(parts) + 1
+                embed = _build_task_brief_embed(item, group, base_url, part_number, total_parts)
+                embed_characters = discord_embed_character_count(embed)
+            current_part.append(embed)
+            current_characters += embed_characters
+        if current_part:
+            parts.append(current_part)
+
+        if len(parts) == total_parts:
+            return tuple(tuple(part) for part in parts)
+        total_parts = len(parts)
+
+
+def build_daily_task_brief_payloads(
+    *,
+    group: DiscordTaskBriefGroup,
+    member_mappings: tuple[DiscordMemberMapping, ...],
+    base_url: str,
+) -> tuple[dict[str, Any], ...]:
+    resolved_user_ids = (
+        resolve_discord_recipients((group.plane_user_id,), member_mappings) if group.plane_user_id else ()
+    )
+    discord_user_id = next(
+        (user_id for user_id in resolved_user_ids if DISCORD_USER_ID_PATTERN.fullmatch(user_id)),
+        None,
+    )
+    parts = _pack_task_brief_embeds(group, base_url)
+    payloads = []
+    for index, embeds in enumerate(parts):
+        is_first = index == 0
+        allowed_user_ids = [discord_user_id] if is_first and discord_user_id else []
+        payloads.append(
+            {
+                "content": _task_brief_summary(group, discord_user_id) if is_first else "",
+                "embeds": list(embeds),
+                "allowed_mentions": {
+                    "parse": [],
+                    "users": allowed_user_ids,
+                    "roles": [],
+                },
+            }
+        )
+    return tuple(payloads)
+
+
+def deliver_daily_task_briefs(
+    *,
+    configuration: DiscordIntegrationConfiguration,
+    groups: tuple[DiscordTaskBriefGroup, ...],
+    base_url: str,
+) -> None:
+    for group in groups:
+        payloads = build_daily_task_brief_payloads(
+            group=group,
+            member_mappings=configuration.member_mappings,
+            base_url=base_url,
+        )
+        for payload in payloads:
+            send_discord_webhook(
+                webhook_url=configuration.webhook_url,
+                payload=payload,
+                event_key=DISCORD_EVENT_WORK_ITEM_DAILY_REMINDER,
+                workspace_id=configuration.workspace_id,
+            )
 
 
 def build_discord_payload(

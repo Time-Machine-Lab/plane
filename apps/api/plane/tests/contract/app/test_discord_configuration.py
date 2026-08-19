@@ -74,7 +74,12 @@ def valid_payload(workspace, user):
         "enabled": True,
         "workspace_id": str(workspace.id),
         "webhook_url": WEBHOOK_URL,
-        "enabled_events": ["work_item.created", "work_item.assignee_added", "work_item.completed"],
+        "enabled_events": [
+            "work_item.created",
+            "work_item.assignee_added",
+            "work_item.completed",
+            "work_item.daily_reminder",
+        ],
         "member_mappings": [
             {
                 "plane_user_id": str(user.id),
@@ -111,6 +116,7 @@ def test_valid_update_masks_encrypts_and_retains_webhook(admin_client, configure
     )
     assert response.status_code == 200
     assert response.data["webhook_configured"] is True
+    assert "work_item.daily_reminder" in response.data["enabled_events"]
     assert "webhook_url" not in response.data
 
     stored = InstanceConfiguration.objects.get(key="DISCORD_WEBHOOK_URL")
@@ -172,6 +178,15 @@ def test_invalid_url_and_mapping_do_not_partially_update(admin_client, configure
     response = admin_client.patch(CONFIGURATION_PATH, invalid_plane_user_payload, format="json")
     assert response.status_code == 400
     assert "valid UUID" in response.data["error"]
+
+    unsupported_event_payload = {
+        **initial_payload,
+        "enabled_events": ["work_item.daily_reminder", "work_item.unsupported"],
+    }
+    response = admin_client.patch(CONFIGURATION_PATH, unsupported_event_payload, format="json")
+    assert response.status_code == 400
+    assert "unsupported" in response.data["error"]
+    assert InstanceConfiguration.objects.get(key="DISCORD_ENABLED_EVENTS").value == stored_events
 
 
 @pytest.mark.contract

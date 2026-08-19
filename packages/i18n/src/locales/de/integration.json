@@ -17,6 +17,12 @@
     "choose_project": "Projekt auswählen...",
     "skip_backward_state_movement": "Verhindern, dass Issues durch PR-Updates in einen früheren Status verschoben werden"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Tägliche Arbeitsübersicht",
+      "description": "Täglich um 08:00 Uhr in der Zeitzone des ausgewählten Arbeitsbereichs eine Übersicht aktiver Arbeitselemente senden, deren Startdatum heute oder früher liegt."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Verbinden und synchronisieren Sie Ihre GitHub-Arbeitsaufgaben mit Plane",

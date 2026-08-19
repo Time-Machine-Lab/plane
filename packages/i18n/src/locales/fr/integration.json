@@ -17,6 +17,12 @@
     "choose_project": "Choisir le projet...",
     "skip_backward_state_movement": "Empêcher le déplacement des issues vers un état antérieur en raison des mises à jour de PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Récapitulatif quotidien des éléments de travail",
+      "description": "Tous les jours à 08:00, dans le fuseau horaire de l’espace de travail sélectionné, un récapitulatif des éléments de travail actifs dont la date de début est aujourd’hui ou antérieure est envoyé."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Connectez et synchronisez vos éléments de travail GitHub avec Plane",

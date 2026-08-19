@@ -17,6 +17,12 @@
     "choose_project": "Wybierz projekt...",
     "skip_backward_state_movement": "Zapobiegaj przenoszeniu zadań do wcześniejszego stanu z powodu aktualizacji PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Dzienny przegląd elementów pracy",
+      "description": "Codziennie o 08:00 w strefie czasowej wybranego obszaru roboczego wysyłany jest przegląd aktywnych elementów pracy, których data rozpoczęcia przypada dzisiaj lub wcześniej."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Połącz i synchronizuj swoje elementy pracy GitHub z Plane",

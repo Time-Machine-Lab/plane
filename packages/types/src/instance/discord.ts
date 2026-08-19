@@ -4,7 +4,11 @@
  * See the LICENSE file for details.
  */
 
-export type TDiscordEventKey = "work_item.created" | "work_item.assignee_added" | "work_item.completed";
+export type TDiscordEventKey =
+  | "work_item.created"
+  | "work_item.assignee_added"
+  | "work_item.completed"
+  | "work_item.daily_reminder";
 
 export interface IDiscordMemberMapping {
   plane_user_id: string;

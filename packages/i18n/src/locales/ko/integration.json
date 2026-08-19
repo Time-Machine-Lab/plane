@@ -17,6 +17,12 @@
     "choose_project": "프로젝트 선택...",
     "skip_backward_state_movement": "PR 업데이트로 인해 이슈가 이전 상태로 이동하는 것을 방지"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "일일 작업 항목 요약",
+      "description": "선택한 워크스페이스의 시간대를 기준으로 매일 08:00에 시작일이 오늘이거나 이전인 활성 작업 항목의 요약을 전송합니다."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "GitHub 작업 항목을 플레인과 연결하고 동기화하세요.",

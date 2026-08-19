@@ -17,6 +17,12 @@
     "choose_project": "プロジェクトを選択...",
     "skip_backward_state_movement": "PRの更新により課題が以前の状態に戻ることを防ぐ"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "日次作業項目サマリー",
+      "description": "選択したワークスペースのタイムゾーンで毎日 08:00 に、開始日が当日以前のアクティブな作業項目のサマリーを送信します。"
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "GitHubの作業項目をPlaneと連携・同期します。",

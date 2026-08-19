@@ -47,6 +47,10 @@ app.conf.beat_schedule = {
         "task": "plane.bgtasks.email_notification_task.stack_email_notification",
         "schedule": crontab(minute="*/5"),  # Every 5 minutes
     },
+    "check-every-five-minutes-for-discord-daily-task-reminders": {
+        "task": "plane.bgtasks.discord_daily_reminder_task.discord_daily_task_reminder",
+        "schedule": crontab(minute="*/5"),
+    },
     "push-instance-metrics": {
         "task": "plane.license.bgtasks.telemetry_metrics.push_instance_metrics",
         "schedule": schedule(run_every=timedelta(minutes=METRICS_PUSH_INTERVAL_MINUTES)),

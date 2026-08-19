@@ -17,6 +17,12 @@
     "choose_project": "Scegli progetto...",
     "skip_backward_state_movement": "Impedisci che le issue tornino a uno stato precedente a causa degli aggiornamenti PR"
   },
+  "discord_integration": {
+    "daily_task_brief": {
+      "label": "Riepilogo giornaliero degli elementi di lavoro",
+      "description": "Ogni giorno alle 08:00, nel fuso orario dello spazio di lavoro selezionato, viene inviato un riepilogo degli elementi di lavoro attivi la cui data di inizio è oggi o precedente."
+    }
+  },
   "github_integration": {
     "name": "GitHub",
     "description": "Connetti e sincronizza i tuoi elementi di lavoro GitHub con Plane",
