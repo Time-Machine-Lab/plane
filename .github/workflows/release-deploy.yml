@@ -105,6 +105,9 @@ jobs:
           - image: plane-live
             context: .
             dockerfile: ./apps/live/Dockerfile.live
+          - image: plane-mcp
+            context: .
+            dockerfile: ./apps/mcp/Dockerfile.mcp
           - image: plane-api
             context: ./apps/api
             dockerfile: ./apps/api/Dockerfile.api
@@ -251,6 +254,7 @@ jobs:
           - plane-admin
           - plane-space
           - plane-live
+          - plane-mcp
           - plane-api
           - plane-proxy
     env:

@@ -46,6 +46,13 @@ x-live-env: &live-env
   API_BASE_URL: ${API_BASE_URL:-http://api:8000}
   LIVE_SERVER_SECRET_KEY: ${LIVE_SERVER_SECRET_KEY}
 
+x-mcp-env: &mcp-env
+  MCP_ENABLED: ${MCP_ENABLED:-false}
+  PLANE_API_BASE_URL: ${PLANE_API_BASE_URL:-http://api:8000/api/v1}
+  PLANE_BASE_URL: ${WEB_URL:-http://localhost}
+  PLANE_API_TIMEOUT_MS: ${PLANE_API_TIMEOUT_MS:-10000}
+  PLANE_API_RESPONSE_LIMIT_BYTES: ${PLANE_API_RESPONSE_LIMIT_BYTES:-1048576}
+
 x-app-env: &app-env
   WEB_URL: ${WEB_URL:-http://localhost}
   DEBUG: ${DEBUG:-0}
@@ -104,6 +111,17 @@ services:
     depends_on:
       - api
       - web
+
+  mcp:
+    image: makeplane/plane-mcp:${APP_RELEASE:-stable}
+    environment:
+      <<: *mcp-env
+    deploy:
+      replicas: ${MCP_REPLICAS:-1}
+      restart_policy:
+        condition: any
+    depends_on:
+      - api
 
   api:
     image: makeplane/plane-backend:${APP_RELEASE:-stable}
@@ -243,6 +261,7 @@ services:
       - space
       - admin
       - live
+      - mcp
 
 volumes:
   pgdata:

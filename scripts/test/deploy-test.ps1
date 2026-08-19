@@ -13,7 +13,7 @@ Skips the lightweight package whitespace preflight. CI remains the owner of lint
 #>
 [CmdletBinding(SupportsShouldProcess)]
 param(
-    [ValidateSet("auto", "all", "web", "admin", "space", "api", "worker", "beat-worker", "live", "proxy", "fixtures")]
+    [ValidateSet("auto", "all", "web", "admin", "space", "api", "worker", "beat-worker", "live", "mcp", "proxy", "fixtures")]
     [string[]]$Services = @("auto"),
 
     [string]$ConfigPath,
@@ -134,6 +134,7 @@ function Resolve-AutoServices {
             '^apps/admin/' { [void]$selected.Add("admin"); continue }
             '^apps/space/' { [void]$selected.Add("space"); continue }
             '^apps/live/' { [void]$selected.Add("live"); continue }
+            '^apps/mcp/' { [void]$selected.Add("mcp"); continue }
             '^apps/proxy/' { [void]$selected.Add("proxy"); continue }
             '^scripts/test/' { [void]$selected.Add("fixtures"); continue }
             '^packages/codemods/' { continue }

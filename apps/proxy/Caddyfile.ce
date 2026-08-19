@@ -10,6 +10,7 @@
 	reverse_proxy /god-mode/* admin:3000
 	
 	reverse_proxy /live/* live:3000
+	reverse_proxy /mcp* mcp:3100
 
 	reverse_proxy /api/* api:8000
 

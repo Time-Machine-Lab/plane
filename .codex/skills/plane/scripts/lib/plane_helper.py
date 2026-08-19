@@ -19,10 +19,12 @@ RESERVED_SLUGS = {"api", "mcp", "god-mode", "spaces"}
 
 def normalize_url(value: str, explicit_slug: str | None) -> dict[str, str]:
     parsed = urlsplit(value)
-    if parsed.scheme != "https":
-        raise ValueError("Workspace URL must use HTTPS.")
     if not parsed.hostname or parsed.username or parsed.password:
         raise ValueError("Workspace URL has an invalid authority.")
+    loopback_hosts = {"localhost", "127.0.0.1", "::1"}
+    is_loopback_http = parsed.scheme == "http" and parsed.hostname.lower() in loopback_hosts
+    if parsed.scheme != "https" and not is_loopback_http:
+        raise ValueError("Workspace URL must use HTTPS unless it targets a loopback address.")
     if parsed.query or parsed.fragment:
         raise ValueError("Workspace URL must not contain a query string or fragment.")
 
@@ -43,7 +45,7 @@ def normalize_url(value: str, explicit_slug: str | None) -> dict[str, str]:
     authority = hostname
     if parsed.port is not None:
         authority = f"{authority}:{parsed.port}"
-    origin = f"https://{authority}"
+    origin = f"{parsed.scheme}://{authority}"
     return {"origin": origin, "workspace_slug": slug, "mcp_url": f"{origin}/mcp"}
 
 
@@ -110,6 +112,36 @@ def validate_token() -> None:
         raise ValueError("Plane API token contains unsafe characters.")
 
 
+def plane_status_request(slug: str) -> dict[str, object]:
+    return {
+        "jsonrpc": "2.0",
+        "id": "plane-doctor-status",
+        "method": "tools/call",
+        "params": {"name": "plane_status", "arguments": {"workspace_slug": slug}},
+    }
+
+
+def validate_plane_status_response(path: Path, slug: str) -> tuple[bool, str]:
+    with path.open(encoding="utf-8") as handle:
+        payload = json.load(handle)
+    if not isinstance(payload, dict) or "error" in payload:
+        return False, "The Plane MCP endpoint returned a JSON-RPC error."
+    result = payload.get("result")
+    if not isinstance(result, dict):
+        return False, "The Plane MCP endpoint returned an invalid plane_status result."
+    structured = result.get("structuredContent")
+    if result.get("isError") is True:
+        error = structured.get("error") if isinstance(structured, dict) else None
+        raw_code = error.get("code") if isinstance(error, dict) else None
+        code = raw_code if isinstance(raw_code, str) and re.fullmatch(r"[a-z_]+", raw_code) else "tool_error"
+        return False, f"plane_status returned a {code} error."
+    if not isinstance(structured, dict):
+        return False, "The Plane MCP endpoint returned an invalid plane_status result."
+    if structured.get("available") is not True or structured.get("workspace") != slug:
+        return False, "plane_status did not confirm the configured workspace."
+    return True, "plane_status confirmed the configured workspace."
+
+
 def parse_checks(path: Path) -> list[dict[str, str]]:
     checks: list[dict[str, str]] = []
     with path.open(encoding="utf-8") as handle:
@@ -146,8 +178,12 @@ def main() -> int:
     subparsers.add_parser("redact")
     subparsers.add_parser("validate-token")
 
+    probe_request = subparsers.add_parser("probe-request")
+    probe_request.add_argument("--slug", required=True)
+
     probe = subparsers.add_parser("probe-valid")
     probe.add_argument("--path", required=True)
+    probe.add_argument("--slug", required=True)
 
     doctor = subparsers.add_parser("doctor-output")
     doctor.add_argument("--checks", required=True)
@@ -195,11 +231,11 @@ def main() -> int:
             sys.stdout.write(redact(sys.stdin.read()))
         elif args.command == "validate-token":
             validate_token()
+        elif args.command == "probe-request":
+            print(json.dumps(plane_status_request(args.slug), separators=(",", ":")))
         elif args.command == "probe-valid":
-            with Path(args.path).open(encoding="utf-8") as handle:
-                payload = json.load(handle)
-            valid = payload.get("result") == "ok" and payload.get("plane_status_available") is True
-            print(str(payload.get("detail", "Plane status probe returned no detail.")))
+            valid, detail = validate_plane_status_response(Path(args.path), args.slug)
+            print(detail)
             return 0 if valid else 1
         elif args.command == "doctor-output":
             checks = parse_checks(Path(args.checks))

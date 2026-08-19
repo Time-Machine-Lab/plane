@@ -44,7 +44,7 @@ The first release supports one default profile. Multiple Plane instances or name
 
 ### Validate before mutating client configuration
 
-Before registering MCP, setup validates the normalized HTTPS Plane origin, token identity, and workspace access against the deployed MCP/API contracts. Invalid URLs, tokens, certificates, or inaccessible workspaces leave existing Codex configuration unchanged.
+Before registering MCP, setup validates the normalized Plane origin, token identity, and workspace access against the deployed MCP/API contracts. Remote origins require HTTPS; HTTP is accepted only for loopback addresses used by local development or an SSH tunnel. Invalid URLs, tokens, certificates, or inaccessible workspaces leave existing Codex configuration unchanged.
 
 Repeated setup is idempotent. If a `plane` MCP entry already matches, setup validates it without duplicating it. If it differs, the user receives a clear replacement decision and unrelated entries remain unchanged.
 

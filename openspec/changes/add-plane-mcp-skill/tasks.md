@@ -24,5 +24,5 @@
 ## 5. Verification
 
 - [x] 5.1 Add focused setup, idempotency, configuration-preservation, URL parsing, redaction, and doctor fixtures for Windows and POSIX behavior.
-- [ ] 5.2 Confirm the independently deployed and accepted Plane MCP test endpoint from `add-plane-mcp-server`; do not duplicate the Plane deployment for this Skill-only change.
-- [ ] 5.3 Have an independent Tester install the Skill in an isolated Codex profile, execute the required setup and guidance scenarios, and record pass/fail evidence in `verification.md`.
+- [x] 5.2 Confirm the independently deployed and accepted Plane MCP test endpoint from `add-plane-mcp-server`; do not duplicate the Plane deployment for this Skill-only change.
+- [x] 5.3 Have an independent Tester install the Skill in an isolated Codex profile, execute the required setup and guidance scenarios, and record pass/fail evidence in `verification.md`.

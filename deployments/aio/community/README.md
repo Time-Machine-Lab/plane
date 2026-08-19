@@ -8,9 +8,10 @@ The AIO image contains the following services:
 
 - **Web App** (Port 3001): Main Plane web interface
 - **Space** (Port 3002): Public project spaces
-- **Admin** (Port 3003): Administrative interface  
+- **Admin** (Port 3003): Administrative interface
 - **API Server** (Port 3004): Backend API
 - **Live Server** (Port 3005): Real-time collaboration
+- **MCP Server** (Port 3006): Optional AI client integration at `/mcp`
 - **Proxy** (Port 80, 443): Caddy reverse proxy
 - **Worker & Beat**: Background task processing
 
@@ -21,7 +22,7 @@ The AIO image contains the following services:
 The AIO image requires these external services to be running:
 
 - **PostgreSQL Database**: For data storage
-- **Redis**: For caching and session management  
+- **Redis**: For caching and session management
 - **RabbitMQ**: For message queuing
 - **S3-Compatible Storage**: For file uploads (AWS S3 or MinIO)
 
@@ -33,7 +34,7 @@ You must provide these environment variables:
 
 - `DOMAIN_NAME`: Your domain name or IP address
 - `DATABASE_URL`: PostgreSQL connection string
-- `REDIS_URL`: Redis connection string  
+- `REDIS_URL`: Redis connection string
 - `AMQP_URL`: RabbitMQ connection string
 
 #### Storage Configuration
@@ -89,7 +90,6 @@ docker run --name myaio --rm -it \
 
 - `SITE_ADDRESS`: Server bind address (default: `:80`)
 
-
 #### Security & Secrets
 
 - `SECRET_KEY`: Django secret key (default provided)
@@ -102,6 +102,7 @@ docker run --name myaio --rm -it \
 #### API Configuration
 
 - `API_KEY_RATE_LIMIT`: API key rate limit (default: `60/minute`)
+- `MCP_ENABLED`: Set to `true` to enable the `/mcp` endpoint (default: `false`)
 
 ## Port Mapping
 
@@ -116,7 +117,7 @@ The following ports are exposed:
 
 ```bash
 -v /path/to/logs:/app/logs \
--v /path/to/data:/app/data 
+-v /path/to/data:/app/data
 ```
 
 ## Building the Image
@@ -153,7 +154,7 @@ docker exec -it <container-name> supervisorctl status
 ### Common Issues
 
 1. **Database Connection Failed**: Ensure PostgreSQL is accessible and credentials are correct
-2. **Redis Connection Failed**: Verify Redis server is running and URL is correct  
+2. **Redis Connection Failed**: Verify Redis server is running and URL is correct
 3. **File Upload Issues**: Check S3 credentials and bucket permissions
 
 ### Environment Validation

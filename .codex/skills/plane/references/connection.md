@@ -20,7 +20,7 @@ Installing the Skill does not change MCP configuration. Run setup explicitly:
 ./scripts/setup.sh --workspace-url "https://plane.example.com/my-workspace"
 ```
 
-The URL must use HTTPS. Its first path segment is the workspace slug. For an origin-only URL, also pass `-WorkspaceSlug` or `--workspace-slug`.
+Remote URLs must use HTTPS. HTTP is accepted only for loopback addresses (`localhost`, `127.0.0.1`, or `::1`) so local development and an SSH tunnel can be tested without sending the API token over an untrusted network. The first path segment is the workspace slug. For an origin-only URL, also pass `-WorkspaceSlug` or `--workspace-slug`.
 
 Setup uses an existing `PLANE_API_TOKEN` environment value or reads it with a masked terminal prompt. It never persists the token. If the prompt is used, configure the same variable through your approved secret manager or process-launch environment before starting Codex. Do not put the token on a command line, in chat, in a shell profile, or in a repository file.
 

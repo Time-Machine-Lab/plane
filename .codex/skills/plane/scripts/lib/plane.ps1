@@ -2,6 +2,7 @@ Set-StrictMode -Version Latest
 
 $script:PlaneMcpName = "plane"
 $script:PlaneTokenVariable = "PLANE_API_TOKEN"
+$script:PlaneMcpProtocolVersion = "2025-03-26"
 
 function Protect-PlaneText {
     param(
@@ -64,8 +65,9 @@ function ConvertTo-PlaneConnectionProfile {
     if (-not [Uri]::TryCreate($WorkspaceUrl, [UriKind]::Absolute, [ref]$uri)) {
         throw "Workspace URL is not an absolute URL."
     }
-    if ($uri.Scheme -ne "https") {
-        throw "Workspace URL must use HTTPS."
+    $isLoopbackHttp = $uri.Scheme -eq "http" -and $uri.IsLoopback
+    if ($uri.Scheme -ne "https" -and -not $isLoopbackHttp) {
+        throw "Workspace URL must use HTTPS unless it targets a loopback address."
     }
     if (-not [string]::IsNullOrEmpty($uri.UserInfo)) {
         throw "Workspace URL must not contain user information."
@@ -137,10 +139,27 @@ function Get-PlaneApiToken {
 function Invoke-PlaneCodex {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
 
-    $output = @(& codex @Arguments 2>&1)
-    return [pscustomobject]@{
-        ExitCode = $LASTEXITCODE
-        Output   = ($output -join [Environment]::NewLine)
+    $standardErrorPath = Join-Path ([IO.Path]::GetTempPath()) ("plane-codex-stderr-{0}.txt" -f [Guid]::NewGuid().ToString("N"))
+    try {
+        $standardOutput = @(& codex @Arguments 2> $standardErrorPath)
+        $exitCode = $LASTEXITCODE
+        $output = $standardOutput -join [Environment]::NewLine
+        $standardError = if (Test-Path -LiteralPath $standardErrorPath) {
+            Get-Content -Raw -LiteralPath $standardErrorPath -ErrorAction SilentlyContinue
+        }
+        else {
+            ""
+        }
+        if ($exitCode -ne 0 -and -not [string]::IsNullOrWhiteSpace($standardError)) {
+            $output = @($output, $standardError.TrimEnd()) -join [Environment]::NewLine
+        }
+        return [pscustomobject]@{
+            ExitCode = $exitCode
+            Output   = $output
+        }
+    }
+    finally {
+        Remove-Item -LiteralPath $standardErrorPath -Force -ErrorAction SilentlyContinue
     }
 }
 
@@ -189,7 +208,8 @@ function Invoke-PlaneHttpRequest {
         [Parameter(Mandatory = $true)][string]$Url,
         [Parameter(Mandatory = $true)][ValidateSet("ApiKey", "Bearer")][string]$Authentication,
         [Parameter(Mandatory = $true)][string]$Token,
-        [ValidateSet("Get", "Post")][string]$Method = "Get"
+        [ValidateSet("Get", "Post")][string]$Method = "Get",
+        [string]$Body = "{}"
     )
 
     Assert-PlaneApiTokenSafe -Token $Token
@@ -206,9 +226,10 @@ function Invoke-PlaneHttpRequest {
         $request.Headers.Authorization = [System.Net.Http.Headers.AuthenticationHeaderValue]::new("Bearer", $Token)
         $request.Headers.Accept.ParseAdd("text/event-stream")
         $request.Headers.Accept.ParseAdd("application/json")
+        $request.Headers.Add("MCP-Protocol-Version", $script:PlaneMcpProtocolVersion)
     }
     if ($Method -eq "Post") {
-        $request.Content = [System.Net.Http.StringContent]::new("{}", [Text.Encoding]::UTF8, "application/json")
+        $request.Content = [System.Net.Http.StringContent]::new($Body, [Text.Encoding]::UTF8, "application/json")
     }
     try {
         $response = $client.Send($request)
@@ -397,36 +418,56 @@ function Add-PlaneDoctorCheck {
 }
 
 function Invoke-PlaneStatusProbe {
-    param([Parameter(Mandatory = $true)]$Profile)
+    param(
+        [Parameter(Mandatory = $true)]$Profile,
+        [Parameter(Mandatory = $true)][string]$Token
+    )
 
-    $schemaPath = Join-Path ([IO.Path]::GetTempPath()) ("plane-doctor-schema-{0}.json" -f [Guid]::NewGuid().ToString("N"))
-    $outputPath = Join-Path ([IO.Path]::GetTempPath()) ("plane-doctor-output-{0}.json" -f [Guid]::NewGuid().ToString("N"))
-    $schema = @'
-{"type":"object","properties":{"result":{"type":"string","enum":["ok","fail"]},"plane_status_available":{"type":"boolean"},"detail":{"type":"string"}},"required":["result","plane_status_available","detail"],"additionalProperties":false}
-'@
-    $prompt = @"
-This is a read-only Plane connection diagnostic. Call the plane MCP tool named plane_status exactly once with workspace_slug '$($Profile.workspace_slug)'. Do not call any other tool and do not mutate Plane. Return only the requested diagnostic JSON. Use result 'ok' and plane_status_available true only when the tool returns a successful status for that workspace; otherwise use result 'fail' and a short sanitized detail.
-"@
     try {
-        Set-Content -LiteralPath $schemaPath -Value $schema -Encoding utf8NoBOM
-        $urlOverride = 'mcp_servers.plane.url="{0}"' -f $Profile.mcp_url
-        $tokenOverride = 'mcp_servers.plane.bearer_token_env_var="PLANE_API_TOKEN"'
-        $toolsOverride = 'mcp_servers.plane.enabled_tools=["plane_status"]'
-        $captured = @($prompt | & codex exec --ignore-user-config -c $urlOverride -c $tokenOverride -c $toolsOverride --ephemeral --skip-git-repo-check --sandbox read-only --output-schema $schemaPath --output-last-message $outputPath - 2>&1)
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $outputPath)) {
-            return [pscustomobject]@{ Success = $false; Detail = "Codex could not complete the plane_status tool probe." }
+        $payload = [ordered]@{
+            jsonrpc = "2.0"
+            id      = "plane-doctor-status"
+            method  = "tools/call"
+            params  = [ordered]@{
+                name      = "plane_status"
+                arguments = [ordered]@{ workspace_slug = $Profile.workspace_slug }
+            }
+        } | ConvertTo-Json -Depth 6 -Compress
+        $response = Invoke-PlaneHttpRequest -Url $Profile.mcp_url -Authentication Bearer -Token $Token -Method Post -Body $payload
+        if ($response.Status -in @(401, 403)) {
+            return [pscustomobject]@{ Success = $false; Detail = "The Plane MCP endpoint rejected the credential." }
         }
-        $result = Get-Content -Raw -LiteralPath $outputPath | ConvertFrom-Json -ErrorAction Stop
-        return [pscustomobject]@{
-            Success = ($result.result -eq "ok" -and $result.plane_status_available -eq $true)
-            Detail  = [string]$result.detail
+        if ($response.Status -ne 200) {
+            return [pscustomobject]@{ Success = $false; Detail = "The plane_status MCP request returned HTTP $($response.Status)." }
         }
+
+        $message = $response.Body | ConvertFrom-Json -ErrorAction Stop
+        if ($null -ne $message.PSObject.Properties["error"]) {
+            return [pscustomobject]@{ Success = $false; Detail = "The Plane MCP endpoint returned a JSON-RPC error." }
+        }
+        $resultProperty = $message.PSObject.Properties["result"]
+        if ($null -eq $resultProperty) {
+            return [pscustomobject]@{ Success = $false; Detail = "The Plane MCP endpoint returned an invalid plane_status result." }
+        }
+        $result = $resultProperty.Value
+        $isErrorProperty = $result.PSObject.Properties["isError"]
+        if ($null -ne $isErrorProperty -and $isErrorProperty.Value -eq $true) {
+            $errorCode = [string]$result.structuredContent.error.code
+            if ($errorCode -notmatch '^[a-z_]+$') { $errorCode = "tool_error" }
+            return [pscustomobject]@{ Success = $false; Detail = "plane_status returned a $errorCode error." }
+        }
+        $structuredContentProperty = $result.PSObject.Properties["structuredContent"]
+        if ($null -eq $structuredContentProperty) {
+            return [pscustomobject]@{ Success = $false; Detail = "The Plane MCP endpoint returned an invalid plane_status result." }
+        }
+        $status = $structuredContentProperty.Value
+        if ($status.available -ne $true -or [string]$status.workspace -ne [string]$Profile.workspace_slug) {
+            return [pscustomobject]@{ Success = $false; Detail = "plane_status did not confirm the configured workspace." }
+        }
+        return [pscustomobject]@{ Success = $true; Detail = "plane_status confirmed the configured workspace." }
     }
     catch {
-        return [pscustomobject]@{ Success = $false; Detail = "Codex returned an invalid plane_status probe result." }
-    }
-    finally {
-        Remove-Item -LiteralPath $schemaPath, $outputPath -Force -ErrorAction SilentlyContinue
+        return [pscustomobject]@{ Success = $false; Detail = "The deterministic plane_status MCP probe failed." }
     }
 }
 
@@ -520,7 +561,7 @@ function Invoke-PlaneDoctor {
 
     $canProbe = $null -ne $profile -and -not [string]::IsNullOrWhiteSpace($token) -and -not ($checks | Where-Object { $_.status -eq "fail" })
     if ($canProbe) {
-        $probe = Invoke-PlaneStatusProbe $profile
+        $probe = Invoke-PlaneStatusProbe $profile $token
         if ($probe.Success) {
             Add-PlaneDoctorCheck $checks "tools" "pass" "tool_availability" (Protect-PlaneText $probe.Detail $token)
         }

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { dirname, join, resolve } from "node:path";
+import { delimiter, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
@@ -103,6 +103,23 @@ test("PowerShell and POSIX reject insecure workspace URLs", () => {
   assert.match(pyResult.stderr, /must use HTTPS/);
 });
 
+test("PowerShell and POSIX allow HTTP only for loopback workspaces", () => {
+  const psOutput = powerShell(`
+    . ${quotePowerShell(psLibrary)}
+    ConvertTo-PlaneConnectionProfile -WorkspaceUrl 'http://localhost:8000/acme' | ConvertTo-Json -Compress
+  `);
+  assert.deepEqual(JSON.parse(psOutput), {
+    origin: "http://localhost:8000",
+    workspace_slug: "acme",
+    mcp_url: "http://localhost:8000/mcp",
+  });
+
+  const pyOutput = execFileSync("python", [helper, "normalize-url", "--url", "http://127.0.0.1:8000/acme"], {
+    encoding: "utf8",
+  }).trim();
+  assert.deepEqual(pyOutput.split(/\r?\n/), ["http://127.0.0.1:8000", "acme", "http://127.0.0.1:8000/mcp"]);
+});
+
 test("PowerShell and POSIX redact credential values and headers", () => {
   const token = "plane-secret-token";
   const input = `failed ${token} Authorization: Bearer ${token} X-Api-Key: ${token}`;
@@ -174,11 +191,183 @@ test("MCP reachability probes use bounded POST requests", () => {
   assert.match(psSource, /HttpMethod\]::Post/);
   assert.match(psSource, /FromSeconds\(15\)/);
   assert.match(psSource, /-Method Post/);
+  assert.match(psSource, /MCP-Protocol-Version/);
+  assert.match(psSource, /method\s+= "tools\/call"/);
+  assert.doesNotMatch(psSource, /codex exec/);
 
   const shSource = readFileSync(shLibrary, "utf8");
   assert.match(shSource, /--connect-timeout 5 --max-time 15/);
   assert.match(shSource, /plane_http_request post bearer/);
   assert.match(shSource, /--request POST/);
+  assert.match(shSource, /MCP-Protocol-Version/);
+  assert.doesNotMatch(shSource, /plane_codex exec/);
+});
+
+test("PowerShell and POSIX issue only a deterministic plane_status MCP request", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "plane-skill-status-success-"));
+  const psRequestPath = join(temporary, "ps-request.json");
+  const shRequestPath = join(temporary, "sh-request.json");
+  const responsePath = join(temporary, "response.json");
+  const response = {
+    jsonrpc: "2.0",
+    id: "plane-doctor-status",
+    result: {
+      content: [{ type: "text", text: "status" }],
+      structuredContent: { available: true, workspace: "acme", user: { id: "user-1" } },
+    },
+  };
+  try {
+    writeFileSync(responsePath, JSON.stringify(response), "utf8");
+    const psOutput = powerShell(
+      `
+      . ${quotePowerShell(psLibrary)}
+      function Invoke-PlaneHttpRequest {
+        param($Url, $Authentication, $Token, $Method, $Body)
+        Set-Content -LiteralPath ${quotePowerShell(psRequestPath)} -Value $Body -Encoding utf8NoBOM
+        [pscustomobject]@{ Status = 200; Body = ${quotePowerShell(JSON.stringify(response))} }
+      }
+      $profile = [pscustomobject]@{ mcp_url = 'https://plane.example.com/mcp'; workspace_slug = 'acme' }
+      Invoke-PlaneStatusProbe $profile $env:PLANE_API_TOKEN | ConvertTo-Json -Compress
+    `,
+      { PLANE_API_TOKEN: "plane-secret-token" }
+    );
+    assert.equal(JSON.parse(psOutput).Success, true);
+
+    const shOutput = bash(`
+      PLANE_SCRIPT_ROOT=${quoteShell(posixPath(join(skillDir, "scripts")))}
+      export PLANE_SCRIPT_ROOT PLANE_API_TOKEN=plane-secret-token
+      . ${quoteShell(posixPath(shLibrary))}
+      plane_http_request() {
+        cp ${quoteShell(posixPath(responsePath))} "$4" || return 2
+        cp "$5" ${quoteShell(posixPath(shRequestPath))} || return 2
+        printf '%s' 200
+      }
+      plane_status_probe acme https://plane.example.com/mcp ${quoteShell(posixPath(join(temporary, "sh-generated.json")))} ${quoteShell(posixPath(join(temporary, "sh-response.json")))}
+    `);
+    assert.match(shOutput, /confirmed the configured workspace/);
+
+    for (const requestPath of [psRequestPath, shRequestPath]) {
+      const request = JSON.parse(readFileSync(requestPath, "utf8"));
+      assert.deepEqual(request, {
+        jsonrpc: "2.0",
+        id: "plane-doctor-status",
+        method: "tools/call",
+        params: { name: "plane_status", arguments: { workspace_slug: "acme" } },
+      });
+      assert.doesNotMatch(JSON.stringify(request), /create|update|delete|add_comment/);
+    }
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("PowerShell and POSIX classify plane_status authentication failures", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "plane-skill-status-auth-"));
+  const toolErrorPath = join(temporary, "tool-error.json");
+  const toolError = {
+    jsonrpc: "2.0",
+    id: "plane-doctor-status",
+    result: {
+      isError: true,
+      content: [{ type: "text", text: "authentication" }],
+      structuredContent: { error: { code: "authentication", message: "Credential rejected." } },
+    },
+  };
+  try {
+    writeFileSync(toolErrorPath, JSON.stringify(toolError), "utf8");
+    const psOutput = powerShell(
+      `
+      . ${quotePowerShell(psLibrary)}
+      $script:probeMode = 'http'
+      function Invoke-PlaneHttpRequest {
+        param($Url, $Authentication, $Token, $Method, $Body)
+        if ($script:probeMode -eq 'http') { return [pscustomobject]@{ Status = 401; Body = '{}' } }
+        [pscustomobject]@{ Status = 200; Body = ${quotePowerShell(JSON.stringify(toolError))} }
+      }
+      $profile = [pscustomobject]@{ mcp_url = 'https://plane.example.com/mcp'; workspace_slug = 'acme' }
+      $httpFailure = Invoke-PlaneStatusProbe $profile $env:PLANE_API_TOKEN
+      $script:probeMode = 'tool'
+      $toolFailure = Invoke-PlaneStatusProbe $profile $env:PLANE_API_TOKEN
+      @($httpFailure, $toolFailure) | ConvertTo-Json -Compress
+    `,
+      { PLANE_API_TOKEN: "plane-secret-token" }
+    );
+    const [httpFailure, toolFailure] = JSON.parse(psOutput);
+    assert.equal(httpFailure.Success, false);
+    assert.match(httpFailure.Detail, /rejected the credential/);
+    assert.equal(toolFailure.Success, false);
+    assert.match(toolFailure.Detail, /authentication error/);
+
+    const shOutput = bash(`
+      PLANE_SCRIPT_ROOT=${quoteShell(posixPath(join(skillDir, "scripts")))}
+      export PLANE_SCRIPT_ROOT PLANE_API_TOKEN=plane-secret-token
+      . ${quoteShell(posixPath(shLibrary))}
+      plane_http_request() { printf '%s' 401; }
+      auth_detail=$(plane_status_probe acme https://plane.example.com/mcp ${quoteShell(posixPath(join(temporary, "auth-request.json")))} ${quoteShell(posixPath(join(temporary, "auth-response.json")))}); auth_status=$?
+      [ "$auth_status" -ne 0 ] || exit 91
+      plane_http_request() { cp ${quoteShell(posixPath(toolErrorPath))} "$4"; printf '%s' 200; }
+      tool_detail=$(plane_status_probe acme https://plane.example.com/mcp ${quoteShell(posixPath(join(temporary, "tool-request.json")))} ${quoteShell(posixPath(join(temporary, "tool-response.json")))}); tool_status=$?
+      [ "$tool_status" -ne 0 ] || exit 92
+      printf '%s\n%s\n' "$auth_detail" "$tool_detail"
+    `);
+    assert.match(shOutput, /rejected the credential/);
+    assert.match(shOutput, /authentication error/);
+    assert.doesNotMatch(shOutput, /plane-secret-token/);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("PowerShell and POSIX doctor skip all network and tool probes without a token", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "plane-skill-no-token-"));
+  const psMarker = join(temporary, "ps-probe-called");
+  const shMarker = join(temporary, "sh-probe-called");
+  const profilePath = join(temporary, "plane", "profile.json");
+  try {
+    execFileSync("python", [
+      helper,
+      "profile-write",
+      "--path",
+      profilePath,
+      "--origin",
+      "https://plane.example.com",
+      "--slug",
+      "acme",
+    ]);
+    const psOutput = powerShell(
+      `
+      . ${quotePowerShell(psLibrary)}
+      function Assert-PlaneCodexPreflight {}
+      function Get-PlaneMcpConfig { Get-Content -Raw ${quotePowerShell(join(fixtures, "mcp-match.json"))} | ConvertFrom-Json }
+      function Invoke-PlaneHttpRequest { Set-Content ${quotePowerShell(psMarker)} called; throw 'network probe was not expected' }
+      function Invoke-PlaneStatusProbe { Set-Content ${quotePowerShell(psMarker)} called; throw 'tool probe was not expected' }
+      Invoke-PlaneDoctor | ConvertTo-Json -Depth 8 -Compress
+    `,
+      { CODEX_HOME: temporary, PLANE_API_TOKEN: "" }
+    );
+    const psDoctor = JSON.parse(psOutput);
+    assert.equal(psDoctor.status, "unhealthy");
+    assert.equal(psDoctor.checks.find((item) => item.category === "tool_availability").status, "skipped");
+    assert.equal(existsSync(psMarker), false);
+
+    const shOutput = bash(`
+      PLANE_SCRIPT_ROOT=${quoteShell(posixPath(join(skillDir, "scripts")))}
+      export PLANE_SCRIPT_ROOT CODEX_HOME=${quoteShell(posixPath(temporary))} PLANE_API_TOKEN=
+      . ${quoteShell(posixPath(shLibrary))}
+      plane_assert_preflight() { :; }
+      plane_codex() { cat ${quoteShell(posixPath(join(fixtures, "mcp-match.json")))}; }
+      plane_http_request() { : >${quoteShell(posixPath(shMarker))}; return 99; }
+      plane_status_probe() { : >${quoteShell(posixPath(shMarker))}; return 99; }
+      doctor_output=$(plane_doctor_main --json)
+      printf '%s\n' "$doctor_output"
+    `);
+    const shDoctor = JSON.parse(shOutput);
+    assert.equal(shDoctor.status, "unhealthy");
+    assert.equal(shDoctor.checks.find((item) => item.category === "tool_availability").status, "skipped");
+    assert.equal(existsSync(shMarker), false);
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
 });
 
 test("PowerShell setup adds only the plane MCP entry and writes a non-secret profile", () => {
@@ -231,6 +420,93 @@ test("PowerShell setup reuses a matching entry without mutating Codex configurat
       { CODEX_HOME: temporary, PLANE_API_TOKEN: "plane-secret-token" }
     );
     assert.equal(JSON.parse(output).mcp_configuration, "reused");
+  } finally {
+    rmSync(temporary, { recursive: true, force: true });
+  }
+});
+
+test("PowerShell setup reuses Codex JSON when a successful get also writes a warning to stderr", () => {
+  const temporary = mkdtempSync(join(tmpdir(), "plane-skill-ps-real-output-"));
+  const binaryDir = join(temporary, "bin");
+  const fakeCodex = join(temporary, "fake-codex.mjs");
+  const statePath = join(temporary, "plane-added");
+  const callLog = join(temporary, "calls.jsonl");
+  try {
+    mkdirSync(binaryDir);
+    writeFileSync(
+      fakeCodex,
+      `
+      import { appendFileSync, existsSync, writeFileSync } from "node:fs";
+      const args = process.argv.slice(2);
+      appendFileSync(${JSON.stringify(callLog)}, JSON.stringify(args) + "\\n");
+      if (args.join(" ") === "mcp add --help") {
+        console.log("--bearer-token-env-var <ENV_VAR>");
+      } else if (args.join(" ") === "mcp get plane --json") {
+        if (!existsSync(${JSON.stringify(statePath)})) {
+          console.error("Error: No MCP server named 'plane' found.");
+          process.exitCode = 1;
+        } else {
+          console.error("WARNING: optional Codex configuration could not be loaded; continuing.");
+          console.log(JSON.stringify({
+            name: "plane",
+            enabled: true,
+            disabled_reason: null,
+            transport: {
+              type: "streamable_http",
+              url: "https://plane.example.com/mcp",
+              bearer_token_env_var: "PLANE_API_TOKEN",
+              http_headers: null,
+              env_http_headers: null,
+            },
+            enabled_tools: null,
+            disabled_tools: null,
+            startup_timeout_sec: null,
+            tool_timeout_sec: null,
+          }, null, 2));
+        }
+      } else if (args[0] === "mcp" && args[1] === "add" && args[2] === "plane") {
+        writeFileSync(${JSON.stringify(statePath)}, "configured", "utf8");
+        console.log("Added global MCP server 'plane'.");
+      } else {
+        console.error("Unexpected fake Codex arguments: " + args.join(" "));
+        process.exitCode = 2;
+      }
+    `,
+      "utf8"
+    );
+
+    const commandPath = process.platform === "win32" ? join(binaryDir, "codex.cmd") : join(binaryDir, "codex");
+    if (process.platform === "win32") {
+      writeFileSync(commandPath, `@echo off\r\nnode "${fakeCodex}" %*\r\n`, "utf8");
+    } else {
+      writeFileSync(commandPath, `#!/bin/sh\nexec node ${quoteShell(fakeCodex)} "$@"\n`, "utf8");
+      chmodSync(commandPath, 0o755);
+    }
+
+    const output = powerShell(
+      `
+      . ${quotePowerShell(psLibrary)}
+      function Test-PlaneConnection { param($Profile, $Token) [pscustomobject]@{ User = 'tester' } }
+      $first = Invoke-PlaneSetup -WorkspaceUrl 'https://plane.example.com/acme' -NonInteractive
+      $second = Invoke-PlaneSetup -WorkspaceUrl 'https://plane.example.com/acme' -NonInteractive
+      @($first, $second) | ConvertTo-Json -Compress
+    `,
+      {
+        CODEX_HOME: temporary,
+        PATH: `${binaryDir}${delimiter}${process.env.PATH}`,
+        PLANE_API_TOKEN: "plane-secret-token",
+      }
+    );
+    const [first, second] = JSON.parse(output);
+    assert.equal(first.mcp_configuration, "added");
+    assert.equal(second.mcp_configuration, "reused");
+
+    const calls = readFileSync(callLog, "utf8")
+      .trim()
+      .split(/\r?\n/)
+      .map((line) => JSON.parse(line));
+    assert.equal(calls.filter((args) => args[0] === "mcp" && args[1] === "add" && args[2] === "plane").length, 1);
+    assert.equal(calls.filter((args) => args.join(" ") === "mcp get plane --json").length, 2);
   } finally {
     rmSync(temporary, { recursive: true, force: true });
   }
@@ -294,6 +570,7 @@ test("POSIX setup adds the plane entry and is idempotent", () => {
     const matchingFixture = posixPath(join(fixtures, "mcp-match.json"));
     const second = bash(`${common}
       plane_codex() {
+        printf '%s\\n' 'WARNING: optional Codex configuration could not be loaded; continuing.' >&2
         cat ${quoteShell(matchingFixture)} || { printf '%s\\n' 'fixture read failed' >&2; return 2; }
       }
       plane_setup_main --workspace-url https://plane.example.com/acme --non-interactive --json
@@ -329,7 +606,7 @@ test("PowerShell doctor reports every diagnostic category and redacts probe deta
         if ($Url -match 'users/me') { return [pscustomobject]@{ Status = 200; Body = '{"display_name":"Plane Test User"}' } }
         return [pscustomobject]@{ Status = 200; Body = '{}' }
       }
-      function Invoke-PlaneStatusProbe { param($WorkspaceSlug) [pscustomobject]@{ Success = $true; Detail = 'ok plane-secret-token' } }
+      function Invoke-PlaneStatusProbe { param($Profile, $Token) [pscustomobject]@{ Success = $true; Detail = 'ok plane-secret-token' } }
       Invoke-PlaneDoctor | ConvertTo-Json -Depth 8 -Compress
     `,
       { CODEX_HOME: temporary, PLANE_API_TOKEN: "plane-secret-token" }
@@ -383,7 +660,7 @@ test("POSIX doctor reports every diagnostic category", () => {
         esac
         printf '%s' 200
       }
-      plane_status_probe() { cp ${quoteShell(posixPath(join(fixtures, "probe-success.json")))} "$4"; }
+      plane_status_probe() { printf '%s\n' 'plane_status confirmed the configured workspace.'; }
       plane_doctor_main --json
     `);
     const result = JSON.parse(output);

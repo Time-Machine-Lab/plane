@@ -2,6 +2,7 @@
 
 PLANE_MCP_NAME=plane
 PLANE_TOKEN_VARIABLE=PLANE_API_TOKEN
+PLANE_MCP_PROTOCOL_VERSION=2025-03-26
 
 plane_python() {
     if command -v python3 >/dev/null 2>&1; then
@@ -102,6 +103,7 @@ plane_http_request() {
     auth_type=$2
     url=$3
     output_path=$4
+    request_body_path=${5:-}
     plane_helper validate-token || return 2
     case "$auth_type" in
         api_key) header="X-Api-Key: $PLANE_API_TOKEN" ;;
@@ -109,10 +111,15 @@ plane_http_request() {
         *) return 2 ;;
     esac
     if [ "$request_method" = post ]; then
+        request_data='{}'
+        if [ -n "$request_body_path" ]; then
+            request_data="@$request_body_path"
+        fi
         printf 'header = "%s"\n' "$header" |
             curl --config - --silent --show-error --connect-timeout 5 --max-time 15 \
                 --request POST --header 'Content-Type: application/json' \
-                --header 'Accept: application/json, text/event-stream' --data '{}' \
+                --header 'Accept: application/json, text/event-stream' \
+                --header "MCP-Protocol-Version: $PLANE_MCP_PROTOCOL_VERSION" --data-binary "$request_data" \
                 --output "$output_path" --write-out '%{http_code}' --url "$url"
     else
         printf 'header = "%s"\n' "$header" |
@@ -244,18 +251,18 @@ plane_add_check() {
 plane_status_probe() {
     slug=$1
     mcp_url=$2
-    schema_path=$3
+    request_path=$3
     output_path=$4
-    cat >"$schema_path" <<'EOF'
-{"type":"object","properties":{"result":{"type":"string","enum":["ok","fail"]},"plane_status_available":{"type":"boolean"},"detail":{"type":"string"}},"required":["result","plane_status_available","detail"],"additionalProperties":false}
-EOF
-    printf "%s\n" "This is a read-only Plane connection diagnostic. Call the plane MCP tool named plane_status exactly once with workspace_slug '$slug'. Do not call any other tool and do not mutate Plane. Return only the requested diagnostic JSON. Use result 'ok' and plane_status_available true only when the tool returns a successful status for that workspace; otherwise use result 'fail' and a short sanitized detail." |
-        plane_codex exec --ignore-user-config \
-            -c "mcp_servers.plane.url=\"$mcp_url\"" \
-            -c 'mcp_servers.plane.bearer_token_env_var="PLANE_API_TOKEN"' \
-            -c 'mcp_servers.plane.enabled_tools=["plane_status"]' \
-            --ephemeral --skip-git-repo-check --sandbox read-only \
-            --output-schema "$schema_path" --output-last-message "$output_path" - >/dev/null 2>&1
+    plane_helper probe-request --slug "$slug" >"$request_path" || return 1
+    status=$(plane_http_request post bearer "$mcp_url" "$output_path" "$request_path" 2>/dev/null) || {
+        printf '%s\n' "The deterministic plane_status MCP probe could not reach the endpoint."
+        return 1
+    }
+    case "$status" in
+        200) plane_helper probe-valid --path "$output_path" --slug "$slug" 2>/dev/null ;;
+        401|403) printf '%s\n' "The Plane MCP endpoint rejected the credential."; return 1 ;;
+        *) printf '%s\n' "The plane_status MCP request returned HTTP $status."; return 1 ;;
+    esac
 }
 
 plane_doctor_main() {
@@ -354,10 +361,10 @@ plane_doctor_main() {
     fi
 
     if ! grep -q "$(printf '\tfail\t')" "$PLANE_CHECKS_FILE" && [ -n "$slug" ]; then
-        if plane_status_probe "$slug" "$mcp_url" "$temporary_dir/schema.json" "$temporary_dir/probe.json" && probe_detail=$(plane_helper probe-valid --path "$temporary_dir/probe.json" 2>/dev/null); then
+        if probe_detail=$(plane_status_probe "$slug" "$mcp_url" "$temporary_dir/probe-request.json" "$temporary_dir/probe-response.json"); then
             plane_add_check tools pass tool_availability "$probe_detail"
         else
-            plane_add_check tools fail tool_availability "Codex could not complete a successful plane_status tool probe."
+            plane_add_check tools fail tool_availability "${probe_detail:-The deterministic plane_status MCP probe failed.}"
         fi
     else
         plane_add_check tools skipped tool_availability "Skipped until earlier failures are resolved."
