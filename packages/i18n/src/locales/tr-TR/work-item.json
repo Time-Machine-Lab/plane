@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "Alt iş öğelerini göster",
-        "show_empty_groups": "Boş grupları göster"
+        "show_empty_groups": "Boş grupları göster",
+        "show_archived_work_items": "Arşivlenmiş iş öğelerini göster"
       }
     },
     "layouts": {

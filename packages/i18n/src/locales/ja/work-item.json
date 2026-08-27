@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "サブ作業項目を表示",
-        "show_empty_groups": "空のグループを表示"
+        "show_empty_groups": "空のグループを表示",
+        "show_archived_work_items": "アーカイブ済みの作業項目を表示"
       }
     },
     "layouts": {

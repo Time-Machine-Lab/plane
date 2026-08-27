@@ -46,6 +46,7 @@ export interface IProjectIssues extends IBaseIssuesStore {
   createIssue: (workspaceSlug: string, projectId: string, data: Partial<TIssue>) => Promise<TIssue>;
   updateIssue: (workspaceSlug: string, projectId: string, issueId: string, data: Partial<TIssue>) => Promise<void>;
   archiveIssue: (workspaceSlug: string, projectId: string, issueId: string) => Promise<void>;
+  restoreIssue: (workspaceSlug: string, projectId: string, issueId: string) => Promise<void>;
   quickAddIssue: (workspaceSlug: string, projectId: string, data: TIssue) => Promise<TIssue | undefined>;
   removeBulkIssues: (workspaceSlug: string, projectId: string, issueIds: string[]) => Promise<void>;
   archiveBulkIssues: (workspaceSlug: string, projectId: string, issueIds: string[]) => Promise<void>;
@@ -69,6 +70,8 @@ export class ProjectIssues extends BaseIssuesStore implements IProjectIssues {
       fetchIssues: action,
       fetchNextIssues: action,
       fetchIssuesWithExistingPagination: action,
+      archiveIssue: action,
+      restoreIssue: action,
 
       quickAddIssue: action,
     });
@@ -196,9 +199,26 @@ export class ProjectIssues extends BaseIssuesStore implements IProjectIssues {
     return response;
   };
 
+  archiveIssue = async (workspaceSlug: string, projectId: string, issueId: string) => {
+    await this.issueArchive(workspaceSlug, projectId, issueId);
+
+    if (this.issueFilterStore.getIssueFilters(projectId)?.displayFilters?.include_archived) {
+      await this.fetchIssuesWithExistingPagination(workspaceSlug, projectId, "mutation");
+    }
+  };
+
+  restoreIssue = async (workspaceSlug: string, projectId: string, issueId: string) => {
+    await this.issueArchiveService.restoreIssue(workspaceSlug, projectId, issueId);
+
+    runInAction(() => {
+      this.rootIssueStore.issues.updateIssue(issueId, { archived_at: null });
+    });
+
+    await this.fetchIssuesWithExistingPagination(workspaceSlug, projectId, "mutation");
+  };
+
   // Using aliased names as they cannot be overridden in other stores
   archiveBulkIssues = this.bulkArchiveIssues;
   quickAddIssue = this.issueQuickAdd;
   updateIssue = this.issueUpdate;
-  archiveIssue = this.issueArchive;
 }

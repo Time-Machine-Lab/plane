@@ -128,6 +128,9 @@ export const List = observer(function List(props: IList) {
   } else {
     entities = orderedGroups;
   }
+  Object.keys(entities).forEach((groupId) => {
+    entities[groupId] = entities[groupId].filter((issueId) => !issuesMap[issueId]?.archived_at);
+  });
   return (
     <div className="relative flex size-full flex-col">
       {groups && (

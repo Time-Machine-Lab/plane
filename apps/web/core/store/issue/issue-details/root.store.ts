@@ -266,8 +266,8 @@ export class IssueDetail implements IIssueDetail {
   setIssueLinkData = (issueLinkData: TIssueLink | null) => (this.issueLinkData = issueLinkData);
 
   // issue
-  fetchIssue = async (workspaceSlug: string, projectId: string, issueId: string) =>
-    this.issue.fetchIssue(workspaceSlug, projectId, issueId);
+  fetchIssue = async (workspaceSlug: string, projectId: string, issueId: string, isArchived = false) =>
+    this.issue.fetchIssue(workspaceSlug, projectId, issueId, isArchived);
   fetchIssueWithIdentifier = async (workspaceSlug: string, projectIdentifier: string, sequenceId: string) =>
     this.issue.fetchIssueWithIdentifier(workspaceSlug, projectIdentifier, sequenceId);
   updateIssue = async (workspaceSlug: string, projectId: string, issueId: string, data: Partial<TIssue>) =>

@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "Tampilkan sub-item kerja",
-        "show_empty_groups": "Tampilkan grup kosong"
+        "show_empty_groups": "Tampilkan grup kosong",
+        "show_archived_work_items": "Tampilkan item kerja yang diarsipkan"
       }
     },
     "layouts": {

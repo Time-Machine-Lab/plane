@@ -35,7 +35,7 @@ function ArchivedIssueDetailsPage({ params }: Route.ComponentProps) {
   const { getProjectById } = useProject();
 
   const { isLoading } = useSWR(`ARCHIVED_ISSUE_DETAIL_${workspaceSlug}_${projectId}_${archivedIssueId}`, () =>
-    fetchIssue(workspaceSlug, projectId, archivedIssueId)
+    fetchIssue(workspaceSlug, projectId, archivedIssueId, true)
   );
 
   // derived values

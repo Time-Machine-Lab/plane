@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "Zobrazit podřízené položky",
-        "show_empty_groups": "Zobrazit prázdné skupiny"
+        "show_empty_groups": "Zobrazit prázdné skupiny",
+        "show_archived_work_items": "Zobrazit archivované pracovní položky"
       }
     },
     "layouts": {

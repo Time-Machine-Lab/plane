@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "Afișează sub-activitățile",
-        "show_empty_groups": "Afișează grupurile goale"
+        "show_empty_groups": "Afișează grupurile goale",
+        "show_archived_work_items": "Afișați elementele de lucru arhivate"
       }
     },
     "layouts": {

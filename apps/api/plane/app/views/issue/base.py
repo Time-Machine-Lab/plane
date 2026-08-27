@@ -29,6 +29,7 @@ from django.views.decorators.gzip import gzip_page
 
 # Third Party imports
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 
 # Module imports
@@ -215,15 +216,28 @@ class IssueViewSet(BaseViewSet):
     def get_serializer_class(self):
         return IssueCreateSerializer if self.action in ["create", "update", "partial_update"] else IssueSerializer
 
-    def get_queryset(self):
-        issues = Issue.issue_objects.filter(
+    def get_queryset(self, include_archived=False):
+        issue_manager = Issue.issue_objects.including_archived() if include_archived else Issue.issue_objects
+        issues = issue_manager.filter(
             project_id=self.kwargs.get("project_id"),
             workspace__slug=self.kwargs.get("slug"),
         ).distinct()
 
         return issues
 
-    def apply_annotations(self, issues):
+    @staticmethod
+    def get_include_archived(request):
+        value = request.query_params.get("include_archived")
+        if value is None:
+            return False
+
+        normalized_value = value.lower()
+        if normalized_value not in {"true", "false"}:
+            raise ValidationError({"include_archived": "Must be either true or false."})
+
+        return normalized_value == "true"
+
+    def apply_annotations(self, issues, include_archived=False):
         issues = (
             issues.annotate(
                 cycle_id=Subquery(
@@ -251,7 +265,8 @@ class IssueViewSet(BaseViewSet):
             )
             .annotate(
                 sub_issues_count=Subquery(
-                    Issue.issue_objects.filter(parent=OuterRef("id"))
+                    (Issue.issue_objects.including_archived() if include_archived else Issue.issue_objects)
+                    .filter(parent=OuterRef("id"))
                     .values("parent")
                     .annotate(count=Count("id"))
                     .values("count")
@@ -264,6 +279,7 @@ class IssueViewSet(BaseViewSet):
     @method_decorator(gzip_page)
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
     def list(self, request, slug, project_id):
+        include_archived = self.get_include_archived(request)
         extra_filters = {}
         if request.GET.get("updated_at__gt", None) is not None:
             extra_filters = {"updated_at__gt": request.GET.get("updated_at__gt")}
@@ -274,7 +290,7 @@ class IssueViewSet(BaseViewSet):
         filters = issue_filters(query_params, "GET")
         order_by_param = request.GET.get("order_by", "-created_at")
 
-        issue_queryset = self.get_queryset()
+        issue_queryset = self.get_queryset(include_archived=include_archived)
 
         # Apply rich filters
         issue_queryset = self.filter_queryset(issue_queryset)
@@ -286,7 +302,7 @@ class IssueViewSet(BaseViewSet):
         filtered_issue_queryset = copy.deepcopy(issue_queryset)
 
         # Applying annotations to the issue queryset
-        issue_queryset = self.apply_annotations(issue_queryset)
+        issue_queryset = self.apply_annotations(issue_queryset, include_archived=include_archived)
 
         # Issue queryset
         issue_queryset, order_by_param = order_issue_queryset(
@@ -299,6 +315,16 @@ class IssueViewSet(BaseViewSet):
 
         # issue queryset
         issue_queryset = issue_queryset_grouper(queryset=issue_queryset, group_by=group_by, sub_group_by=sub_group_by)
+
+        count_filter = Q(
+            Q(issue_intake__status=1)
+            | Q(issue_intake__status=-1)
+            | Q(issue_intake__status=2)
+            | Q(issue_intake__isnull=True),
+            is_draft=False,
+        )
+        if not include_archived:
+            count_filter &= Q(archived_at__isnull=True)
 
         recent_visited_task.delay(
             slug=slug,
@@ -355,14 +381,7 @@ class IssueViewSet(BaseViewSet):
                         ),
                         group_by_field_name=group_by,
                         sub_group_by_field_name=sub_group_by,
-                        count_filter=Q(
-                            Q(issue_intake__status=1)
-                            | Q(issue_intake__status=-1)
-                            | Q(issue_intake__status=2)
-                            | Q(issue_intake__isnull=True),
-                            archived_at__isnull=True,
-                            is_draft=False,
-                        ),
+                        count_filter=count_filter,
                     )
             else:
                 # Group paginate
@@ -383,14 +402,7 @@ class IssueViewSet(BaseViewSet):
                         queryset=filtered_issue_queryset,
                     ),
                     group_by_field_name=group_by,
-                    count_filter=Q(
-                        Q(issue_intake__status=1)
-                        | Q(issue_intake__status=-1)
-                        | Q(issue_intake__status=2)
-                        | Q(issue_intake__isnull=True),
-                        archived_at__isnull=True,
-                        is_draft=False,
-                    ),
+                    count_filter=count_filter,
                 )
         else:
             return self.paginate(
@@ -744,21 +756,11 @@ class ProjectUserDisplayPropertyEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
     def patch(self, request, slug, project_id):
         try:
-            issue_property = ProjectUserProperty.objects.get(
-                user=request.user, 
-                project_id=project_id
-            )
+            issue_property = ProjectUserProperty.objects.get(user=request.user, project_id=project_id)
         except ProjectUserProperty.DoesNotExist:
-            issue_property = ProjectUserProperty.objects.create(
-                user=request.user, 
-                project_id=project_id
-            )
+            issue_property = ProjectUserProperty.objects.create(user=request.user, project_id=project_id)
 
-        serializer = ProjectUserPropertySerializer(
-            issue_property, 
-            data=request.data,
-            partial=True
-        )
+        serializer = ProjectUserPropertySerializer(issue_property, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -1097,9 +1099,9 @@ class IssueDetailEndpoint(BaseAPIView):
             order_by=order_by_param,
             queryset=issue,
             total_count_queryset=total_issue_queryset,
-            on_results=lambda issue: IssueListDetailSerializer(
-                issue, many=True, fields=self.fields, expand=self.expand
-            ).data,
+            on_results=lambda issue: (
+                IssueListDetailSerializer(issue, many=True, fields=self.fields, expand=self.expand).data
+            ),
         )
 
 

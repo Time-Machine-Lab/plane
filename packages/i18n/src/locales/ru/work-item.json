@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "Показывать подэлементы",
-        "show_empty_groups": "Показывать пустые группы"
+        "show_empty_groups": "Показывать пустые группы",
+        "show_archived_work_items": "Показывать архивированные рабочие элементы"
       }
     },
     "layouts": {

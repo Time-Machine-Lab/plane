@@ -10,7 +10,7 @@ import { combine } from "@atlaskit/pragmatic-drag-and-drop/combine";
 import { draggable } from "@atlaskit/pragmatic-drag-and-drop/element/adapter";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import { ChevronRightIcon } from "@plane/propel/icons";
+import { ArchiveIcon, ChevronRightIcon } from "@plane/propel/icons";
 // types
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
@@ -103,7 +103,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
   // derived values
   const issue = issuesMap[issueId];
   const subIssuesCount = issue?.sub_issues_count ?? 0;
-  const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
+  const isArchived = !!issue?.archived_at;
+  const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined) && !isArchived;
   const isDraggingAllowed = canDrag && canEditIssueProperties;
 
   const { isMobile } = usePlatformOS();
@@ -186,6 +187,7 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
             "last:border-b-transparent": !getIsIssuePeeked(issue.id) && !isIssueActive,
             "bg-accent-primary/5 hover:bg-accent-primary/10": isIssueSelected,
             "bg-layer-1": isCurrentBlockDragging,
+            "border-subtle bg-layer-1/60 text-tertiary": isArchived,
             "md:flex-row md:items-center": isSidebarCollapsed,
             "lg:flex-row lg:items-center": !isSidebarCollapsed,
           }
@@ -277,7 +279,16 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
               disabled={isCurrentBlockDragging}
               renderByDefault={false}
             >
-              <p className="cursor-pointer truncate text-body-xs-medium text-primary">{issue.name}</p>
+              <div className="flex min-w-0 items-center gap-1.5">
+                {isArchived && <ArchiveIcon className="size-3.5 flex-shrink-0 text-tertiary" aria-hidden="true" />}
+                <p
+                  className={cn("cursor-pointer truncate text-body-xs-medium text-primary", {
+                    "text-tertiary": isArchived,
+                  })}
+                >
+                  {issue.name}
+                </p>
+              </div>
             </Tooltip>
           </div>
           {!issue?.tempId && (

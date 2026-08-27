@@ -137,6 +137,13 @@ const useProjectIssueActions = () => {
     },
     [issues.archiveIssue, workspaceSlug]
   );
+  const restoreIssue = useCallback(
+    async (targetProjectId: string | undefined | null, issueId: string) => {
+      if (!workspaceSlug || !targetProjectId) return;
+      return await issues.restoreIssue(workspaceSlug, targetProjectId, issueId);
+    },
+    [issues.restoreIssue, workspaceSlug]
+  );
 
   const updateFilters = useCallback(
     async (projectId: string, filterType: TSupportedFilterTypeForUpdate, filters: TSupportedFilterForUpdate) => {
@@ -155,9 +162,20 @@ const useProjectIssueActions = () => {
       updateIssue,
       removeIssue,
       archiveIssue,
+      restoreIssue,
       updateFilters,
     }),
-    [fetchIssues, fetchNextIssues, createIssue, quickAddIssue, updateIssue, removeIssue, archiveIssue, updateFilters]
+    [
+      fetchIssues,
+      fetchNextIssues,
+      createIssue,
+      quickAddIssue,
+      updateIssue,
+      removeIssue,
+      archiveIssue,
+      restoreIssue,
+      updateFilters,
+    ]
   );
 };
 
