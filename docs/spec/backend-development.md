@@ -56,37 +56,6 @@
 - 日志包含请求/对象关联标识，但不包含 token、Cookie、密码或敏感正文。
 - 新文件保留仓库版权和 `SPDX-License-Identifier: AGPL-3.0-only` 头。
 
-## 测试
-
-测试位于 `apps/api/plane/tests`：
-
-- `unit/`：模型、serializer、utility、middleware 和任务的隔离行为。
-- `contract/api/`：API token 等对外 API 契约。
-- `contract/app/`：session 应用接口、权限和领域行为。
-- `smoke/`：最关键的端到端存活路径。
-- 使用 pytest fixture，避免 `setUp/tearDown` 和测试间共享状态。
-- 数据库测试使用 `@pytest.mark.django_db` 并声明 `unit`、`contract`、`smoke` 或 `slow` marker。
-- 单元/大部分契约测试 mock 外部系统，测试不能依赖真实公网服务。
-
-仓库保留以下隔离 Docker 测试命令，供 CI 或明确要求的后端专项检查使用。API 变更由 CI 运行一次现有 pytest
-套件；它们需要 Docker，不是 Windows 日常开发和 Tester 验收的步骤，也不得复制到 OpenSpec 任务清单：
-
-```bash
-docker compose -f docker-compose-test.yml run --rm --build api-tests pytest -m unit
-docker compose -f docker-compose-test.yml run --rm --build api-tests pytest -m contract
-docker compose -f docker-compose-test.yml up --build --abort-on-container-exit --exit-code-from api-tests
-docker compose -f docker-compose-test.yml down -v
-```
-
-专项检查需要时可运行：
-
-```bash
-ruff check apps/api
-ruff format --check apps/api
-```
-
-CI 中不得使用 `ruff check --fix` 代替检查；修复命令只用于本地明确修改。
-
 ## 后端完成清单
 
 - 输入验证、权限、租户隔离和异常映射完整。
