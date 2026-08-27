@@ -1,4 +1,26 @@
 {
+  "canvas": {
+    "untitled": "未命名画板",
+    "preview_unavailable": "预览不可用",
+    "collaborator": "另一位协作者",
+    "locked": "{user} 正在编辑此画板。",
+    "slash": { "title": "画板", "description": "插入绘图画板" },
+    "status": { "loading": "正在加载画板", "saving": "正在保存", "saved": "已保存", "failed": "保存失败" },
+    "error": {
+      "oversized": "画板过大，无法保存",
+      "unsupported_file": "暂不支持图片和文件附件",
+      "unsupported_version": "此画板由较新版本的 Plane 创建"
+    },
+    "action": { "open": "打开画板", "close": "关闭画板", "duplicate": "复制画板", "delete": "删除画板" },
+    "size": { "compact": "紧凑预览", "standard": "标准预览", "wide": "宽屏预览" },
+    "aria": {
+      "block": "画板块：{title}",
+      "preview_size": "画板预览尺寸",
+      "open": "打开画板：{title}",
+      "editor": "画板编辑器：{title}",
+      "title": "画板标题"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "拖拽上传外部文件"

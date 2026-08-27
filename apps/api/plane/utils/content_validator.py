@@ -4,16 +4,34 @@
 
 # Python imports
 import base64
+import binascii
+import json
 import nh3
 from plane.utils.exception_logger import log_exception
 from bs4 import BeautifulSoup
 from collections import defaultdict
 import logging
+from uuid import UUID
 
 logger = logging.getLogger("plane.api")
 
 # Maximum allowed size for binary data (10MB)
 MAX_SIZE = 10 * 1024 * 1024
+MAX_CANVAS_SCENE_SIZE = 4 * 1024 * 1024
+MAX_CANVAS_PREVIEW_SIZE = 1536 * 1024
+MAX_CANVAS_PREVIEW_DIMENSION = 2048
+MAX_CANVAS_TITLE_LENGTH = 120
+CANVAS_SCENE_VERSION = 1
+CANVAS_ATTRIBUTES = {
+    "data-canvas-id",
+    "data-title",
+    "data-scene-version",
+    "data-scene",
+    "data-preview",
+    "data-preview-width",
+    "data-preview-height",
+}
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 # Suspicious patterns for binary data content
 SUSPICIOUS_BINARY_PATTERNS = [
@@ -75,6 +93,7 @@ CUSTOM_TAGS = {
     "label",
     "input",
     "image-component",
+    "canvas-component",
 }
 ALLOWED_TAGS = nh3.ALLOWED_TAGS | CUSTOM_TAGS
 
@@ -123,6 +142,7 @@ ATTRIBUTES = {
         "alignment",
         "status",
     },
+    "canvas-component": CANVAS_ATTRIBUTES,
     "img": {
         "width",
         "height",
@@ -157,6 +177,67 @@ ATTRIBUTES = {
 }
 
 SAFE_PROTOCOLS = {"http", "https", "mailto", "tel"}
+
+
+def _decode_canvas_base64(value: str, max_size: int):
+    try:
+        decoded = base64.b64decode(value, validate=True)
+    except (ValueError, binascii.Error):
+        return None
+    if len(decoded) > max_size:
+        return None
+    return decoded
+
+
+def _validate_canvas_component(component):
+    attrs = component.attrs
+    if not CANVAS_ATTRIBUTES.issubset(attrs.keys()):
+        return False, "Canvas component is missing required attributes"
+    if not isinstance(attrs["data-title"], str) or len(attrs["data-title"]) > MAX_CANVAS_TITLE_LENGTH:
+        return False, "Canvas title exceeds the size limit"
+
+    try:
+        UUID(attrs["data-canvas-id"])
+        scene_version = int(attrs["data-scene-version"])
+        preview_width = int(attrs["data-preview-width"])
+        preview_height = int(attrs["data-preview-height"])
+    except (TypeError, ValueError, AttributeError):
+        return False, "Canvas component has invalid metadata"
+
+    if scene_version != CANVAS_SCENE_VERSION:
+        return False, "Canvas scene version is not supported"
+    if (
+        preview_width <= 0
+        or preview_height <= 0
+        or preview_width > MAX_CANVAS_PREVIEW_DIMENSION
+        or preview_height > MAX_CANVAS_PREVIEW_DIMENSION
+    ):
+        return False, "Canvas preview dimensions are invalid"
+
+    scene_bytes = _decode_canvas_base64(attrs["data-scene"], MAX_CANVAS_SCENE_SIZE)
+    if scene_bytes is None:
+        return False, "Canvas scene is invalid or exceeds the size limit"
+    try:
+        scene = json.loads(scene_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        return False, "Canvas scene is malformed"
+
+    if not isinstance(scene, dict) or scene.get("version") != CANVAS_SCENE_VERSION:
+        return False, "Canvas scene version is not supported"
+    if not isinstance(scene.get("elements"), list) or not isinstance(scene.get("appState"), dict):
+        return False, "Canvas scene is malformed"
+    if scene.get("files"):
+        return False, "Canvas embedded files are not supported"
+    if any(not isinstance(element, dict) or element.get("fileId") for element in scene["elements"]):
+        return False, "Canvas embedded files are not supported"
+
+    preview = attrs["data-preview"]
+    if preview:
+        preview_bytes = _decode_canvas_base64(preview, MAX_CANVAS_PREVIEW_SIZE)
+        if preview_bytes is None or not preview_bytes.startswith(PNG_SIGNATURE):
+            return False, "Canvas preview is invalid or exceeds the size limit"
+
+    return True, None
 
 
 def _compute_html_sanitization_diff(before_html: str, after_html: str):
@@ -227,6 +308,11 @@ def validate_html_content(html_content: str):
             attributes=ATTRIBUTES,
             url_schemes=SAFE_PROTOCOLS,
         )
+        clean_soup = BeautifulSoup(clean_html, "html.parser")
+        for canvas_component in clean_soup.find_all("canvas-component"):
+            is_canvas_valid, canvas_error = _validate_canvas_component(canvas_component)
+            if not is_canvas_valid:
+                return False, canvas_error, None
         # Report removals to logger (Sentry) if anything was stripped
         diff = _compute_html_sanitization_diff(html_content, clean_html)
         if diff.get("removed_tags") or diff.get("removed_attributes"):

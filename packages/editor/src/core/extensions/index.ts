@@ -5,6 +5,7 @@
  */
 
 export * from "./callout";
+export * from "./canvas";
 export * from "./code";
 export * from "./code-inline";
 export * from "./custom-link";

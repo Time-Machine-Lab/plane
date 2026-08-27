@@ -1,4 +1,36 @@
 {
+  "canvas": {
+    "untitled": "Płótno bez tytułu",
+    "preview_unavailable": "Podgląd niedostępny",
+    "collaborator": "Inny współpracownik",
+    "locked": "{user} edytuje to płótno.",
+    "slash": { "title": "Płótno", "description": "Wstaw płótno do rysowania" },
+    "status": {
+      "loading": "Wczytywanie płótna",
+      "saving": "Zapisywanie",
+      "saved": "Zapisano",
+      "failed": "Zapisywanie nie powiodło się"
+    },
+    "error": {
+      "oversized": "Płótno jest zbyt duże, aby je zapisać",
+      "unsupported_file": "Obrazy i załączniki nie są jeszcze obsługiwane",
+      "unsupported_version": "To płótno utworzono w nowszej wersji Plane"
+    },
+    "action": {
+      "open": "Otwórz płótno",
+      "close": "Zamknij płótno",
+      "duplicate": "Duplikuj płótno",
+      "delete": "Usuń płótno"
+    },
+    "size": { "compact": "Kompaktowy podgląd", "standard": "Standardowy podgląd", "wide": "Szeroki podgląd" },
+    "aria": {
+      "block": "Blok płótna: {title}",
+      "preview_size": "Rozmiar podglądu płótna",
+      "open": "Otwórz płótno: {title}",
+      "editor": "Edytor płótna: {title}",
+      "title": "Tytuł płótna"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Przeciągnij i upuść, aby przesłać pliki zewnętrzne"

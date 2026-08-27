@@ -1,4 +1,26 @@
 {
+  "canvas": {
+    "untitled": "제목 없는 캔버스",
+    "preview_unavailable": "미리보기를 사용할 수 없습니다",
+    "collaborator": "다른 공동 작업자",
+    "locked": "{user} 님이 이 캔버스를 편집하고 있습니다.",
+    "slash": { "title": "캔버스", "description": "그리기 캔버스 삽입" },
+    "status": { "loading": "캔버스 불러오는 중", "saving": "저장 중", "saved": "저장됨", "failed": "저장 실패" },
+    "error": {
+      "oversized": "캔버스가 너무 커서 저장할 수 없습니다",
+      "unsupported_file": "이미지와 파일 첨부는 아직 지원되지 않습니다",
+      "unsupported_version": "이 캔버스는 최신 버전의 Plane에서 생성되었습니다"
+    },
+    "action": { "open": "캔버스 열기", "close": "캔버스 닫기", "duplicate": "캔버스 복제", "delete": "캔버스 삭제" },
+    "size": { "compact": "작은 미리보기", "standard": "표준 미리보기", "wide": "넓은 미리보기" },
+    "aria": {
+      "block": "캔버스 블록: {title}",
+      "preview_size": "캔버스 미리보기 크기",
+      "open": "캔버스 열기: {title}",
+      "editor": "캔버스 편집기: {title}",
+      "title": "캔버스 제목"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "외부 파일을 업로드하려면 드래그 앤 드롭하세요"

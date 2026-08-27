@@ -1,4 +1,31 @@
 {
+  "canvas": {
+    "untitled": "Kanvas tanpa judul",
+    "preview_unavailable": "Pratinjau tidak tersedia",
+    "collaborator": "Kolaborator lain",
+    "locked": "{user} sedang mengedit kanvas ini.",
+    "slash": { "title": "Kanvas", "description": "Sisipkan kanvas gambar" },
+    "status": { "loading": "Memuat kanvas", "saving": "Menyimpan", "saved": "Tersimpan", "failed": "Gagal menyimpan" },
+    "error": {
+      "oversized": "Kanvas terlalu besar untuk disimpan",
+      "unsupported_file": "Gambar dan lampiran file belum didukung",
+      "unsupported_version": "Kanvas ini dibuat dengan versi Plane yang lebih baru"
+    },
+    "action": {
+      "open": "Buka kanvas",
+      "close": "Tutup kanvas",
+      "duplicate": "Duplikatkan kanvas",
+      "delete": "Hapus kanvas"
+    },
+    "size": { "compact": "Pratinjau ringkas", "standard": "Pratinjau standar", "wide": "Pratinjau lebar" },
+    "aria": {
+      "block": "Blok kanvas: {title}",
+      "preview_size": "Ukuran pratinjau kanvas",
+      "open": "Buka kanvas: {title}",
+      "editor": "Editor kanvas: {title}",
+      "title": "Judul kanvas"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Seret dan lepas untuk mengunggah file eksternal"

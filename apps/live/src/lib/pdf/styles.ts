@@ -207,6 +207,21 @@ export const pdfStyles = StyleSheet.create({
     color: TEXT_COLORS.tertiary,
     fontSize: 10,
   },
+  canvas: {
+    marginVertical: 10,
+    breakInside: "avoid",
+  },
+  canvasTitle: {
+    color: TEXT_COLORS.primary,
+    fontSize: 11,
+    fontWeight: 600,
+    marginBottom: 5,
+  },
+  canvasPreview: {
+    maxWidth: "100%",
+    maxHeight: 420,
+    objectFit: "contain",
+  },
   callout: {
     backgroundColor: BACKGROUND_COLORS.layer3, // bg-layer-3 (default callout background)
     padding: 12,

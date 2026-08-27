@@ -8,6 +8,7 @@ import { describe, it, expect } from "vitest";
 import { PDFParse } from "pdf-parse";
 import { renderPlaneDocToPdfBuffer } from "@/lib/pdf";
 import type { TipTapDocument, PDFExportMetadata } from "@/lib/pdf";
+import { encodeCanvasScene, ECanvasAttributeNames } from "@plane/editor";
 
 const PDF_HEADER = "%PDF-";
 
@@ -23,6 +24,60 @@ async function extractPdfText(buffer: Buffer): Promise<string> {
 
 describe("PDF Rendering Integration", () => {
   describe("renderPlaneDocToPdfBuffer", () => {
+    it("renders a Canvas title and preview without loading the drawing runtime", async () => {
+      const scene = encodeCanvasScene({ version: 1, elements: [], appState: {} });
+      expect(scene.ok).toBe(true);
+      if (!scene.ok) return;
+      const doc: TipTapDocument = {
+        type: "doc",
+        content: [
+          {
+            type: "canvas-component",
+            attrs: {
+              [ECanvasAttributeNames.ID]: "c4d18686-95cf-4f3b-aab7-c2b595f454ae",
+              [ECanvasAttributeNames.TITLE]: "System architecture",
+              [ECanvasAttributeNames.SCENE_VERSION]: 1,
+              [ECanvasAttributeNames.SCENE]: scene.value,
+              [ECanvasAttributeNames.PREVIEW]:
+                "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+              [ECanvasAttributeNames.PREVIEW_WIDTH]: 720,
+              [ECanvasAttributeNames.PREVIEW_HEIGHT]: 405,
+            },
+          },
+        ],
+      };
+      const buffer = await renderPlaneDocToPdfBuffer(doc);
+      const text = await extractPdfText(buffer);
+      expect(text).toContain("System architecture");
+    });
+
+    it("uses a title fallback for malformed Canvas previews and no-assets exports", async () => {
+      const scene = encodeCanvasScene({ version: 1, elements: [], appState: {} });
+      expect(scene.ok).toBe(true);
+      if (!scene.ok) return;
+      const doc: TipTapDocument = {
+        type: "doc",
+        content: [
+          {
+            type: "canvas-component",
+            attrs: {
+              [ECanvasAttributeNames.ID]: "c4d18686-95cf-4f3b-aab7-c2b595f454ae",
+              [ECanvasAttributeNames.TITLE]: "Fallback diagram",
+              [ECanvasAttributeNames.SCENE_VERSION]: 1,
+              [ECanvasAttributeNames.SCENE]: scene.value,
+              [ECanvasAttributeNames.PREVIEW]: "invalid",
+              [ECanvasAttributeNames.PREVIEW_WIDTH]: 720,
+              [ECanvasAttributeNames.PREVIEW_HEIGHT]: 405,
+            },
+          },
+          { type: "paragraph", content: [{ type: "text", text: "Content after canvas" }] },
+        ],
+      };
+      const buffer = await renderPlaneDocToPdfBuffer(doc, { noAssets: true });
+      const text = await extractPdfText(buffer);
+      expect(text).toContain("Fallback diagram");
+      expect(text).toContain("Content after canvas");
+    });
     it("should render empty document to valid PDF", async () => {
       const doc: TipTapDocument = {
         type: "doc",

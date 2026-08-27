@@ -63,6 +63,7 @@ export type TEditorCommands =
   | "background-color"
   | "text-align"
   | "callout"
+  | "canvas"
   | "attachment"
   | "emoji"
   | "external-embed"
@@ -179,10 +180,13 @@ export type IEditorProps = {
   placeholder?: string | ((isFocused: boolean, value: string) => string);
   showPlaceholderOnEmpty?: boolean;
   tabIndex?: number;
+  translate?: TEditorTranslation;
   value?: string | null;
   extendedEditorProps: IEditorPropsExtended;
   workItemIdentifier?: string | null;
 };
+
+export type TEditorTranslation = (key: string, params?: Record<string, unknown>) => string;
 
 export type ILiteTextEditorProps = IEditorProps;
 

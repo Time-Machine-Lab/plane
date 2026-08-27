@@ -1,4 +1,40 @@
 {
+  "canvas": {
+    "untitled": "Pânză fără titlu",
+    "preview_unavailable": "Previzualizare indisponibilă",
+    "collaborator": "Un alt colaborator",
+    "locked": "{user} editează această pânză.",
+    "slash": { "title": "Pânză", "description": "Inserează o pânză de desen" },
+    "status": {
+      "loading": "Se încarcă pânza",
+      "saving": "Se salvează",
+      "saved": "Salvat",
+      "failed": "Salvarea a eșuat"
+    },
+    "error": {
+      "oversized": "Pânza este prea mare pentru a fi salvată",
+      "unsupported_file": "Imaginile și fișierele atașate nu sunt încă acceptate",
+      "unsupported_version": "Această pânză a fost creată cu o versiune mai nouă de Plane"
+    },
+    "action": {
+      "open": "Deschide pânza",
+      "close": "Închide pânza",
+      "duplicate": "Duplică pânza",
+      "delete": "Șterge pânza"
+    },
+    "size": {
+      "compact": "Previzualizare compactă",
+      "standard": "Previzualizare standard",
+      "wide": "Previzualizare lată"
+    },
+    "aria": {
+      "block": "Bloc pânză: {title}",
+      "preview_size": "Dimensiunea previzualizării pânzei",
+      "open": "Deschide pânza: {title}",
+      "editor": "Editor pânză: {title}",
+      "title": "Titlul pânzei"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Trageți și plasați pentru a încărca fișiere externe"

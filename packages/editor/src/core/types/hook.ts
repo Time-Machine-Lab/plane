@@ -21,6 +21,7 @@ type TCoreHookProps = Pick<
   | "handleEditorReady"
   | "isTouchDevice"
   | "onEditorFocus"
+  | "translate"
 >;
 
 export type TEditorHookProps = TCoreHookProps &

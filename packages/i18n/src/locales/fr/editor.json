@@ -1,4 +1,36 @@
 {
+  "canvas": {
+    "untitled": "Canevas sans titre",
+    "preview_unavailable": "Aperçu indisponible",
+    "collaborator": "Une autre personne",
+    "locked": "{user} modifie ce canevas.",
+    "slash": { "title": "Canevas", "description": "Insérer un canevas de dessin" },
+    "status": {
+      "loading": "Chargement du canevas",
+      "saving": "Enregistrement",
+      "saved": "Enregistré",
+      "failed": "Échec de l’enregistrement"
+    },
+    "error": {
+      "oversized": "Le canevas est trop volumineux pour être enregistré",
+      "unsupported_file": "Les images et les pièces jointes ne sont pas encore prises en charge",
+      "unsupported_version": "Ce canevas a été créé avec une version plus récente de Plane"
+    },
+    "action": {
+      "open": "Ouvrir le canevas",
+      "close": "Fermer le canevas",
+      "duplicate": "Dupliquer le canevas",
+      "delete": "Supprimer le canevas"
+    },
+    "size": { "compact": "Aperçu compact", "standard": "Aperçu standard", "wide": "Aperçu large" },
+    "aria": {
+      "block": "Bloc de canevas : {title}",
+      "preview_size": "Taille de l’aperçu du canevas",
+      "open": "Ouvrir le canevas : {title}",
+      "editor": "Éditeur de canevas : {title}",
+      "title": "Titre du canevas"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Glissez-déposez pour télécharger des fichiers externes"

@@ -7,7 +7,13 @@
 import { Image, Link, Text, View } from "@react-pdf/renderer";
 import type { Style } from "@react-pdf/types";
 import type { ReactElement } from "react";
-import { CORE_EXTENSIONS } from "@plane/editor";
+import {
+  CORE_EXTENSIONS,
+  ECanvasAttributeNames,
+  getCanvasPreviewDataUri,
+  validateCanvasAttributes,
+  type TCanvasAttributes,
+} from "@plane/editor";
 import { BACKGROUND_COLORS, EDITOR_BACKGROUND_COLORS, resolveColorForPdf, TEXT_COLORS } from "./colors";
 import { CheckIcon, ClipboardIcon, DocumentIcon, GlobeIcon, LightbulbIcon, LinkIcon } from "./icons";
 import { applyMarks } from "./mark-renderers";
@@ -321,6 +327,23 @@ export const nodeRenderers: NodeRendererRegistry = {
     return (
       <View key={ctx.getKey()} style={[{ width: "100%" }, alignmentStyle]}>
         <Image src={resolvedSrc} style={[pdfStyles.image, imageStyle]} />
+      </View>
+    );
+  },
+
+  [CORE_EXTENSIONS.CANVAS]: (node: TipTapNode, _children: ReactElement[], ctx: PDFRenderContext): ReactElement => {
+    const attrs = node.attrs as TCanvasAttributes | undefined;
+    const title = attrs?.[ECanvasAttributeNames.TITLE] || "Canvas";
+    const validation = attrs ? validateCanvasAttributes(attrs) : null;
+    const preview = validation?.ok ? getCanvasPreviewDataUri(validation.value) : null;
+    return (
+      <View key={ctx.getKey()} style={pdfStyles.canvas} wrap={false}>
+        <Text style={pdfStyles.canvasTitle}>{title}</Text>
+        {!ctx.metadata?.noAssets && preview ? (
+          <Image src={preview} style={pdfStyles.canvasPreview} />
+        ) : (
+          <Text style={pdfStyles.imagePlaceholderText}>[Canvas: {title}]</Text>
+        )}
       </View>
     );
   },

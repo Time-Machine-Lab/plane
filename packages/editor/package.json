@@ -33,6 +33,7 @@
     "clean": "rm -rf .turbo && rm -rf .next && rm -rf node_modules && rm -rf dist"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "catalog:",
     "@floating-ui/dom": "catalog:",
     "@floating-ui/react": "catalog:",
     "@headlessui/react": "catalog:",

@@ -1,4 +1,40 @@
 {
+  "canvas": {
+    "untitled": "Bảng vẽ chưa đặt tên",
+    "preview_unavailable": "Không có bản xem trước",
+    "collaborator": "Một cộng tác viên khác",
+    "locked": "{user} đang chỉnh sửa bảng vẽ này.",
+    "slash": { "title": "Bảng vẽ", "description": "Chèn bảng vẽ" },
+    "status": {
+      "loading": "Đang tải bảng vẽ",
+      "saving": "Đang lưu",
+      "saved": "Đã lưu",
+      "failed": "Lưu không thành công"
+    },
+    "error": {
+      "oversized": "Bảng vẽ quá lớn để lưu",
+      "unsupported_file": "Hình ảnh và tệp đính kèm chưa được hỗ trợ",
+      "unsupported_version": "Bảng vẽ này được tạo bằng phiên bản Plane mới hơn"
+    },
+    "action": {
+      "open": "Mở bảng vẽ",
+      "close": "Đóng bảng vẽ",
+      "duplicate": "Nhân bản bảng vẽ",
+      "delete": "Xóa bảng vẽ"
+    },
+    "size": {
+      "compact": "Bản xem trước thu gọn",
+      "standard": "Bản xem trước tiêu chuẩn",
+      "wide": "Bản xem trước rộng"
+    },
+    "aria": {
+      "block": "Khối bảng vẽ: {title}",
+      "preview_size": "Kích thước xem trước bảng vẽ",
+      "open": "Mở bảng vẽ: {title}",
+      "editor": "Trình chỉnh sửa bảng vẽ: {title}",
+      "title": "Tiêu đề bảng vẽ"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Kéo và thả để tải lên tệp bên ngoài"
