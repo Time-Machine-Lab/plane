@@ -17,8 +17,23 @@ from plane.db.models import APIToken
 from plane.app.serializers import APITokenSerializer, APITokenReadSerializer
 
 
+def is_service_api_token_request(request: Request) -> bool:
+    auth = getattr(request, "auth", None)
+    if getattr(auth, "is_service", False):
+        return True
+    if not isinstance(auth, str):
+        return False
+    return APIToken.objects.filter(token=auth, is_service=True).exists()
+
+
 class ApiTokenEndpoint(BaseAPIView):
     def post(self, request: Request) -> Response:
+        if is_service_api_token_request(request):
+            return Response(
+                {"error": "Service credentials cannot create personal API tokens."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         label = request.data.get("label", str(uuid4().hex))
         description = request.data.get("description", "")
         expired_at = request.data.get("expired_at", None)

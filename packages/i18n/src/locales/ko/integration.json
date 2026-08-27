@@ -327,6 +327,55 @@
     "invalid_app_credentials": "제공된 앱 자격 증명이 유효하지 않습니다",
     "invalid_app_installation_id": "앱 설치에 실패했습니다"
   },
+  "mutica": {
+    "assistant": "Mutica 어시스턴트",
+    "connection": {
+      "description": "기존 Mutica 환경을 연결하여 작업 항목을 위임합니다.",
+      "connected_description": "Mutica가 연결되어 위임할 준비가 되었습니다.",
+      "endpoint": "Mutica 전달 엔드포인트",
+      "signing_secret": "서명 비밀 키",
+      "assistant_id": "어시스턴트 ID",
+      "assistant_name": "어시스턴트 이름",
+      "connect": "Mutica 연결",
+      "verify": "연결 확인",
+      "disconnect": "연결 해제",
+      "connected": "Mutica가 연결되었습니다.",
+      "failed": "Mutica 연결 확인에 실패했습니다.",
+      "verified": "Mutica 연결을 확인했습니다.",
+      "load_failed": "Mutica 연결을 불러올 수 없습니다."
+    },
+    "token": {
+      "rotate": "토큰 교체",
+      "rotation_failed": "서비스 토큰을 교체할 수 없습니다.",
+      "one_time_title": "Plane 서비스 토큰",
+      "one_time_description": "이 토큰을 지금 복사하세요. 다시 표시되지 않습니다.",
+      "copy": "토큰 복사"
+    },
+    "delegation": {
+      "delegate": "위임",
+      "status": {
+        "dispatching": "전달 중",
+        "handed_off": "전달됨",
+        "failed": "전달 실패",
+        "superseded": "대체됨"
+      },
+      "retry": "다시 시도",
+      "reassign": "재위임",
+      "clear": "위임 해제",
+      "action_failed": "Mutica 위임을 업데이트할 수 없습니다.",
+      "failed_title": "작업 항목이 생성되었습니다",
+      "created_but_not_delegated": "작업 항목은 생성되었지만 Mutica 전달에 실패했습니다. 작업 항목에서 다시 시도하세요.",
+      "delegate_on_create": "Mutica에 위임"
+    },
+    "activity": {
+      "delegated": "이 작업 항목을 {assistant}에게 위임했습니다",
+      "reassigned": "이 작업 항목을 {assistant}에게 다시 할당했습니다",
+      "retried": "{assistant}에게 전달을 다시 시도했습니다",
+      "cleared": "Mutica 위임을 해제했습니다",
+      "handed_off": "이 작업 항목을 {assistant}에게 전달했습니다",
+      "failed": "이 작업 항목을 Mutica에 전달하지 못했습니다"
+    }
+  },
   "import_status": {
     "queued": "대기 중",
     "created": "생성됨",

@@ -12,6 +12,8 @@ from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 
 # Module imports
 from plane.db.mixins import AuditModel
@@ -175,6 +177,15 @@ class Project(BaseModel):
             self.timezone = workspace.timezone
 
         return super().save(*args, **kwargs)
+
+
+@receiver(post_save, sender=Project)
+def add_connected_mutica_to_project(sender, instance, created, **kwargs):
+    if not created:
+        return
+    from plane.integrations.mutica import sync_mutica_project_membership
+
+    sync_mutica_project_membership(instance)
 
 
 class ProjectBaseModel(BaseModel):

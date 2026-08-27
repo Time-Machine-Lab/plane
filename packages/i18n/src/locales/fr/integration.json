@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Les informations d'identification de l'application fournies sont invalides",
     "invalid_app_installation_id": "Échec de l'installation de l'application"
   },
+  "mutica": {
+    "assistant": "Assistant Mutica",
+    "connection": {
+      "description": "Connectez un environnement Mutica existant pour déléguer des éléments de travail.",
+      "connected_description": "Mutica est connecté et prêt pour la délégation.",
+      "endpoint": "Point de terminaison Mutica",
+      "signing_secret": "Secret de signature",
+      "assistant_id": "ID de l’assistant",
+      "assistant_name": "Nom de l’assistant",
+      "connect": "Connecter Mutica",
+      "verify": "Vérifier la connexion",
+      "disconnect": "Déconnecter",
+      "connected": "Mutica est connecté.",
+      "failed": "La vérification de la connexion Mutica a échoué.",
+      "verified": "La connexion Mutica est vérifiée.",
+      "load_failed": "Impossible de charger la connexion Mutica."
+    },
+    "token": {
+      "rotate": "Renouveler le jeton",
+      "rotation_failed": "Impossible de renouveler le jeton de service.",
+      "one_time_title": "Jeton de service Plane",
+      "one_time_description": "Copiez ce jeton maintenant. Il ne sera plus affiché.",
+      "copy": "Copier le jeton"
+    },
+    "delegation": {
+      "delegate": "Déléguer",
+      "status": {
+        "dispatching": "Transmission en cours",
+        "handed_off": "Transmis",
+        "failed": "Échec de la transmission",
+        "superseded": "Remplacé"
+      },
+      "retry": "Réessayer",
+      "reassign": "Redéléguer",
+      "clear": "Annuler la délégation",
+      "action_failed": "Impossible de mettre à jour la délégation Mutica.",
+      "failed_title": "Élément de travail créé",
+      "created_but_not_delegated": "L’élément de travail a été créé, mais sa transmission à Mutica a échoué. Réessayez depuis l’élément de travail.",
+      "delegate_on_create": "Déléguer à Mutica"
+    },
+    "activity": {
+      "delegated": "a délégué cet élément de travail à {assistant}",
+      "reassigned": "a réattribué cet élément de travail à {assistant}",
+      "retried": "a relancé la transmission à {assistant}",
+      "cleared": "a annulé la délégation Mutica",
+      "handed_off": "a transmis cet élément de travail à {assistant}",
+      "failed": "n’a pas pu transmettre cet élément de travail à Mutica"
+    }
+  },
   "import_status": {
     "queued": "En attente",
     "created": "Créé",

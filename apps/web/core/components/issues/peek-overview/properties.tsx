@@ -41,6 +41,7 @@ import type { TIssueOperations } from "../issue-detail";
 import { IssueCycleSelect } from "../issue-detail/cycle-select";
 import { IssueLabel } from "../issue-detail/label";
 import { IssueModuleSelect } from "../issue-detail/module-select";
+import { MuticaDelegationProperty } from "../mutica-delegation-property";
 
 interface IPeekOverviewProperties {
   workspaceSlug: string;
@@ -108,6 +109,15 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
             hideIcon={issue.assignee_ids?.length === 0}
             dropdownArrow
             dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
+          />
+        </SidebarPropertyListItem>
+
+        <SidebarPropertyListItem icon={UserCirclePropertyIcon} label={t("mutica.assistant")}>
+          <MuticaDelegationProperty
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+            issueId={issueId}
+            disabled={disabled}
           />
         </SidebarPropertyListItem>
 

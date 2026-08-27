@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Các thông tin xác thực ứng dụng đã cung cấp không hợp lệ",
     "invalid_app_installation_id": "Không thể cài đặt ứng dụng"
   },
+  "mutica": {
+    "assistant": "Trợ lý Mutica",
+    "connection": {
+      "description": "Kết nối môi trường Mutica hiện có để giao các hạng mục công việc.",
+      "connected_description": "Mutica đã kết nối và sẵn sàng nhận việc.",
+      "endpoint": "Điểm cuối phân phối Mutica",
+      "signing_secret": "Khóa bí mật ký",
+      "assistant_id": "ID trợ lý",
+      "assistant_name": "Tên trợ lý",
+      "connect": "Kết nối Mutica",
+      "verify": "Xác minh kết nối",
+      "disconnect": "Ngắt kết nối",
+      "connected": "Đã kết nối Mutica.",
+      "failed": "Không thể xác minh kết nối Mutica.",
+      "verified": "Đã xác minh kết nối Mutica.",
+      "load_failed": "Không thể tải kết nối Mutica."
+    },
+    "token": {
+      "rotate": "Luân chuyển token",
+      "rotation_failed": "Không thể luân chuyển token dịch vụ.",
+      "one_time_title": "Token dịch vụ Plane",
+      "one_time_description": "Hãy sao chép token này ngay. Token sẽ không hiển thị lại.",
+      "copy": "Sao chép token"
+    },
+    "delegation": {
+      "delegate": "Giao việc",
+      "status": {
+        "dispatching": "Đang bàn giao",
+        "handed_off": "Đã bàn giao",
+        "failed": "Bàn giao thất bại",
+        "superseded": "Đã thay thế"
+      },
+      "retry": "Thử lại",
+      "reassign": "Giao lại",
+      "clear": "Xóa ủy quyền",
+      "action_failed": "Không thể cập nhật ủy quyền Mutica.",
+      "failed_title": "Đã tạo hạng mục công việc",
+      "created_but_not_delegated": "Hạng mục công việc đã được tạo nhưng bàn giao cho Mutica thất bại. Hãy thử lại từ hạng mục công việc.",
+      "delegate_on_create": "Giao cho Mutica"
+    },
+    "activity": {
+      "delegated": "đã giao hạng mục công việc này cho {assistant}",
+      "reassigned": "đã giao lại hạng mục công việc này cho {assistant}",
+      "retried": "đã thử lại việc bàn giao cho {assistant}",
+      "cleared": "đã xóa ủy quyền Mutica",
+      "handed_off": "đã bàn giao hạng mục công việc này cho {assistant}",
+      "failed": "không thể bàn giao hạng mục công việc này cho Mutica"
+    }
+  },
   "import_status": {
     "queued": "Đang chờ",
     "created": "Đã tạo",

@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Die bereitgestellten App-Anmeldeinformationen sind ungültig",
     "invalid_app_installation_id": "Fehler beim Installieren der App"
   },
+  "mutica": {
+    "assistant": "Mutica-Assistent",
+    "connection": {
+      "description": "Eine vorhandene Mutica-Umgebung verbinden, um Arbeitselemente zu delegieren.",
+      "connected_description": "Mutica ist verbunden und für Delegierungen bereit.",
+      "endpoint": "Mutica-Zustellendpunkt",
+      "signing_secret": "Signaturschlüssel",
+      "assistant_id": "Assistenten-ID",
+      "assistant_name": "Assistentenname",
+      "connect": "Mutica verbinden",
+      "verify": "Verbindung prüfen",
+      "disconnect": "Trennen",
+      "connected": "Mutica wurde erfolgreich verbunden.",
+      "failed": "Die Prüfung der Mutica-Verbindung ist fehlgeschlagen.",
+      "verified": "Die Mutica-Verbindung wurde geprüft.",
+      "load_failed": "Die Mutica-Verbindung konnte nicht geladen werden."
+    },
+    "token": {
+      "rotate": "Token rotieren",
+      "rotation_failed": "Das Dienst-Token konnte nicht rotiert werden.",
+      "one_time_title": "Plane-Dienst-Token",
+      "one_time_description": "Dieses Token jetzt kopieren. Es wird nicht erneut angezeigt.",
+      "copy": "Token kopieren"
+    },
+    "delegation": {
+      "delegate": "Delegieren",
+      "status": {
+        "dispatching": "Wird übergeben",
+        "handed_off": "Übergeben",
+        "failed": "Übergabe fehlgeschlagen",
+        "superseded": "Ersetzt"
+      },
+      "retry": "Erneut versuchen",
+      "reassign": "Neu delegieren",
+      "clear": "Delegierung aufheben",
+      "action_failed": "Die Mutica-Delegierung konnte nicht aktualisiert werden.",
+      "failed_title": "Arbeitselement erstellt",
+      "created_but_not_delegated": "Das Arbeitselement wurde erstellt, aber die Mutica-Übergabe ist fehlgeschlagen. Die Übergabe im Arbeitselement erneut versuchen.",
+      "delegate_on_create": "An Mutica delegieren"
+    },
+    "activity": {
+      "delegated": "hat dieses Arbeitselement an {assistant} delegiert",
+      "reassigned": "hat dieses Arbeitselement erneut {assistant} zugewiesen",
+      "retried": "hat die Übergabe an {assistant} erneut versucht",
+      "cleared": "hat die Mutica-Delegierung aufgehoben",
+      "handed_off": "hat dieses Arbeitselement an {assistant} übergeben",
+      "failed": "konnte dieses Arbeitselement nicht an Mutica übergeben"
+    }
+  },
   "import_status": {
     "queued": "In Warteschlange",
     "created": "Erstellt",

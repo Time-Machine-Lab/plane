@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Informasi autentikasi aplikasi yang diberikan tidak valid",
     "invalid_app_installation_id": "Gagal menginstal aplikasi"
   },
+  "mutica": {
+    "assistant": "Asisten Mutica",
+    "connection": {
+      "description": "Hubungkan lingkungan Mutica yang ada untuk mendelegasikan item kerja.",
+      "connected_description": "Mutica terhubung dan siap menerima delegasi.",
+      "endpoint": "Endpoint pengiriman Mutica",
+      "signing_secret": "Rahasia penandatanganan",
+      "assistant_id": "ID asisten",
+      "assistant_name": "Nama asisten",
+      "connect": "Hubungkan Mutica",
+      "verify": "Verifikasi koneksi",
+      "disconnect": "Putuskan",
+      "connected": "Mutica berhasil dihubungkan.",
+      "failed": "Verifikasi koneksi Mutica gagal.",
+      "verified": "Koneksi Mutica telah diverifikasi.",
+      "load_failed": "Koneksi Mutica tidak dapat dimuat."
+    },
+    "token": {
+      "rotate": "Rotasi token",
+      "rotation_failed": "Token layanan tidak dapat dirotasi.",
+      "one_time_title": "Token layanan Plane",
+      "one_time_description": "Salin token ini sekarang. Token tidak akan ditampilkan lagi.",
+      "copy": "Salin token"
+    },
+    "delegation": {
+      "delegate": "Delegasikan",
+      "status": {
+        "dispatching": "Sedang dikirim",
+        "handed_off": "Telah diserahkan",
+        "failed": "Penyerahan gagal",
+        "superseded": "Digantikan"
+      },
+      "retry": "Coba lagi",
+      "reassign": "Delegasikan ulang",
+      "clear": "Hapus delegasi",
+      "action_failed": "Delegasi Mutica tidak dapat diperbarui.",
+      "failed_title": "Item kerja dibuat",
+      "created_but_not_delegated": "Item kerja dibuat, tetapi penyerahan ke Mutica gagal. Coba lagi dari item kerja.",
+      "delegate_on_create": "Delegasikan ke Mutica"
+    },
+    "activity": {
+      "delegated": "mendelegasikan item kerja ini kepada {assistant}",
+      "reassigned": "menetapkan ulang item kerja ini kepada {assistant}",
+      "retried": "mencoba kembali penyerahan kepada {assistant}",
+      "cleared": "menghapus delegasi Mutica",
+      "handed_off": "menyerahkan item kerja ini kepada {assistant}",
+      "failed": "tidak dapat menyerahkan item kerja ini ke Mutica"
+    }
+  },
   "import_status": {
     "queued": "Dalam Antrian",
     "created": "Dibuat",

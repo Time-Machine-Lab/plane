@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Sağlanan uygulama kimlik bilgileri geçersiz",
     "invalid_app_installation_id": "Uygulama yüklenemedi"
   },
+  "mutica": {
+    "assistant": "Mutica asistanı",
+    "connection": {
+      "description": "İş öğelerini devretmek için mevcut bir Mutica ortamını bağlayın.",
+      "connected_description": "Mutica bağlı ve devir için hazır.",
+      "endpoint": "Mutica teslimat uç noktası",
+      "signing_secret": "İmzalama gizli anahtarı",
+      "assistant_id": "Asistan ID",
+      "assistant_name": "Asistan adı",
+      "connect": "Mutica’yı bağlayın",
+      "verify": "Bağlantıyı doğrulayın",
+      "disconnect": "Bağlantıyı kesin",
+      "connected": "Mutica başarıyla bağlandı.",
+      "failed": "Mutica bağlantısı doğrulanamadı.",
+      "verified": "Mutica bağlantısı doğrulandı.",
+      "load_failed": "Mutica bağlantısı yüklenemedi."
+    },
+    "token": {
+      "rotate": "Tokenı yenileyin",
+      "rotation_failed": "Hizmet tokenı yenilenemedi.",
+      "one_time_title": "Plane hizmet tokenı",
+      "one_time_description": "Bu tokenı şimdi kopyalayın. Tekrar gösterilmeyecek.",
+      "copy": "Tokenı kopyalayın"
+    },
+    "delegation": {
+      "delegate": "Devredin",
+      "status": {
+        "dispatching": "Devrediliyor",
+        "handed_off": "Devredildi",
+        "failed": "Devir başarısız",
+        "superseded": "Değiştirildi"
+      },
+      "retry": "Yeniden deneyin",
+      "reassign": "Yeniden devredin",
+      "clear": "Devri kaldırın",
+      "action_failed": "Mutica devri güncellenemedi.",
+      "failed_title": "İş öğesi oluşturuldu",
+      "created_but_not_delegated": "İş öğesi oluşturuldu ancak Mutica devri başarısız oldu. İş öğesinden yeniden deneyin.",
+      "delegate_on_create": "Mutica’ya devredin"
+    },
+    "activity": {
+      "delegated": "bu iş öğesini {assistant} asistanına devretti",
+      "reassigned": "bu iş öğesini {assistant} asistanına yeniden atadı",
+      "retried": "{assistant} asistanına devri yeniden denedi",
+      "cleared": "Mutica devrini kaldırdı",
+      "handed_off": "bu iş öğesini {assistant} asistanına devretti",
+      "failed": "bu iş öğesini Mutica’ya devredemedi"
+    }
+  },
   "import_status": {
     "queued": "Sıraya Alındı",
     "created": "Oluşturuldu",

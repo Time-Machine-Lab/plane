@@ -105,6 +105,54 @@ describe("Plane MCP protocol", () => {
     }
   });
 
+  it("lists attachments as a read-only tool with an authenticated current download URL", async () => {
+    vi.stubGlobal("fetch", async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(input instanceof Request ? input.url : input.toString());
+      if (url.hostname === "127.0.0.1") return realFetch(input, init);
+      return Response.json({
+        results: [
+          {
+            id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            attributes: { name: "brief.pdf", type: "application/pdf" },
+            size: 42,
+            asset_url: "/api/assets/v2/workspaces/engineering/projects/p/issues/i/attachments/a/",
+          },
+        ],
+        total_count: 1,
+      });
+    });
+    const running = await startTestServer();
+    const { client, transport } = await connectClient(running.url, { Authorization: "Bearer token" });
+    try {
+      const listed = await client.listTools();
+      expect(listed.tools.find((tool) => tool.name === "list_attachments")?.annotations).toMatchObject({
+        readOnlyHint: true,
+        destructiveHint: false,
+      });
+      const result = await client.callTool({
+        name: "list_attachments",
+        arguments: {
+          workspace_slug: "engineering",
+          project_id: "11111111-1111-4111-8111-111111111111",
+          work_item_id: "22222222-2222-4222-8222-222222222222",
+        },
+      });
+      expect(result.isError).not.toBe(true);
+      expect(result.structuredContent).toMatchObject({
+        items: [
+          {
+            id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+            name: "brief.pdf",
+            download_url: expect.stringContaining("/api/assets/v2/"),
+          },
+        ],
+      });
+    } finally {
+      await transport.close();
+      await running.close();
+    }
+  });
+
   it("returns not found from the MCP route when disabled", async () => {
     const running = await startTestServer(testConfig({ enabled: false }));
     try {

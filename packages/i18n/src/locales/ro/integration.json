@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Credențialele aplicației furnizate sunt invalide",
     "invalid_app_installation_id": "A apărut o eroare la instalarea aplicației"
   },
+  "mutica": {
+    "assistant": "Asistent Mutica",
+    "connection": {
+      "description": "Conectați un mediu Mutica existent pentru a delega elemente de lucru.",
+      "connected_description": "Mutica este conectat și pregătit pentru delegare.",
+      "endpoint": "Endpoint de livrare Mutica",
+      "signing_secret": "Secret de semnare",
+      "assistant_id": "ID asistent",
+      "assistant_name": "Nume asistent",
+      "connect": "Conectați Mutica",
+      "verify": "Verificați conexiunea",
+      "disconnect": "Deconectați",
+      "connected": "Mutica a fost conectat.",
+      "failed": "Verificarea conexiunii Mutica a eșuat.",
+      "verified": "Conexiunea Mutica a fost verificată.",
+      "load_failed": "Conexiunea Mutica nu a putut fi încărcată."
+    },
+    "token": {
+      "rotate": "Rotiți tokenul",
+      "rotation_failed": "Tokenul serviciului nu a putut fi rotit.",
+      "one_time_title": "Token de serviciu Plane",
+      "one_time_description": "Copiați acest token acum. Nu va mai fi afișat.",
+      "copy": "Copiați tokenul"
+    },
+    "delegation": {
+      "delegate": "Delegați",
+      "status": {
+        "dispatching": "În curs de predare",
+        "handed_off": "Predat",
+        "failed": "Predare eșuată",
+        "superseded": "Înlocuit"
+      },
+      "retry": "Reîncercați",
+      "reassign": "Redelegați",
+      "clear": "Eliminați delegarea",
+      "action_failed": "Delegarea Mutica nu a putut fi actualizată.",
+      "failed_title": "Element de lucru creat",
+      "created_but_not_delegated": "Elementul de lucru a fost creat, dar predarea către Mutica a eșuat. Reîncercați din elementul de lucru.",
+      "delegate_on_create": "Delegați către Mutica"
+    },
+    "activity": {
+      "delegated": "a delegat acest element de lucru către {assistant}",
+      "reassigned": "a reatribuit acest element de lucru către {assistant}",
+      "retried": "a reîncercat predarea către {assistant}",
+      "cleared": "a eliminat delegarea Mutica",
+      "handed_off": "a predat acest element de lucru către {assistant}",
+      "failed": "nu a putut preda acest element de lucru către Mutica"
+    }
+  },
   "import_status": {
     "queued": "În coadă",
     "created": "Creat",

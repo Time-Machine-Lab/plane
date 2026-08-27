@@ -11,6 +11,7 @@ import { errorResult, PlaneError, successResult } from "@/errors";
 import type { Logger } from "@/logger";
 import { PlaneApiClient } from "@/plane-api";
 import {
+  attachmentProjection,
   commentProjection,
   cycleProjection,
   labelProjection,
@@ -83,6 +84,7 @@ export const TOOL_NAMES = [
   "create_work_item",
   "update_work_item",
   "list_comments",
+  "list_attachments",
   "add_comment",
   "list_states",
   "list_labels",
@@ -345,6 +347,31 @@ export const registerPlaneTools = (server: McpServer, config: McpConfig, logger:
           { query: requestQuery(page) }
         );
         return { workspace, project_id, work_item_id, ...paginatedProjection(response, commentProjection) };
+      })
+  );
+
+  server.registerTool(
+    "list_attachments",
+    {
+      description: "List a bounded page of authorized attachment metadata and current download access.",
+      inputSchema: projectPaginationInput.extend({ work_item_id: uuid }).strict(),
+      annotations: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    },
+    async ({ workspace_slug, project_id, work_item_id, ...page }, extra) =>
+      guarded(logger, "list_attachments", async () => {
+        const { client, workspace } = requestContext(config, extra, workspace_slug);
+        const response = await client.request(
+          `workspaces/${encode(workspace)}/projects/${encode(project_id)}/work-items/${encode(work_item_id)}/attachments/`,
+          { query: requestQuery(page) }
+        );
+        const result = paginatedProjection(response, attachmentProjection);
+        for (const attachment of result.items) {
+          if (typeof attachment.download_path === "string" && attachment.download_path.startsWith("/api/assets/")) {
+            attachment.download_url = new URL(attachment.download_path, config.planeBaseUrl).toString();
+          }
+          delete attachment.download_path;
+        }
+        return { workspace, project_id, work_item_id, ...result };
       })
   );
 

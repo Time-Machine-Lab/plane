@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Podane poświadczenia aplikacji są nieprawidłowe",
     "invalid_app_installation_id": "Nie udało się zainstalować aplikacji"
   },
+  "mutica": {
+    "assistant": "Asystent Mutica",
+    "connection": {
+      "description": "Połącz istniejące środowisko Mutica, aby delegować elementy robocze.",
+      "connected_description": "Mutica jest połączona i gotowa do delegowania.",
+      "endpoint": "Punkt dostarczania Mutica",
+      "signing_secret": "Sekret podpisu",
+      "assistant_id": "ID asystenta",
+      "assistant_name": "Nazwa asystenta",
+      "connect": "Połącz Mutica",
+      "verify": "Sprawdź połączenie",
+      "disconnect": "Rozłącz",
+      "connected": "Połączono z Mutica.",
+      "failed": "Weryfikacja połączenia Mutica nie powiodła się.",
+      "verified": "Połączenie Mutica zostało zweryfikowane.",
+      "load_failed": "Nie można wczytać połączenia Mutica."
+    },
+    "token": {
+      "rotate": "Zmień token",
+      "rotation_failed": "Nie można zmienić tokenu usługi.",
+      "one_time_title": "Token usługi Plane",
+      "one_time_description": "Proszę skopiować ten token teraz. Nie zostanie ponownie wyświetlony.",
+      "copy": "Kopiuj token"
+    },
+    "delegation": {
+      "delegate": "Deleguj",
+      "status": {
+        "dispatching": "Przekazywanie",
+        "handed_off": "Przekazano",
+        "failed": "Przekazanie nieudane",
+        "superseded": "Zastąpiono"
+      },
+      "retry": "Ponów",
+      "reassign": "Deleguj ponownie",
+      "clear": "Usuń delegowanie",
+      "action_failed": "Nie można zaktualizować delegowania Mutica.",
+      "failed_title": "Utworzono element roboczy",
+      "created_but_not_delegated": "Element roboczy został utworzony, ale przekazanie do Mutica nie powiodło się. Proszę ponowić z elementu roboczego.",
+      "delegate_on_create": "Deleguj do Mutica"
+    },
+    "activity": {
+      "delegated": "delegował ten element roboczy do {assistant}",
+      "reassigned": "ponownie przypisał ten element roboczy do {assistant}",
+      "retried": "ponowił przekazanie do {assistant}",
+      "cleared": "usunął delegowanie Mutica",
+      "handed_off": "przekazał ten element roboczy do {assistant}",
+      "failed": "nie mógł przekazać tego elementu roboczego do Mutica"
+    }
+  },
   "import_status": {
     "queued": "W kolejce",
     "created": "Utworzono",

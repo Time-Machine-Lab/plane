@@ -327,6 +327,55 @@
     "invalid_app_credentials": "提供的應用憑證無效",
     "invalid_app_installation_id": "安裝應用失敗"
   },
+  "mutica": {
+    "assistant": "Mutica 助手",
+    "connection": {
+      "description": "連接現有 Mutica 環境以委派工作項目。",
+      "connected_description": "Mutica 已連接，可以接收委派。",
+      "endpoint": "Mutica 接收端點",
+      "signing_secret": "簽署密鑰",
+      "assistant_id": "助手 ID",
+      "assistant_name": "助手名稱",
+      "connect": "連接 Mutica",
+      "verify": "驗證連接",
+      "disconnect": "中斷連接",
+      "connected": "Mutica 連接成功。",
+      "failed": "Mutica 連接驗證失敗。",
+      "verified": "Mutica 連接已驗證。",
+      "load_failed": "無法載入 Mutica 連接。"
+    },
+    "token": {
+      "rotate": "輪替權杖",
+      "rotation_failed": "無法輪替服務權杖。",
+      "one_time_title": "Plane 服務權杖",
+      "one_time_description": "請立即複製此權杖，該權杖不會再次顯示。",
+      "copy": "複製權杖"
+    },
+    "delegation": {
+      "delegate": "委派",
+      "status": {
+        "dispatching": "正在交接",
+        "handed_off": "已交接",
+        "failed": "交接失敗",
+        "superseded": "已取代"
+      },
+      "retry": "重試",
+      "reassign": "重新委派",
+      "clear": "清除委派",
+      "action_failed": "無法更新 Mutica 委派。",
+      "failed_title": "工作項目已建立",
+      "created_but_not_delegated": "工作項目已建立，但交接給 Mutica 失敗。請從工作項目中重試。",
+      "delegate_on_create": "委派給 Mutica"
+    },
+    "activity": {
+      "delegated": "已將此工作項目委派給 {assistant}",
+      "reassigned": "已將此工作項目重新委派給 {assistant}",
+      "retried": "已重試向 {assistant} 交接",
+      "cleared": "已清除 Mutica 委派",
+      "handed_off": "已將此工作項目交接給 {assistant}",
+      "failed": "無法將此工作項目交接給 Mutica"
+    }
+  },
   "import_status": {
     "queued": "排隊中",
     "created": "已創建",

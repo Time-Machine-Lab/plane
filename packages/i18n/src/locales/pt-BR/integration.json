@@ -327,6 +327,55 @@
     "invalid_app_credentials": "As credenciais da aplicação fornecidas são inválidas",
     "invalid_app_installation_id": "Falha ao instalar a aplicação"
   },
+  "mutica": {
+    "assistant": "Assistente Mutica",
+    "connection": {
+      "description": "Conecte um ambiente Mutica existente para delegar itens de trabalho.",
+      "connected_description": "Mutica está conectado e pronto para delegações.",
+      "endpoint": "Endpoint de entrega do Mutica",
+      "signing_secret": "Segredo de assinatura",
+      "assistant_id": "ID do assistente",
+      "assistant_name": "Nome do assistente",
+      "connect": "Conectar Mutica",
+      "verify": "Verificar conexão",
+      "disconnect": "Desconectar",
+      "connected": "Mutica foi conectado.",
+      "failed": "A verificação da conexão Mutica falhou.",
+      "verified": "A conexão Mutica foi verificada.",
+      "load_failed": "Não foi possível carregar a conexão Mutica."
+    },
+    "token": {
+      "rotate": "Alternar token",
+      "rotation_failed": "Não foi possível alternar o token de serviço.",
+      "one_time_title": "Token de serviço do Plane",
+      "one_time_description": "Copie este token agora. Ele não será exibido novamente.",
+      "copy": "Copiar token"
+    },
+    "delegation": {
+      "delegate": "Delegar",
+      "status": {
+        "dispatching": "Enviando",
+        "handed_off": "Entregue",
+        "failed": "Falha na entrega",
+        "superseded": "Substituído"
+      },
+      "retry": "Tentar novamente",
+      "reassign": "Reatribuir",
+      "clear": "Remover delegação",
+      "action_failed": "Não foi possível atualizar a delegação Mutica.",
+      "failed_title": "Item de trabalho criado",
+      "created_but_not_delegated": "O item de trabalho foi criado, mas a entrega ao Mutica falhou. Tente novamente no item de trabalho.",
+      "delegate_on_create": "Delegar ao Mutica"
+    },
+    "activity": {
+      "delegated": "delegou este item de trabalho para {assistant}",
+      "reassigned": "reatribuiu este item de trabalho para {assistant}",
+      "retried": "tentou novamente a entrega para {assistant}",
+      "cleared": "removeu a delegação Mutica",
+      "handed_off": "entregou este item de trabalho para {assistant}",
+      "failed": "não foi possível entregar este item de trabalho ao Mutica"
+    }
+  },
   "import_status": {
     "queued": "Em fila",
     "created": "Criado",

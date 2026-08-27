@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Poskytnuté přihlašovací údaje aplikace jsou neplatné",
     "invalid_app_installation_id": "Nepodařilo se nainstalovat aplikaci"
   },
+  "mutica": {
+    "assistant": "Asistent Mutica",
+    "connection": {
+      "description": "Připojte existující prostředí Mutica a delegujte pracovní položky.",
+      "connected_description": "Mutica je připojena a připravena k delegování.",
+      "endpoint": "Koncový bod doručení Mutica",
+      "signing_secret": "Podpisový tajný klíč",
+      "assistant_id": "ID asistenta",
+      "assistant_name": "Název asistenta",
+      "connect": "Připojit Mutica",
+      "verify": "Ověřit připojení",
+      "disconnect": "Odpojit",
+      "connected": "Mutica byla úspěšně připojena.",
+      "failed": "Ověření připojení Mutica selhalo.",
+      "verified": "Připojení Mutica bylo ověřeno.",
+      "load_failed": "Připojení Mutica se nepodařilo načíst."
+    },
+    "token": {
+      "rotate": "Obnovit token",
+      "rotation_failed": "Token služby se nepodařilo obnovit.",
+      "one_time_title": "Token služby Plane",
+      "one_time_description": "Zkopírujte token nyní. Znovu se nezobrazí.",
+      "copy": "Kopírovat token"
+    },
+    "delegation": {
+      "delegate": "Delegovat",
+      "status": {
+        "dispatching": "Předává se",
+        "handed_off": "Předáno",
+        "failed": "Předání selhalo",
+        "superseded": "Nahrazeno"
+      },
+      "retry": "Opakovat",
+      "reassign": "Znovu delegovat",
+      "clear": "Zrušit delegování",
+      "action_failed": "Delegování do Mutica se nepodařilo aktualizovat.",
+      "failed_title": "Pracovní položka byla vytvořena",
+      "created_but_not_delegated": "Pracovní položka byla vytvořena, ale předání do Mutica selhalo. Opakujte je z pracovní položky.",
+      "delegate_on_create": "Delegovat do Mutica"
+    },
+    "activity": {
+      "delegated": "delegoval tuto pracovní položku asistentovi {assistant}",
+      "reassigned": "znovu přiřadil tuto pracovní položku asistentovi {assistant}",
+      "retried": "zopakoval předání asistentovi {assistant}",
+      "cleared": "zrušil delegování do Mutica",
+      "handed_off": "předal tuto pracovní položku asistentovi {assistant}",
+      "failed": "nemohl předat tuto pracovní položku do Mutica"
+    }
+  },
   "import_status": {
     "queued": "V pořádku",
     "created": "Vytvořeno",

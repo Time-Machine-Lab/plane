@@ -41,6 +41,7 @@ import { SidebarPropertyListItem } from "@/components/common/layout/sidebar/prop
 import { IssueCycleSelect } from "./cycle-select";
 import { IssueLabel } from "./label";
 import { IssueModuleSelect } from "./module-select";
+import { MuticaDelegationProperty } from "../mutica-delegation-property";
 import type { TIssueOperations } from "./root";
 
 type Props = {
@@ -113,6 +114,15 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                 hideIcon={issue.assignee_ids?.length === 0}
                 dropdownArrow
                 dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
+              />
+            </SidebarPropertyListItem>
+
+            <SidebarPropertyListItem icon={UserCirclePropertyIcon} label={t("mutica.assistant")}>
+              <MuticaDelegationProperty
+                workspaceSlug={workspaceSlug}
+                projectId={projectId}
+                issueId={issueId}
+                disabled={!isEditable}
               />
             </SidebarPropertyListItem>
 

@@ -10,3 +10,11 @@ from .github import (
     GithubCommentSync,
 )
 from .slack import SlackProjectSync
+from .mutica import (
+    MuticaConnection,
+    MuticaDeliveryAttempt,
+    MuticaDeliveryStatus,
+    MuticaExternalAgent,
+    MuticaIssueDelegation,
+    MuticaDelegationStatus,
+)

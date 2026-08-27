@@ -27,6 +27,12 @@ from .integration import (
     Integration,
     SlackProjectSync,
     WorkspaceIntegration,
+    MuticaConnection,
+    MuticaDeliveryAttempt,
+    MuticaDeliveryStatus,
+    MuticaExternalAgent,
+    MuticaIssueDelegation,
+    MuticaDelegationStatus,
 )
 from .issue import (
     CommentReaction,

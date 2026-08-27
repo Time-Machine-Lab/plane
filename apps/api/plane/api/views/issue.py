@@ -1819,7 +1819,24 @@ class IssueAttachmentListCreateAPIEndpoint(BaseAPIView):
 
     serializer_class = IssueAttachmentSerializer
     model = FileAsset
+    permission_classes = [ProjectLitePermission]
     use_read_replica = True
+
+    def get_queryset(self):
+        return (
+            FileAsset.objects.filter(
+                issue_id=self.kwargs.get("issue_id"),
+                entity_type=FileAsset.EntityTypeContext.ISSUE_ATTACHMENT,
+                workspace__slug=self.kwargs.get("slug"),
+                project_id=self.kwargs.get("project_id"),
+                is_uploaded=True,
+                project__project_projectmember__member=self.request.user,
+                project__project_projectmember__is_active=True,
+                project__archived_at__isnull=True,
+            )
+            .select_related("workspace", "project", "issue")
+            .distinct()
+        )
 
     @issue_attachment_docs(
         operation_id="create_work_item_attachment",
@@ -2016,17 +2033,11 @@ class IssueAttachmentListCreateAPIEndpoint(BaseAPIView):
 
         List all attachments for an issue.
         """
-        # Get all the attachments
-        issue_attachments = FileAsset.objects.filter(
-            issue_id=issue_id,
-            entity_type=FileAsset.EntityTypeContext.ISSUE_ATTACHMENT,
-            workspace__slug=slug,
-            project_id=project_id,
-            is_uploaded=True,
+        return self.paginate(
+            request=request,
+            queryset=self.get_queryset(),
+            on_results=lambda attachments: IssueAttachmentSerializer(attachments, many=True).data,
         )
-        # Serialize the attachments
-        serializer = IssueAttachmentSerializer(issue_attachments, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class IssueAttachmentDetailAPIEndpoint(BaseAPIView):

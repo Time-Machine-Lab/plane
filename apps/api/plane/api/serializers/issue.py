@@ -674,6 +674,8 @@ class IssueAttachmentSerializer(BaseSerializer):
     storage information, and access control for document management.
     """
 
+    asset_url = serializers.CharField(read_only=True)
+
     class Meta:
         model = FileAsset
         fields = "__all__"

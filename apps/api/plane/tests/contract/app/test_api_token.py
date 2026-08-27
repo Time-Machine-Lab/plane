@@ -89,6 +89,27 @@ class TestApiTokenEndpoint:
         assert token.expired_at is not None
 
     @pytest.mark.django_db
+    def test_service_api_token_cannot_create_unbounded_personal_token(self, session_client, create_user, workspace):
+        """Test service API tokens cannot mint personal tokens through the user token endpoint"""
+        # Arrange
+        service_token = APIToken.objects.create(
+            label="Mutica Service Token",
+            user=create_user,
+            user_type=1,
+            workspace=workspace,
+            is_service=True,
+        )
+        session_client.force_authenticate(user=create_user, token=service_token.token)
+        url = reverse("api-tokens")
+
+        # Act
+        response = session_client.post(url, {"label": "Escaped Token"}, format="json")
+
+        # Assert
+        assert response.status_code == status.HTTP_403_FORBIDDEN
+        assert not APIToken.objects.filter(label="Escaped Token", is_service=False, workspace__isnull=True).exists()
+
+    @pytest.mark.django_db
     def test_create_api_token_unauthenticated(self, api_client, api_token_data):
         """Test API token creation without authentication"""
         # Arrange

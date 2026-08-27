@@ -26,7 +26,7 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
     def get_api_token(self, request):
         return request.headers.get(self.auth_header_name)
 
-    def validate_api_token(self, token):
+    def validate_api_token(self, token, request=None):
         try:
             api_token = APIToken.objects.get(
                 Q(Q(expired_at__gt=timezone.now()) | Q(expired_at__isnull=True)),
@@ -36,6 +36,20 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             )
         except APIToken.DoesNotExist:
             raise AuthenticationFailed("Given API token is not valid")
+
+        workspace_slug = None
+        if request is not None:
+            workspace_slug = (getattr(request, "parser_context", None) or {}).get("kwargs", {}).get("slug")
+            resolver_match = getattr(request, "resolver_match", None)
+            if workspace_slug is None and resolver_match is not None:
+                workspace_slug = resolver_match.kwargs.get("slug")
+        if (
+            api_token.is_service
+            and api_token.workspace_id is not None
+            and workspace_slug is not None
+            and api_token.workspace.slug != workspace_slug
+        ):
+            raise AuthenticationFailed("Given API token is not valid for this workspace")
 
         # save api token last used
         api_token.last_used = timezone.now()
@@ -48,5 +62,5 @@ class APIKeyAuthentication(authentication.BaseAuthentication):
             return None
 
         # Validate the API token
-        user, token = self.validate_api_token(token)
+        user, token = self.validate_api_token(token, request=request)
         return user, token

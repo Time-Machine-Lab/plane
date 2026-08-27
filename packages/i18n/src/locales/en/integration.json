@@ -327,6 +327,55 @@
     "invalid_app_credentials": "The provided app credentials are invalid",
     "invalid_app_installation_id": "Failed to install the app"
   },
+  "mutica": {
+    "assistant": "Mutica assistant",
+    "connection": {
+      "description": "Connect an existing Mutica environment to delegate work items.",
+      "connected_description": "Mutica is connected and ready for delegation.",
+      "endpoint": "Mutica delivery endpoint",
+      "signing_secret": "Signing secret",
+      "assistant_id": "Assistant ID",
+      "assistant_name": "Assistant name",
+      "connect": "Connect Mutica",
+      "verify": "Verify connection",
+      "disconnect": "Disconnect",
+      "connected": "Mutica connected successfully.",
+      "failed": "Mutica connection verification failed.",
+      "verified": "Mutica connection verified.",
+      "load_failed": "Could not load the Mutica connection."
+    },
+    "token": {
+      "rotate": "Rotate token",
+      "rotation_failed": "Could not rotate the service token.",
+      "one_time_title": "Plane service token",
+      "one_time_description": "Copy this token now. It will not be shown again.",
+      "copy": "Copy token"
+    },
+    "delegation": {
+      "delegate": "Delegate",
+      "status": {
+        "dispatching": "Dispatching",
+        "handed_off": "Handed off",
+        "failed": "Handoff failed",
+        "superseded": "Superseded"
+      },
+      "retry": "Retry",
+      "reassign": "Reassign",
+      "clear": "Clear delegation",
+      "action_failed": "The Mutica delegation could not be updated.",
+      "failed_title": "Work item created",
+      "created_but_not_delegated": "The work item was created, but the Mutica handoff failed. Retry from the work item.",
+      "delegate_on_create": "Delegate to Mutica"
+    },
+    "activity": {
+      "delegated": "delegated this work item to {assistant}",
+      "reassigned": "reassigned this work item to {assistant}",
+      "retried": "retried the handoff to {assistant}",
+      "cleared": "cleared the Mutica delegation",
+      "handed_off": "handed this work item off to {assistant}",
+      "failed": "could not hand this work item off to Mutica"
+    }
+  },
   "import_status": {
     "queued": "Queued",
     "created": "Created",

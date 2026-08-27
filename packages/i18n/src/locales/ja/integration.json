@@ -327,6 +327,55 @@
     "invalid_app_credentials": "提供されたアプリの資格情報が無効です",
     "invalid_app_installation_id": "アプリのインストールに失敗しました"
   },
+  "mutica": {
+    "assistant": "Mutica アシスタント",
+    "connection": {
+      "description": "既存の Mutica 環境に接続して作業項目を委任します。",
+      "connected_description": "Mutica に接続済みで、委任できます。",
+      "endpoint": "Mutica 配信エンドポイント",
+      "signing_secret": "署名シークレット",
+      "assistant_id": "アシスタント ID",
+      "assistant_name": "アシスタント名",
+      "connect": "Mutica に接続",
+      "verify": "接続を確認",
+      "disconnect": "接続を解除",
+      "connected": "Mutica に接続しました。",
+      "failed": "Mutica の接続確認に失敗しました。",
+      "verified": "Mutica の接続を確認しました。",
+      "load_failed": "Mutica の接続を読み込めませんでした。"
+    },
+    "token": {
+      "rotate": "トークンを更新",
+      "rotation_failed": "サービストークンを更新できませんでした。",
+      "one_time_title": "Plane サービストークン",
+      "one_time_description": "このトークンを今すぐコピーしてください。再表示されません。",
+      "copy": "トークンをコピー"
+    },
+    "delegation": {
+      "delegate": "委任",
+      "status": {
+        "dispatching": "引き渡し中",
+        "handed_off": "引き渡し済み",
+        "failed": "引き渡し失敗",
+        "superseded": "置き換え済み"
+      },
+      "retry": "再試行",
+      "reassign": "再委任",
+      "clear": "委任を解除",
+      "action_failed": "Mutica の委任を更新できませんでした。",
+      "failed_title": "作業項目を作成しました",
+      "created_but_not_delegated": "作業項目は作成されましたが、Mutica への引き渡しに失敗しました。作業項目から再試行してください。",
+      "delegate_on_create": "Mutica に委任"
+    },
+    "activity": {
+      "delegated": "この作業項目を {assistant} に委任しました",
+      "reassigned": "この作業項目を {assistant} に再割り当てしました",
+      "retried": "{assistant} への引き渡しを再試行しました",
+      "cleared": "Mutica の委任を解除しました",
+      "handed_off": "この作業項目を {assistant} に引き渡しました",
+      "failed": "この作業項目を Mutica に引き渡せませんでした"
+    }
+  },
   "import_status": {
     "queued": "キューに登録済み",
     "created": "作成済み",

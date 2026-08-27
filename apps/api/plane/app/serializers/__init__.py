@@ -127,6 +127,7 @@ from .notification import NotificationSerializer, UserNotificationPreferenceSeri
 from .exporter import ExporterHistorySerializer
 
 from .webhook import WebhookSerializer, WebhookLogSerializer
+from .mutica import MuticaConnectionInputSerializer
 
 from .favorite import UserFavoriteSerializer
 

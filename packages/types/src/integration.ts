@@ -39,6 +39,71 @@ export interface IWorkspaceIntegration {
   workspace: string;
 }
 
+export type TMuticaDelegationStatus = "dispatching" | "handed_off" | "failed" | "superseded";
+
+export interface IMuticaAgent {
+  id: string;
+  external_id: string;
+  display_name: string;
+  avatar_url: string | null;
+  is_enabled: boolean;
+}
+
+export interface IMuticaConnection {
+  id: string;
+  endpoint_url: string;
+  is_enabled: boolean;
+  verified_at: string | null;
+  disabled_at: string | null;
+  assistant: IMuticaAgent | null;
+}
+
+export interface IMuticaConnectionInput {
+  endpoint_url: string;
+  signing_secret: string;
+  agent_external_id: string;
+  agent_display_name: string;
+  agent_avatar_url?: string | null;
+}
+
+export interface IMuticaProvisioningResponse extends IMuticaConnection {
+  service_token: string;
+}
+
+export interface IMuticaDelegation {
+  id: string;
+  work_item_id: string;
+  status: TMuticaDelegationStatus;
+  failure_category: string | null;
+  agent: IMuticaAgent;
+  initiated_by: string | null;
+  created_at: string;
+  handed_off_at: string | null;
+  superseded_at: string | null;
+}
+
+export interface IMuticaDelegationContext {
+  available: boolean;
+  assistant: IMuticaAgent | null;
+  current: IMuticaDelegation | null;
+  history: IMuticaDelegation[];
+}
+
+export interface IMuticaDelegationEvent {
+  type: "plane.work_item.delegated";
+  schema_version: 1;
+  event_id: string;
+  delivery_id: string;
+  delegation_id: string;
+  delegated_at: string;
+  plane_origin: string;
+  workspace_slug: string;
+  project_id: string;
+  work_item_id: string;
+  work_item_url: string;
+  agent_external_id: string;
+}
+
 // slack integration
 export interface ISlackIntegration {
   id: string;

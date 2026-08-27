@@ -327,6 +327,55 @@
     "invalid_app_credentials": "Наданий токен аутентифікації недійсний",
     "invalid_app_installation_id": "Не вдалося встановити застосунок"
   },
+  "mutica": {
+    "assistant": "Асистент Mutica",
+    "connection": {
+      "description": "Підключіть наявне середовище Mutica для делегування робочих елементів.",
+      "connected_description": "Mutica підключена й готова до делегування.",
+      "endpoint": "Кінцева точка доставки Mutica",
+      "signing_secret": "Секрет підпису",
+      "assistant_id": "ID асистента",
+      "assistant_name": "Ім’я асистента",
+      "connect": "Підключити Mutica",
+      "verify": "Перевірити підключення",
+      "disconnect": "Відключити",
+      "connected": "Mutica успішно підключена.",
+      "failed": "Не вдалося перевірити підключення Mutica.",
+      "verified": "Підключення Mutica перевірено.",
+      "load_failed": "Не вдалося завантажити підключення Mutica."
+    },
+    "token": {
+      "rotate": "Змінити токен",
+      "rotation_failed": "Не вдалося змінити сервісний токен.",
+      "one_time_title": "Сервісний токен Plane",
+      "one_time_description": "Скопіюйте цей токен зараз. Він більше не відображатиметься.",
+      "copy": "Скопіювати токен"
+    },
+    "delegation": {
+      "delegate": "Делегувати",
+      "status": {
+        "dispatching": "Передавання",
+        "handed_off": "Передано",
+        "failed": "Помилка передавання",
+        "superseded": "Замінено"
+      },
+      "retry": "Повторити",
+      "reassign": "Перепризначити",
+      "clear": "Зняти делегування",
+      "action_failed": "Не вдалося оновити делегування Mutica.",
+      "failed_title": "Робочий елемент створено",
+      "created_but_not_delegated": "Робочий елемент створено, але передати його до Mutica не вдалося. Повторіть спробу з робочого елемента.",
+      "delegate_on_create": "Делегувати до Mutica"
+    },
+    "activity": {
+      "delegated": "делегував цей робочий елемент асистенту {assistant}",
+      "reassigned": "перепризначив цей робочий елемент асистенту {assistant}",
+      "retried": "повторив передавання асистенту {assistant}",
+      "cleared": "зняв делегування Mutica",
+      "handed_off": "передав цей робочий елемент асистенту {assistant}",
+      "failed": "не зміг передати цей робочий елемент до Mutica"
+    }
+  },
   "import_status": {
     "queued": "В черзі",
     "created": "Створено",

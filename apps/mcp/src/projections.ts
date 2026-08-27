@@ -35,6 +35,7 @@ export const workItemProjection = (value: unknown): JsonRecord =>
   pick(value, [
     "id",
     "name",
+    "description_html",
     "sequence_id",
     "project_id",
     "state",
@@ -51,6 +52,17 @@ export const workItemProjection = (value: unknown): JsonRecord =>
     "updated_at",
     "completed_at",
   ]);
+
+export const attachmentProjection = (value: unknown): JsonRecord => {
+  const source = asRecord(value);
+  const attributes = asRecord(source.attributes);
+  return {
+    ...pick(source, ["id", "size", "created_at", "updated_at"]),
+    ...(typeof attributes.name === "string" ? { name: attributes.name } : {}),
+    ...(typeof attributes.type === "string" ? { media_type: attributes.type } : {}),
+    ...(typeof source.asset_url === "string" ? { download_path: source.asset_url } : {}),
+  };
+};
 
 export const commentProjection = (value: unknown): JsonRecord =>
   pick(value, ["id", "issue", "comment_html", "actor", "created_by", "access", "created_at", "updated_at"]);

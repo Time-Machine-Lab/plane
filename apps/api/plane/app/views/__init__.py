@@ -166,6 +166,12 @@ from .module.issue import ModuleIssueViewSet
 from .module.archive import ModuleArchiveUnarchiveEndpoint
 
 from .api import ApiTokenEndpoint
+from .mutica import MuticaConnectionEndpoint, MuticaConnectionVerifyEndpoint, MuticaServiceTokenRotateEndpoint
+from .mutica_delegation import (
+    MuticaAssistantAvailabilityEndpoint,
+    MuticaIssueDelegationEndpoint,
+    MuticaIssueDelegationRetryEndpoint,
+)
 
 from .page.base import (
     PageViewSet,

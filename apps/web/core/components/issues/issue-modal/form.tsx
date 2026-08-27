@@ -11,6 +11,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 import { FormProvider, useForm } from "react-hook-form";
+import useSWR from "swr";
 // editor
 import { ETabIndices, DEFAULT_WORK_ITEM_FORM_VALUES } from "@plane/constants";
 import type { EditorRefApi } from "@plane/editor";
@@ -45,6 +46,9 @@ import { useProjectState } from "@/hooks/store/use-project-state";
 import { useWorkspaceDraftIssues } from "@/hooks/store/workspace-draft";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 import { useProjectIssueProperties } from "@/hooks/use-project-issue-properties";
+import { IntegrationService } from "@/services/integrations";
+
+const integrationService = new IntegrationService();
 
 export interface IssueFormProps {
   data?: Partial<TIssue>;
@@ -69,6 +73,8 @@ export interface IssueFormProps {
   isProjectSelectionDisabled?: boolean;
   showActionButtons?: boolean;
   dataResetProperties?: any[];
+  delegateToMutica?: boolean;
+  onDelegateToMuticaChange?: (value: boolean) => void;
 }
 
 export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormProps) {
@@ -93,6 +99,8 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
     isProjectSelectionDisabled = false,
     showActionButtons = true,
     dataResetProperties = [],
+    delegateToMutica = false,
+    onDelegateToMuticaChange,
   } = props;
 
   // states
@@ -107,6 +115,10 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
 
   // router
   const { workspaceSlug, projectId: routeProjectId } = useParams();
+  const { data: muticaAvailability } = useSWR(
+    workspaceSlug && !data?.id && !isDraft ? `mutica-assistant-${workspaceSlug}` : null,
+    () => integrationService.getMuticaAssistantAvailability(workspaceSlug.toString())
+  );
 
   // store hooks
   const { getProjectById } = useProject();
@@ -446,16 +458,28 @@ export const IssueFormRoot = observer(function IssueFormRoot(props: IssueFormPro
                   tabIndex={getIndex("create_more")}
                 >
                   {!data?.id && (
-                    <div
-                      className="inline-flex cursor-pointer items-center gap-1.5"
-                      onClick={() => onCreateMoreToggleChange(!isCreateMoreToggleEnabled)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") onCreateMoreToggleChange(!isCreateMoreToggleEnabled);
-                      }}
-                      role="button"
-                    >
-                      <ToggleSwitch value={isCreateMoreToggleEnabled} onChange={() => {}} size="sm" />
-                      <span className="text-caption-sm-regular">{t("create_more")}</span>
+                    <div className="flex flex-wrap items-center gap-4">
+                      {muticaAvailability?.available && onDelegateToMuticaChange && (
+                        <label className="inline-flex cursor-pointer items-center gap-1.5">
+                          <ToggleSwitch
+                            value={delegateToMutica}
+                            onChange={() => onDelegateToMuticaChange(!delegateToMutica)}
+                            size="sm"
+                          />
+                          <span className="text-caption-sm-regular">{t("mutica.delegation.delegate_on_create")}</span>
+                        </label>
+                      )}
+                      <div
+                        className="inline-flex cursor-pointer items-center gap-1.5"
+                        onClick={() => onCreateMoreToggleChange(!isCreateMoreToggleEnabled)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") onCreateMoreToggleChange(!isCreateMoreToggleEnabled);
+                        }}
+                        role="button"
+                      >
+                        <ToggleSwitch value={isCreateMoreToggleEnabled} onChange={() => {}} size="sm" />
+                        <span className="text-caption-sm-regular">{t("create_more")}</span>
+                      </div>
                     </div>
                   )}
                   <div className="flex items-center gap-2">
