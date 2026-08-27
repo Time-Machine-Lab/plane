@@ -43,3 +43,9 @@
 
 - [x] 7.1 Have the primary Agent create a fresh Tester sub-agent that did not participate in implementation to verify the connection boundary, non-human workspace credential, delegation/assignee separation, observable handoff outcomes, authoritative MCP context access, and necessary adjacent regressions without modifying product code.
 - [x] 7.2 If verification fails, fix only the affected implementation scope and have the same Tester recheck the failure and necessary adjacent behavior; do not use a real Mutica endpoint or deploy a test environment unless the core requirement cannot be validated with the local stub and the user authorizes the external call.
+
+## 8. Production Route Regression Fix
+
+- [x] 8.1 Add the explicit workspace integrations route and administrator-visible settings menu entry.
+- [x] 8.2 Verify the Web build manifest includes `:workspaceSlug/settings/integrations` and its page chunk includes Mutica.
+- [x] 8.3 Have a fresh Tester independently verify the production route regression fix without modifying product code.
