@@ -295,8 +295,29 @@ export const ISSUE_DISPLAY_FILTERS_BY_PAGE: TIssueFiltersToDisplayByPageType = {
   },
 };
 
+export const PROJECT_ISSUE_DISPLAY_FILTERS: TFilterPropertiesByPageType = {
+  ...ISSUE_DISPLAY_FILTERS_BY_PAGE.issues,
+  layoutOptions: {
+    ...ISSUE_DISPLAY_FILTERS_BY_PAGE.issues.layoutOptions,
+    list: {
+      ...ISSUE_DISPLAY_FILTERS_BY_PAGE.issues.layoutOptions.list,
+      extra_options: {
+        access: true,
+        values: ["show_empty_groups", "sub_issue", "include_archived"],
+      },
+    },
+    kanban: {
+      ...ISSUE_DISPLAY_FILTERS_BY_PAGE.issues.layoutOptions.kanban,
+      extra_options: {
+        access: true,
+        values: ["show_empty_groups", "sub_issue", "include_archived"],
+      },
+    },
+  },
+};
+
 export const ISSUE_STORE_TO_FILTERS_MAP: Partial<Record<EIssuesStoreType, TFilterPropertiesByPageType>> = {
-  [EIssuesStoreType.PROJECT]: ISSUE_DISPLAY_FILTERS_BY_PAGE.issues,
+  [EIssuesStoreType.PROJECT]: PROJECT_ISSUE_DISPLAY_FILTERS,
 };
 
 export const SUB_WORK_ITEM_AVAILABLE_FILTERS_FOR_WORK_ITEM_PAGE: (keyof IIssueFilterOptions)[] = [

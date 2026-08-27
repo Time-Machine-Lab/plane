@@ -80,6 +80,7 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
   const { subIssues: subIssuesStore } = useIssueDetail(isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES);
 
   const isSubIssue = nestingLevel !== 0;
+  const isArchived = !!issuesMap[issueId]?.archived_at;
 
   useEffect(() => {
     const blockElement = issueBlockRef.current;
@@ -89,7 +90,7 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
     return combine(
       dropTargetForElements({
         element: blockElement,
-        canDrop: ({ source }) => source?.data?.id !== issueId && !isSubIssue && canDropOverIssue,
+        canDrop: ({ source }) => source?.data?.id !== issueId && !isSubIssue && !isArchived && canDropOverIssue,
         getData: ({ input, element }) => {
           const data = { id: issueId, type: "ISSUE" };
 
@@ -121,7 +122,7 @@ export const IssueBlockRoot = observer(function IssueBlockRoot(props: Props) {
         },
       })
     );
-  }, [issueId, isLastChild, issueBlockRef, isSubIssue, canDropOverIssue, setInstruction]);
+  }, [issueId, isLastChild, issueBlockRef, isSubIssue, isArchived, canDropOverIssue, setInstruction]);
 
   useOutsideClickDetector(issueBlockRef, () => {
     issueBlockRef?.current?.classList?.remove(HIGHLIGHT_CLASS);

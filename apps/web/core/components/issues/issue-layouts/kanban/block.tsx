@@ -13,6 +13,7 @@ import { useParams } from "next/navigation";
 // plane helpers
 import { MoreHorizontal } from "lucide-react";
 import { useOutsideClickDetector } from "@plane/hooks";
+import { ArchiveIcon } from "@plane/propel/icons";
 // types
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
@@ -95,6 +96,9 @@ const KanbanIssueDetailsBlock = observer(function KanbanIssueDetailsBlock(props:
   return (
     <>
       <div className="relative">
+        {issue.archived_at && (
+          <ArchiveIcon className="absolute top-0 right-5 size-3.5 text-tertiary" aria-hidden="true" />
+        )}
         {issue.project_id && (
           <IssueIdentifier
             issueId={issue.id}
@@ -170,13 +174,14 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
   const handleIssuePeekOverview = (issue: TIssue) => handleRedirection(workspaceSlug, issue, isMobile);
 
   const issue = issuesMap[issueId];
+  const isArchived = !!issue?.archived_at;
 
   const { setIsDragging: setIsKanbanDragging } = useKanbanView();
 
   const [isDraggingOverBlock, setIsDraggingOverBlock] = useState(false);
   const [isCurrentBlockDragging, setIsCurrentBlockDragging] = useState(false);
 
-  const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined);
+  const canEditIssueProperties = canEditProperties(issue?.project_id ?? undefined) && !isArchived;
 
   const isDragAllowed = canDragIssuesInCurrentGrouping && !issue?.tempId && canEditIssueProperties;
   const projectIdentifier = getProjectIdentifierById(issue?.project_id);
@@ -219,7 +224,7 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
       }),
       dropTargetForElements({
         element,
-        canDrop: ({ source }) => source?.data?.id !== issue?.id && canDropOverIssue,
+        canDrop: ({ source }) => source?.data?.id !== issue?.id && !isArchived && canDropOverIssue,
         getData: () => ({ id: issue?.id, type: "ISSUE" }),
         onDragEnter: () => {
           setIsDraggingOverBlock(true);
@@ -233,7 +238,15 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
       })
     );
     // oxlint-disable-next-line eslint-plugin-react-hooks/exhaustive-deps
-  }, [cardRef?.current, issue?.id, isDragAllowed, canDropOverIssue, setIsCurrentBlockDragging, setIsDraggingOverBlock]);
+  }, [
+    cardRef?.current,
+    issue?.id,
+    isArchived,
+    isDragAllowed,
+    canDropOverIssue,
+    setIsCurrentBlockDragging,
+    setIsDraggingOverBlock,
+  ]);
 
   if (!issue) return null;
 
@@ -265,7 +278,8 @@ export const KanbanIssueBlock = observer(function KanbanIssueBlock(props: IssueB
             "block w-full rounded-lg border border-subtle bg-layer-2 p-3 text-13 shadow-raised-100 outline-[0.5px] outline-transparent transition-all hover:border-strong hover:shadow-raised-200",
             { "hover:cursor-pointer": isDragAllowed },
             { "border border-accent-strong hover:border-accent-strong": getIsIssuePeeked(issue.id) },
-            { "z-[100] bg-layer-1": isCurrentBlockDragging }
+            { "z-[100] bg-layer-1": isCurrentBlockDragging },
+            { "border-strong bg-layer-1/60 opacity-80": isArchived }
           )}
           onClick={() => handleIssuePeekOverview(issue)}
           disabled={!!issue?.tempId}

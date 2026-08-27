@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "Untergeordnete Elemente anzeigen",
-        "show_empty_groups": "Leere Gruppen anzeigen"
+        "show_empty_groups": "Leere Gruppen anzeigen",
+        "show_archived_work_items": "Archivierte Arbeitselemente anzeigen"
       }
     },
     "layouts": {

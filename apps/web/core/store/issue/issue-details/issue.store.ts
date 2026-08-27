@@ -16,7 +16,7 @@ import type { IIssueDetail } from "./root.store";
 
 export interface IIssueStoreActions {
   // actions
-  fetchIssue: (workspaceSlug: string, projectId: string, issueId: string) => Promise<TIssue>;
+  fetchIssue: (workspaceSlug: string, projectId: string, issueId: string, isArchived?: boolean) => Promise<TIssue>;
   updateIssue: (workspaceSlug: string, projectId: string, issueId: string, data: Partial<TIssue>) => Promise<void>;
   removeIssue: (workspaceSlug: string, projectId: string, issueId: string) => Promise<void>;
   archiveIssue: (workspaceSlug: string, projectId: string, issueId: string) => Promise<void>;
@@ -84,13 +84,17 @@ export class IssueStore implements IIssueStore {
   });
 
   // actions
-  fetchIssue = async (workspaceSlug: string, projectId: string, issueId: string) => {
+  fetchIssue = async (workspaceSlug: string, projectId: string, issueId: string, isArchived = false) => {
     const query = {
       expand: "issue_reactions,issue_attachments,issue_link,parent",
     };
 
     this.fetchingIssueDetails = issueId;
-    const issue = await this.issueService.retrieve(workspaceSlug, projectId, issueId, query);
+    const existingIssue = this.rootIssueDetailStore.rootIssueStore.issues.getIssueById(issueId);
+    const issue =
+      isArchived || existingIssue?.archived_at
+        ? await this.issueArchiveService.retrieveArchivedIssue(workspaceSlug, projectId, issueId, query)
+        : await this.issueService.retrieve(workspaceSlug, projectId, issueId, query);
 
     if (!issue) throw new Error("Work item not found");
 

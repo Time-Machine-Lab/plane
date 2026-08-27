@@ -91,6 +91,7 @@ export const useIssueActionHandlers = (props: MenuItemFactoryProps) => {
         issueId: issue?.id,
         projectIdentifier,
         sequenceId: issue?.sequence_id,
+        isArchived: !!issue?.archived_at,
       }),
     [workspaceSlug, projectIdentifier, issue]
   );

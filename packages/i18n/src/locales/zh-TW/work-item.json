@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "顯示子工作事項",
-        "show_empty_groups": "顯示空群組"
+        "show_empty_groups": "顯示空群組",
+        "show_archived_work_items": "顯示已封存的工作事項"
       }
     },
     "layouts": {

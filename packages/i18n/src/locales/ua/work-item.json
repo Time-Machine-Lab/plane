@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "Показати похідні робочі одиниці",
-        "show_empty_groups": "Показати порожні групи"
+        "show_empty_groups": "Показати порожні групи",
+        "show_archived_work_items": "Показати архівовані робочі одиниці"
       }
     },
     "layouts": {

@@ -101,6 +101,7 @@ export class IssueFilterHelperStore implements IIssueFilterHelperStore {
         : undefined,
       order_by: displayFilters?.order_by || undefined,
       sub_issue: displayFilters?.sub_issue ?? true,
+      include_archived: displayFilters?.include_archived ?? false,
     };
 
     const issueFiltersParams: Partial<Record<TIssueParams, boolean | string>> = {};
@@ -265,7 +266,7 @@ export class IssueFilterHelperStore implements IIssueFilterHelperStore {
    * @returns
    */
   getShouldReFetchIssues = (displayFilters: IIssueDisplayFilterOptions) => {
-    const NON_SERVER_DISPLAY_FILTERS = ["order_by", "sub_issue", "type"];
+    const NON_SERVER_DISPLAY_FILTERS = ["order_by", "sub_issue", "type", "include_archived"];
     const displayFilterKeys = Object.keys(displayFilters);
 
     return NON_SERVER_DISPLAY_FILTERS.some((serverDisplayfilter: string) =>

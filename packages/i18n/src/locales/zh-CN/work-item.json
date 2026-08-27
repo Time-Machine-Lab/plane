@@ -65,7 +65,8 @@
       },
       "extra": {
         "show_sub_issues": "显示子工作项",
-        "show_empty_groups": "显示空组"
+        "show_empty_groups": "显示空组",
+        "show_archived_work_items": "显示已归档工作项"
       }
     },
     "layouts": {

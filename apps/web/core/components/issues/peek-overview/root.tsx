@@ -38,8 +38,11 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
   const { allowPermissions } = useUserPermissions();
 
   const {
-    issues: { restoreIssue },
+    issues: { restoreIssue: restoreArchivedIssue },
   } = useIssues(EIssuesStoreType.ARCHIVED);
+  const {
+    issues: { restoreIssue: restoreProjectIssue },
+  } = useIssues(EIssuesStoreType.PROJECT);
   const {
     peekIssue,
     setPeekIssue,
@@ -69,7 +72,7 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
       fetch: async (workspaceSlug: string, projectId: string, issueId: string) => {
         try {
           setError(false);
-          await fetchIssue(workspaceSlug, projectId, issueId);
+          await fetchIssue(workspaceSlug, projectId, issueId, !!peekIssue?.isArchived);
         } catch (error) {
           setError(true);
           console.error("Error fetching the parent issue", error);
@@ -116,7 +119,11 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
       },
       restore: async (workspaceSlug: string, projectId: string, issueId: string) => {
         try {
+          const restoreIssue = storeType === EIssuesStoreType.PROJECT ? restoreProjectIssue : restoreArchivedIssue;
           await restoreIssue(workspaceSlug, projectId, issueId);
+          if (storeType === EIssuesStoreType.PROJECT && peekIssue) {
+            setPeekIssue({ ...peekIssue, isArchived: false });
+          }
           setToast({
             type: TOAST_TYPE.SUCCESS,
             title: t("issue.restore.success.title"),
@@ -212,11 +219,23 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [fetchIssue, is_draft, issues, fetchActivities, pathname, removeRoutePeekId, restoreIssue]
+    [
+      fetchIssue,
+      is_draft,
+      issues,
+      fetchActivities,
+      pathname,
+      removeRoutePeekId,
+      restoreArchivedIssue,
+      restoreProjectIssue,
+      storeType,
+      peekIssue,
+      setPeekIssue,
+    ]
   );
 
   const { isLoading } = useSWR(
-    ["peek-issue", peekIssue?.workspaceSlug, peekIssue?.projectId, peekIssue?.issueId],
+    ["peek-issue", peekIssue?.workspaceSlug, peekIssue?.projectId, peekIssue?.issueId, peekIssue?.isArchived],
     () => peekIssue && issueOperations.fetch(peekIssue.workspaceSlug, peekIssue.projectId, peekIssue.issueId),
     {
       revalidateIfStale: false,

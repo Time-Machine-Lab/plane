@@ -25,7 +25,7 @@ import { DeleteIssueModal } from "../../delete-issue-modal";
 import { CreateUpdateIssueModal } from "../../issue-modal/modal";
 import type { IQuickActionProps } from "../list/list-view-types";
 import type { MenuItemFactoryProps } from "./helper";
-import { useProjectIssueMenuItems } from "./helper";
+import { useArchivedIssueMenuItems, useProjectIssueMenuItems } from "./helper";
 
 export const ProjectIssueQuickActions = observer(function ProjectIssueQuickActions(props: IQuickActionProps) {
   const {
@@ -33,6 +33,7 @@ export const ProjectIssueQuickActions = observer(function ProjectIssueQuickActio
     handleDelete,
     handleUpdate,
     handleArchive,
+    handleRestore,
     customActionButton,
     portalElement,
     readOnly = false,
@@ -57,14 +58,15 @@ export const ProjectIssueQuickActions = observer(function ProjectIssueQuickActio
   const stateDetails = getStateById(issue.state_id);
   const projectIdentifier = getProjectIdentifierById(issue?.project_id);
   // auth
-  const isEditingAllowed =
-    allowPermissions(
-      [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
-      EUserPermissionsLevel.PROJECT,
-      workspaceSlug?.toString(),
-      issue.project_id ?? undefined
-    ) && !readOnly;
+  const hasEditPermission = allowPermissions(
+    [EUserPermissions.ADMIN, EUserPermissions.MEMBER],
+    EUserPermissionsLevel.PROJECT,
+    workspaceSlug?.toString(),
+    issue.project_id ?? undefined
+  );
+  const isEditingAllowed = hasEditPermission && !readOnly && !issue.archived_at;
   const isArchivingAllowed = handleArchive && isEditingAllowed;
+  const isRestoringAllowed = !!handleRestore && !!issue.archived_at && hasEditPermission;
   const isInArchivableGroup = !!stateDetails && ARCHIVABLE_STATE_GROUPS.includes(stateDetails?.group);
   const isDeletingAllowed = isEditingAllowed;
 
@@ -86,6 +88,7 @@ export const ProjectIssueQuickActions = observer(function ProjectIssueQuickActio
     isEditingAllowed,
     isArchivingAllowed,
     isDeletingAllowed,
+    isRestoringAllowed,
     isInArchivableGroup,
     setIssueToEdit,
     setCreateUpdateIssueModal,
@@ -95,10 +98,13 @@ export const ProjectIssueQuickActions = observer(function ProjectIssueQuickActio
     handleDelete,
     handleUpdate,
     handleArchive,
+    handleRestore,
     storeType: EIssuesStoreType.PROJECT,
   };
 
-  const MENU_ITEMS = useProjectIssueMenuItems(menuItemProps);
+  const projectMenuItems = useProjectIssueMenuItems(menuItemProps);
+  const archivedMenuItems = useArchivedIssueMenuItems(menuItemProps);
+  const MENU_ITEMS = issue.archived_at ? archivedMenuItems : projectMenuItems;
 
   const CONTEXT_MENU_ITEMS = MENU_ITEMS.map(function CONTEXT_MENU_ITEMS(item) {
     return {

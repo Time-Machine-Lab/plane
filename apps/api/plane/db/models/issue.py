@@ -65,6 +65,7 @@ def get_default_display_filters():
         "type": None,
         "sub_issue": True,
         "show_empty_groups": True,
+        "include_archived": False,
         "layout": "list",
         "calendar_date_range": "",
     }
@@ -90,15 +91,17 @@ def get_default_display_properties():
 
 # TODO: Handle identifiers for Bulk Inserts - nk
 class IssueManager(SoftDeletionManager):
-    def get_queryset(self):
+    def including_archived(self):
         return (
             super()
             .get_queryset()
             .exclude(state__group=StateGroup.TRIAGE.value)
-            .exclude(archived_at__isnull=False)
             .exclude(project__archived_at__isnull=False)
             .exclude(is_draft=True)
         )
+
+    def get_queryset(self):
+        return self.including_archived().exclude(archived_at__isnull=False)
 
 
 class Issue(ChangeTrackerMixin, ProjectBaseModel):
