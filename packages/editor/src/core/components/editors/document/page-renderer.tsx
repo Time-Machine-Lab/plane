@@ -37,6 +37,7 @@ type Props = {
   isLoading?: boolean;
   isTouchDevice: boolean;
   tabIndex?: number;
+  translate?: IEditorProps["translate"];
   provider?: HocuspocusProvider;
   state?: TCollabValue["state"];
 };
@@ -56,6 +57,7 @@ export function PageRenderer(props: Props) {
     isTouchDevice,
     tabIndex,
     titleEditor,
+    translate,
     provider,
     state,
   } = props;
@@ -111,6 +113,7 @@ export function PageRenderer(props: Props) {
                   editor={editor}
                   flaggedExtensions={flaggedExtensions}
                   disabledExtensions={disabledExtensions}
+                  translate={translate}
                 />
               </div>
             )}

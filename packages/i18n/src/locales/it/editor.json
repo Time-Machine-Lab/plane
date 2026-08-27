@@ -1,4 +1,31 @@
 {
+  "canvas": {
+    "untitled": "Tela senza titolo",
+    "preview_unavailable": "Anteprima non disponibile",
+    "collaborator": "Un altro collaboratore",
+    "locked": "{user} sta modificando questa tela.",
+    "slash": { "title": "Tela", "description": "Inserisci una tela da disegno" },
+    "status": {
+      "loading": "Caricamento della tela",
+      "saving": "Salvataggio",
+      "saved": "Salvato",
+      "failed": "Salvataggio non riuscito"
+    },
+    "error": {
+      "oversized": "La tela è troppo grande per essere salvata",
+      "unsupported_file": "Le immagini e gli allegati non sono ancora supportati",
+      "unsupported_version": "Questa tela è stata creata con una versione più recente di Plane"
+    },
+    "action": { "open": "Apri tela", "close": "Chiudi tela", "duplicate": "Duplica tela", "delete": "Elimina tela" },
+    "size": { "compact": "Anteprima compatta", "standard": "Anteprima standard", "wide": "Anteprima ampia" },
+    "aria": {
+      "block": "Blocco tela: {title}",
+      "preview_size": "Dimensione anteprima tela",
+      "open": "Apri tela: {title}",
+      "editor": "Editor tela: {title}",
+      "title": "Titolo tela"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Trascina e rilascia per caricare file esterni"

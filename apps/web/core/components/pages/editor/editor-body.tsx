@@ -296,6 +296,7 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
             realtimeConfig={realtimeConfig}
             serverHandler={serverHandler}
             user={userConfig}
+            translate={t}
             disabledExtensions={documentEditorExtensions.disabled}
             flaggedExtensions={documentEditorExtensions.flagged}
             aiHandler={{

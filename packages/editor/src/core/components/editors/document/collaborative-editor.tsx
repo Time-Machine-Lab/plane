@@ -49,6 +49,7 @@ function CollaborativeDocumentEditorInner(props: ICollaborativeDocumentEditorPro
     onTransaction,
     placeholder,
     tabIndex,
+    translate,
     user,
     extendedDocumentEditorProps,
     titleRef,
@@ -83,6 +84,7 @@ function CollaborativeDocumentEditorInner(props: ICollaborativeDocumentEditorPro
     onTransaction,
     placeholder,
     tabIndex,
+    translate,
     titleRef,
     updatePageProperties,
     user,
@@ -129,6 +131,7 @@ function CollaborativeDocumentEditorInner(props: ICollaborativeDocumentEditorPro
           isLoading={isLoading}
           isTouchDevice={!!isTouchDevice}
           tabIndex={tabIndex}
+          translate={translate}
           provider={provider}
           state={state}
         />

@@ -5,6 +5,7 @@
  */
 
 import { useCallback } from "react";
+import { ECanvasAttributeNames, getCanvasPreviewDataUri, type TCanvasAttributes } from "@plane/editor";
 // plane types
 import type { TSearchEntities } from "@plane/types";
 // helpers
@@ -41,6 +42,36 @@ export const useParseEditorContent = (args: TArgs) => {
       const parser = new DOMParser();
       // parse the HTML string into a DOM document
       const doc = parser.parseFromString(htmlContent, "text/html");
+      // Canvas exports use the stored preview so the drawing runtime is never loaded during export.
+      const canvasComponents = doc.querySelectorAll("canvas-component");
+      canvasComponents.forEach((component) => {
+        const attrs = Object.fromEntries(
+          Object.values(ECanvasAttributeNames).map((name) => [name, component.getAttribute(name) ?? ""])
+        ) as unknown as TCanvasAttributes;
+        attrs[ECanvasAttributeNames.SCENE_VERSION] = Number(attrs[ECanvasAttributeNames.SCENE_VERSION]);
+        attrs[ECanvasAttributeNames.PREVIEW_WIDTH] = Number(attrs[ECanvasAttributeNames.PREVIEW_WIDTH]);
+        attrs[ECanvasAttributeNames.PREVIEW_HEIGHT] = Number(attrs[ECanvasAttributeNames.PREVIEW_HEIGHT]);
+        const title = attrs[ECanvasAttributeNames.TITLE] || "Canvas";
+        const wrapper = doc.createElement("div");
+        wrapper.setAttribute("data-node-type", "canvas-block");
+        const caption = doc.createElement("p");
+        caption.textContent = title;
+        wrapper.append(caption);
+        const preview = getCanvasPreviewDataUri(attrs);
+        if (!noAssets && preview) {
+          const image = doc.createElement("img");
+          image.src = preview;
+          image.alt = title;
+          image.style.maxWidth = "100%";
+          image.style.height = "auto";
+          wrapper.append(image);
+        } else {
+          const fallback = doc.createElement("p");
+          fallback.textContent = `[Canvas: ${title}]`;
+          wrapper.append(fallback);
+        }
+        component.replaceWith(wrapper);
+      });
       // replace all mention-component elements
       const mentionComponents = doc.querySelectorAll("mention-component");
       mentionComponents.forEach((component) => {
@@ -172,6 +203,26 @@ export const useParseEditorContent = (args: TArgs) => {
     (props: { markdownContent: string; noAssets?: boolean }): string => {
       const { markdownContent, noAssets = false } = props;
       let parsedMarkdownContent = markdownContent;
+      const canvasComponentRegex = /<canvas-component\b[^>]*>(?:<\/canvas-component>)?/gi;
+      parsedMarkdownContent = parsedMarkdownContent.replace(canvasComponentRegex, (componentHTML) => {
+        try {
+          const doc = new DOMParser().parseFromString(componentHTML, "text/html");
+          const component = doc.querySelector("canvas-component");
+          if (!component) return "";
+          const attrs = Object.fromEntries(
+            Object.values(ECanvasAttributeNames).map((name) => [name, component.getAttribute(name) ?? ""])
+          ) as unknown as TCanvasAttributes;
+          attrs[ECanvasAttributeNames.SCENE_VERSION] = Number(attrs[ECanvasAttributeNames.SCENE_VERSION]);
+          attrs[ECanvasAttributeNames.PREVIEW_WIDTH] = Number(attrs[ECanvasAttributeNames.PREVIEW_WIDTH]);
+          attrs[ECanvasAttributeNames.PREVIEW_HEIGHT] = Number(attrs[ECanvasAttributeNames.PREVIEW_HEIGHT]);
+          const title = attrs[ECanvasAttributeNames.TITLE] || "Canvas";
+          const preview = getCanvasPreviewDataUri(attrs);
+          if (noAssets || !preview) return `\n**${title}**\n\n[Canvas: ${title}]\n`;
+          return `\n**${title}**\n\n![${title}](${preview})\n`;
+        } catch {
+          return "\n[Canvas unavailable]\n";
+        }
+      });
       // replace the matched mention components with [display_name](redirect_url)
       const mentionRegex =
         /<mention-component[^>]*entity_identifier="([^"]+)"[^>]*entity_name="([^"]+)"[^>]*><\/mention-component>/g;

@@ -7,11 +7,13 @@
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { TableMap } from "@tiptap/pm/tables";
 import type { Editor } from "@tiptap/react";
-import { MoveHorizontal } from "lucide-react";
+import { Expand, Maximize2, Minimize2, MoveHorizontal } from "lucide-react";
 // constants
 import { CORE_EXTENSIONS } from "@/constants/extension";
 // types
 import type { BlockMenuOption } from "./block-menu";
+import { getCanvasTranslation } from "@/extensions";
+import type { TEditorTranslation } from "@/types/editor";
 
 const findSelectedTable = (editor: Editor): { tableNode: ProseMirrorNode | null; tablePos: number } => {
   const { state } = editor;
@@ -82,12 +84,40 @@ const setTableToFullWidth = (editor: Editor): void => {
   }
 };
 
-export const getNodeOptions = (editor: Editor): BlockMenuOption[] => [
-  {
-    icon: MoveHorizontal,
-    key: "table-full-width",
-    label: "Fit to width",
-    isDisabled: !editor.isActive(CORE_EXTENSIONS.TABLE),
-    onClick: () => setTableToFullWidth(editor),
-  },
-];
+export const getNodeOptions = (editor: Editor, translate?: TEditorTranslation): BlockMenuOption[] => {
+  const selectedNode = editor.state.selection.content().content.firstChild;
+  const canvasId =
+    selectedNode?.type.name === CORE_EXTENSIONS.CANVAS ? selectedNode.attrs["data-canvas-id"] : undefined;
+  const options: BlockMenuOption[] = [
+    {
+      icon: MoveHorizontal,
+      key: "table-full-width",
+      label: "Fit to width",
+      isDisabled: !editor.isActive(CORE_EXTENSIONS.TABLE),
+      onClick: () => setTableToFullWidth(editor),
+    },
+  ];
+  if (typeof canvasId === "string") {
+    options.push(
+      {
+        icon: Minimize2,
+        key: "canvas-size-compact",
+        label: getCanvasTranslation(translate, "canvas.size.compact"),
+        onClick: () => editor.commands.setCanvasPreviewSize(canvasId, "compact"),
+      },
+      {
+        icon: Expand,
+        key: "canvas-size-standard",
+        label: getCanvasTranslation(translate, "canvas.size.standard"),
+        onClick: () => editor.commands.setCanvasPreviewSize(canvasId, "standard"),
+      },
+      {
+        icon: Maximize2,
+        key: "canvas-size-wide",
+        label: getCanvasTranslation(translate, "canvas.size.wide"),
+        onClick: () => editor.commands.setCanvasPreviewSize(canvasId, "wide"),
+      }
+    );
+  }
+  return options;
+};

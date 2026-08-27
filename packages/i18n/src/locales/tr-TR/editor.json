@@ -1,4 +1,31 @@
 {
+  "canvas": {
+    "untitled": "Adsız tuval",
+    "preview_unavailable": "Önizleme kullanılamıyor",
+    "collaborator": "Başka bir ortak çalışan",
+    "locked": "{user} bu tuvali düzenliyor.",
+    "slash": { "title": "Tuval", "description": "Çizim tuvali ekle" },
+    "status": {
+      "loading": "Tuval yükleniyor",
+      "saving": "Kaydediliyor",
+      "saved": "Kaydedildi",
+      "failed": "Kaydetme başarısız"
+    },
+    "error": {
+      "oversized": "Tuval kaydedilemeyecek kadar büyük",
+      "unsupported_file": "Görseller ve dosya ekleri henüz desteklenmiyor",
+      "unsupported_version": "Bu tuval daha yeni bir Plane sürümüyle oluşturuldu"
+    },
+    "action": { "open": "Tuvali aç", "close": "Tuvali kapat", "duplicate": "Tuvali çoğalt", "delete": "Tuvali sil" },
+    "size": { "compact": "Kompakt önizleme", "standard": "Standart önizleme", "wide": "Geniş önizleme" },
+    "aria": {
+      "block": "Tuval bloğu: {title}",
+      "preview_size": "Tuval önizleme boyutu",
+      "open": "Tuvali aç: {title}",
+      "editor": "Tuval düzenleyici: {title}",
+      "title": "Tuval başlığı"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Harici dosyaları yüklemek için sürükle ve bırak"

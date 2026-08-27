@@ -1,4 +1,36 @@
 {
+  "canvas": {
+    "untitled": "Unbenannte Zeichenfläche",
+    "preview_unavailable": "Vorschau nicht verfügbar",
+    "collaborator": "Eine andere mitwirkende Person",
+    "locked": "{user} bearbeitet diese Zeichenfläche.",
+    "slash": { "title": "Zeichenfläche", "description": "Zeichenfläche einfügen" },
+    "status": {
+      "loading": "Zeichenfläche wird geladen",
+      "saving": "Wird gespeichert",
+      "saved": "Gespeichert",
+      "failed": "Speichern fehlgeschlagen"
+    },
+    "error": {
+      "oversized": "Die Zeichenfläche ist zu groß zum Speichern",
+      "unsupported_file": "Bilder und Dateianhänge werden noch nicht unterstützt",
+      "unsupported_version": "Diese Zeichenfläche wurde mit einer neueren Plane-Version erstellt"
+    },
+    "action": {
+      "open": "Zeichenfläche öffnen",
+      "close": "Zeichenfläche schließen",
+      "duplicate": "Zeichenfläche duplizieren",
+      "delete": "Zeichenfläche löschen"
+    },
+    "size": { "compact": "Kompakte Vorschau", "standard": "Standardvorschau", "wide": "Breite Vorschau" },
+    "aria": {
+      "block": "Zeichenflächenblock: {title}",
+      "preview_size": "Größe der Zeichenflächenvorschau",
+      "open": "Zeichenfläche öffnen: {title}",
+      "editor": "Zeichenflächeneditor: {title}",
+      "title": "Titel der Zeichenfläche"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Dateien hierher ziehen oder klicken, um hochzuladen"

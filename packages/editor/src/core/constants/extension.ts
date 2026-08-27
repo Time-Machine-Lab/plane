@@ -9,6 +9,7 @@ export enum CORE_EXTENSIONS {
   BOLD = "bold",
   BULLET_LIST = "bulletList",
   CALLOUT = "calloutComponent",
+  CANVAS = "canvas-component",
   CHARACTER_COUNT = "characterCount",
   CODE_BLOCK = "codeBlock",
   CODE_INLINE = "code",
@@ -73,5 +74,6 @@ export const BLOCK_NODE_TYPES = [
   CORE_EXTENSIONS.IMAGE,
   CORE_EXTENSIONS.CUSTOM_IMAGE,
   CORE_EXTENSIONS.CALLOUT,
+  CORE_EXTENSIONS.CANVAS,
   CORE_EXTENSIONS.WORK_ITEM_EMBED,
 ];

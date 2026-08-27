@@ -1,4 +1,31 @@
 {
+  "canvas": {
+    "untitled": "Untitled canvas",
+    "preview_unavailable": "Preview unavailable",
+    "collaborator": "Another collaborator",
+    "locked": "{user} is editing this canvas.",
+    "slash": { "title": "Canvas", "description": "Insert a drawing canvas" },
+    "status": { "loading": "Loading canvas", "saving": "Saving", "saved": "Saved", "failed": "Save failed" },
+    "error": {
+      "oversized": "Canvas is too large to save",
+      "unsupported_file": "Images and file attachments are not supported yet",
+      "unsupported_version": "This canvas was created by a newer version of Plane"
+    },
+    "action": {
+      "open": "Open canvas",
+      "close": "Close canvas",
+      "duplicate": "Duplicate canvas",
+      "delete": "Delete canvas"
+    },
+    "size": { "compact": "Compact preview", "standard": "Standard preview", "wide": "Wide preview" },
+    "aria": {
+      "block": "Canvas block: {title}",
+      "preview_size": "Canvas preview size",
+      "open": "Open canvas: {title}",
+      "editor": "Canvas editor: {title}",
+      "title": "Canvas title"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Drop files here or click to upload"

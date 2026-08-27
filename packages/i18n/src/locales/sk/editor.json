@@ -1,4 +1,36 @@
 {
+  "canvas": {
+    "untitled": "Plátno bez názvu",
+    "preview_unavailable": "Ukážka nie je dostupná",
+    "collaborator": "Iný spolupracovník",
+    "locked": "{user} upravuje toto plátno.",
+    "slash": { "title": "Plátno", "description": "Vložiť kresliace plátno" },
+    "status": {
+      "loading": "Načítava sa plátno",
+      "saving": "Ukladá sa",
+      "saved": "Uložené",
+      "failed": "Uloženie zlyhalo"
+    },
+    "error": {
+      "oversized": "Plátno je príliš veľké na uloženie",
+      "unsupported_file": "Obrázky a prílohy zatiaľ nie sú podporované",
+      "unsupported_version": "Toto plátno bolo vytvorené v novšej verzii Plane"
+    },
+    "action": {
+      "open": "Otvoriť plátno",
+      "close": "Zavrieť plátno",
+      "duplicate": "Duplikovať plátno",
+      "delete": "Odstrániť plátno"
+    },
+    "size": { "compact": "Kompaktná ukážka", "standard": "Štandardná ukážka", "wide": "Široká ukážka" },
+    "aria": {
+      "block": "Blok plátna: {title}",
+      "preview_size": "Veľkosť ukážky plátna",
+      "open": "Otvoriť plátno: {title}",
+      "editor": "Editor plátna: {title}",
+      "title": "Názov plátna"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Pretiahni a pusť pre nahranie externých súborov"

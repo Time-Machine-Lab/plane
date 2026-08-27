@@ -1,4 +1,36 @@
 {
+  "canvas": {
+    "untitled": "Lienzo sin título",
+    "preview_unavailable": "Vista previa no disponible",
+    "collaborator": "Otra persona colaboradora",
+    "locked": "{user} está editando este lienzo.",
+    "slash": { "title": "Lienzo", "description": "Insertar un lienzo de dibujo" },
+    "status": {
+      "loading": "Cargando lienzo",
+      "saving": "Guardando",
+      "saved": "Guardado",
+      "failed": "Error al guardar"
+    },
+    "error": {
+      "oversized": "El lienzo es demasiado grande para guardarlo",
+      "unsupported_file": "Las imágenes y los archivos adjuntos aún no son compatibles",
+      "unsupported_version": "Este lienzo se creó con una versión más reciente de Plane"
+    },
+    "action": {
+      "open": "Abrir lienzo",
+      "close": "Cerrar lienzo",
+      "duplicate": "Duplicar lienzo",
+      "delete": "Eliminar lienzo"
+    },
+    "size": { "compact": "Vista previa compacta", "standard": "Vista previa estándar", "wide": "Vista previa amplia" },
+    "aria": {
+      "block": "Bloque de lienzo: {title}",
+      "preview_size": "Tamaño de vista previa del lienzo",
+      "open": "Abrir lienzo: {title}",
+      "editor": "Editor de lienzo: {title}",
+      "title": "Título del lienzo"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Arrastra y suelta para subir archivos externos"

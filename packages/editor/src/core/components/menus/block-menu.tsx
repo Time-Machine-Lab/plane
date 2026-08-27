@@ -22,6 +22,7 @@ import type { ISvgIcons } from "@plane/propel/icons";
 import { cn } from "@plane/utils";
 // constants
 import { CORE_EXTENSIONS } from "@/constants/extension";
+import { ECanvasAttributeNames } from "@/extensions/canvas/types";
 // types
 import type { IEditorProps } from "@/types";
 // components
@@ -32,6 +33,7 @@ type Props = {
   editor: Editor;
   flaggedExtensions?: IEditorProps["flaggedExtensions"];
   workItemIdentifier?: IEditorProps["workItemIdentifier"];
+  translate?: IEditorProps["translate"];
 };
 export type BlockMenuOption = {
   icon: LucideIcon | React.FC<ISvgIcons>;
@@ -42,7 +44,7 @@ export type BlockMenuOption = {
 };
 
 export function BlockMenu(props: Props) {
-  const { editor } = props;
+  const { editor, translate } = props;
   const [isOpen, setIsOpen] = useState(false);
   const [isAnimatedIn, setIsAnimatedIn] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -154,8 +156,11 @@ export function BlockMenu(props: Props) {
       key: "delete",
       label: "Delete",
       onClick: (_e) => {
-        // Execute the delete action
-        editor.chain().deleteSelection().focus().run();
+        const selectedNode = editor.state.selection.content().content.firstChild;
+        const canvasId =
+          selectedNode?.type.name === CORE_EXTENSIONS.CANVAS ? selectedNode.attrs["data-canvas-id"] : undefined;
+        if (typeof canvasId === "string") editor.commands.deleteCanvasBlock(canvasId);
+        else editor.chain().deleteSelection().focus().run();
       },
     },
     {
@@ -174,6 +179,12 @@ export function BlockMenu(props: Props) {
 
           if (!firstChild) {
             throw new Error("No content selected or content is not duplicable.");
+          }
+
+          if (firstChild.type.name === CORE_EXTENSIONS.CANVAS) {
+            const canvasId = firstChild.attrs[ECanvasAttributeNames.ID];
+            if (typeof canvasId === "string") editor.commands.duplicateCanvasBlock(canvasId);
+            return;
           }
 
           // Directly use selection.to as the insertion position
@@ -201,7 +212,7 @@ export function BlockMenu(props: Props) {
         }
       },
     },
-    ...getNodeOptions(editor),
+    ...getNodeOptions(editor, translate),
   ];
 
   if (!isOpen) {

@@ -62,6 +62,7 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
     placeholder,
     showPlaceholderOnEmpty,
     tabIndex,
+    translate,
     titleRef,
     updatePageProperties,
     user,
@@ -89,6 +90,7 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
         flaggedExtensions,
         isEditable: editable,
         provider,
+        translate,
         userDetails: user,
       }),
       mainNavigationExtension,
@@ -104,6 +106,7 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
       editable,
       user,
       mainNavigationExtension,
+      translate,
     ]
   );
 

@@ -1,4 +1,26 @@
 {
+  "canvas": {
+    "untitled": "Tela sem título",
+    "preview_unavailable": "Prévia indisponível",
+    "collaborator": "Outra pessoa colaboradora",
+    "locked": "{user} está editando esta tela.",
+    "slash": { "title": "Tela", "description": "Inserir uma tela de desenho" },
+    "status": { "loading": "Carregando tela", "saving": "Salvando", "saved": "Salvo", "failed": "Falha ao salvar" },
+    "error": {
+      "oversized": "A tela é muito grande para ser salva",
+      "unsupported_file": "Imagens e anexos ainda não são compatíveis",
+      "unsupported_version": "Esta tela foi criada com uma versão mais recente do Plane"
+    },
+    "action": { "open": "Abrir tela", "close": "Fechar tela", "duplicate": "Duplicar tela", "delete": "Excluir tela" },
+    "size": { "compact": "Prévia compacta", "standard": "Prévia padrão", "wide": "Prévia ampla" },
+    "aria": {
+      "block": "Bloco de tela: {title}",
+      "preview_size": "Tamanho da prévia da tela",
+      "open": "Abrir tela: {title}",
+      "editor": "Editor de tela: {title}",
+      "title": "Título da tela"
+    }
+  },
   "attachmentComponent": {
     "uploader": {
       "drag_and_drop": "Arraste e solte para fazer upload de arquivos externos"
