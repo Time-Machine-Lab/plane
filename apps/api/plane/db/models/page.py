@@ -136,6 +136,16 @@ class ProjectPage(BaseModel):
     project = models.ForeignKey("db.Project", on_delete=models.CASCADE, related_name="project_pages")
     page = models.ForeignKey("db.Page", on_delete=models.CASCADE, related_name="project_pages")
     workspace = models.ForeignKey("db.Workspace", on_delete=models.CASCADE, related_name="project_pages")
+    parent = models.ForeignKey(
+        "self",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="children",
+    )
+    sort_order = models.FloatField(default=Page.DEFAULT_SORT_ORDER)
+    archived_at = models.DateTimeField(null=True, blank=True)
+    archive_batch_id = models.UUIDField(null=True, blank=True)
 
     class Meta:
         unique_together = ["project", "page", "deleted_at"]
@@ -146,6 +156,16 @@ class ProjectPage(BaseModel):
                 name="project_page_unique_project_page_when_deleted_at_null",
             )
         ]
+        indexes = [
+            models.Index(
+                fields=["project", "parent", "archived_at", "sort_order", "id"],
+                name="project_page_active_tree_idx",
+            ),
+            models.Index(
+                fields=["project", "archived_at", "archive_batch_id"],
+                name="project_page_archive_idx",
+            ),
+        ]
         verbose_name = "Project Page"
         verbose_name_plural = "Project Pages"
         db_table = "project_pages"
@@ -153,6 +173,66 @@ class ProjectPage(BaseModel):
 
     def __str__(self):
         return f"{self.project.name} {self.page.name}"
+
+
+class ProjectPageHierarchyState(BaseModel):
+    project = models.OneToOneField(
+        "db.Project",
+        on_delete=models.CASCADE,
+        related_name="page_hierarchy_state",
+    )
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="page_hierarchy_states",
+    )
+    revision = models.PositiveBigIntegerField(default=0)
+
+    class Meta:
+        db_table = "project_page_hierarchy_states"
+        ordering = ("-created_at",)
+
+
+class ProjectPageHierarchyMutation(BaseModel):
+    project = models.ForeignKey(
+        "db.Project",
+        on_delete=models.CASCADE,
+        related_name="page_hierarchy_mutations",
+    )
+    workspace = models.ForeignKey(
+        "db.Workspace",
+        on_delete=models.CASCADE,
+        related_name="page_hierarchy_mutations",
+    )
+    actor = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="page_hierarchy_mutations",
+    )
+    operation_id = models.UUIDField()
+    operation = models.CharField(max_length=32)
+    outcome = models.CharField(max_length=32)
+    root_page_id = models.UUIDField(null=True, blank=True)
+    old_parent_page_id = models.UUIDField(null=True, blank=True)
+    new_parent_page_id = models.UUIDField(null=True, blank=True)
+    descendant_count = models.PositiveIntegerField(default=0)
+    revision = models.PositiveBigIntegerField(default=0)
+    result = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = "project_page_hierarchy_mutations"
+        ordering = ("-created_at",)
+        constraints = [
+            models.UniqueConstraint(
+                fields=["project", "actor", "operation_id"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="project_page_mutation_idempotency",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["project", "revision"], name="project_page_mutation_rev_idx"),
+        ]
 
 
 class PageVersion(BaseModel):

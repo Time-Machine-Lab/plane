@@ -6,7 +6,19 @@
 
 // types
 import { API_BASE_URL } from "@plane/constants";
-import type { TDocumentPayload, TPage } from "@plane/types";
+import type {
+  TDocumentPayload,
+  TPage,
+  TPageHierarchyAllPagesQuery,
+  TPageHierarchyBulkPayload,
+  TPageHierarchyBulkResponse,
+  TPageHierarchyMovePayload,
+  TPageHierarchyMoveResponse,
+  TPageHierarchyPathResponse,
+  TPageHierarchyPreferences,
+  TPageHierarchyPreview,
+  TPageHierarchyResponse,
+} from "@plane/types";
 // helpers
 // services
 import { APIService } from "@/services/api.service";
@@ -36,6 +48,119 @@ export class ProjectPageService extends APIService {
       },
     })
       .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async fetchHierarchy(
+    workspaceSlug: string,
+    projectId: string,
+    parentId?: string | null,
+    archived = false,
+    offset = 0,
+    limit = 100
+  ): Promise<TPageHierarchyResponse> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/hierarchy/`, {
+      params: { parent_id: parentId || undefined, archived, offset, limit },
+    })
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async fetchHierarchyPath(
+    workspaceSlug: string,
+    projectId: string,
+    pageId: string
+  ): Promise<TPageHierarchyPathResponse> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/${pageId}/hierarchy-path/`)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async moveInHierarchy(
+    workspaceSlug: string,
+    projectId: string,
+    pageId: string,
+    payload: TPageHierarchyMovePayload
+  ): Promise<TPageHierarchyMoveResponse> {
+    return this.post(
+      `/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/${pageId}/move-in-hierarchy/`,
+      payload
+    )
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async fetchAllPages(
+    workspaceSlug: string,
+    projectId: string,
+    query: TPageHierarchyAllPagesQuery
+  ): Promise<TPageHierarchyResponse> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/hierarchy/all-pages/`, {
+      params: query,
+    })
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async previewBulkHierarchy(
+    workspaceSlug: string,
+    projectId: string,
+    payload: Omit<TPageHierarchyBulkPayload, "operation_id">
+  ): Promise<TPageHierarchyPreview> {
+    return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/hierarchy/bulk-preview/`, payload)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async mutateBulkHierarchy(
+    workspaceSlug: string,
+    projectId: string,
+    payload: TPageHierarchyBulkPayload
+  ): Promise<TPageHierarchyBulkResponse> {
+    return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/hierarchy/bulk/`, payload)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async copySubtree(workspaceSlug: string, projectId: string, pageId: string): Promise<TPageHierarchyBulkResponse> {
+    return this.post(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/${pageId}/copy-subtree/`, {
+      operation_id: crypto.randomUUID(),
+    })
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async fetchHierarchyPreferences(workspaceSlug: string, projectId: string): Promise<TPageHierarchyPreferences> {
+    return this.get(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/hierarchy/preferences/`)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async updateHierarchyPreferences(
+    workspaceSlug: string,
+    projectId: string,
+    payload: TPageHierarchyPreferences
+  ): Promise<TPageHierarchyPreferences> {
+    return this.patch(`/api/workspaces/${workspaceSlug}/projects/${projectId}/pages/hierarchy/preferences/`, payload)
+      .then((response) => response.data)
       .catch((error) => {
         throw error?.response?.data;
       });

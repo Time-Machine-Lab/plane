@@ -29,6 +29,7 @@ type Props = {
   documentLoaderClassName?: string;
   editor: Editor;
   titleEditor?: Editor;
+  titleContainerRef?: React.Ref<HTMLDivElement>;
   editorContainerClassName: string;
   extendedDocumentEditorProps?: ICollaborativeDocumentEditorPropsExtended;
   extendedEditorProps: IEditorPropsExtended;
@@ -57,6 +58,7 @@ export function PageRenderer(props: Props) {
     isTouchDevice,
     tabIndex,
     titleEditor,
+    titleContainerRef,
     translate,
     provider,
     state,
@@ -72,7 +74,7 @@ export function PageRenderer(props: Props) {
       ) : (
         <>
           {titleEditor && (
-            <div className="relative w-full py-3">
+            <div ref={titleContainerRef} className="relative w-full py-3">
               <EditorContainer
                 editor={titleEditor}
                 id={id + "-title"}

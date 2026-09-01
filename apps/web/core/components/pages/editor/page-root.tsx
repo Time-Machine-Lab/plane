@@ -23,7 +23,7 @@ import { PagesVersionEditor } from "../version/editor";
 import { ContentLimitBanner } from "./content-limit-banner";
 import { PageEditorBody } from "./editor-body";
 import type { TEditorBodyConfig, TEditorBodyHandlers } from "./editor-body";
-import { PageEditorToolbarRoot } from "./toolbar";
+import { PageEditorToolbarRoot } from "./toolbar/root";
 
 export type TPageRootHandlers = {
   create: (payload: Partial<TPage>) => Promise<Partial<TPage> | undefined>;
@@ -59,7 +59,6 @@ export const PageRoot = observer(function PageRoot(props: TPageRootProps) {
     customRealtimeEventHandlers,
   } = props;
   // states
-  const [editorReady, setEditorReady] = useState(false);
   const [collaborationState, setCollaborationState] = useState<CollaborationState | null>(null);
   const [showContentTooLargeBanner, setShowContentTooLargeBanner] = useState(false);
   // refs
@@ -79,8 +78,7 @@ export const PageRoot = observer(function PageRoot(props: TPageRootProps) {
   });
 
   const handleEditorReady = useCallback(
-    (status: boolean) => {
-      setEditorReady(status);
+    (_status: boolean) => {
       if (editorRef.current && !page.editor.editorRef) {
         setEditorRef(editorRef.current);
       }
@@ -170,7 +168,6 @@ export const PageRoot = observer(function PageRoot(props: TPageRootProps) {
         <PageEditorBody
           config={config}
           customRealtimeEventHandlers={mergedCustomEventHandlers}
-          editorReady={editorReady}
           editorForwardRef={editorRef}
           handleEditorReady={handleEditorReady}
           handleOpenNavigationPane={handleOpenNavigationPane}

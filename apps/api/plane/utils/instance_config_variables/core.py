@@ -33,6 +33,12 @@ workspace_management_config_variables = [
         "category": "WORKSPACE_MANAGEMENT",
         "is_encrypted": False,
     },
+    {
+        "key": "ENABLE_PROJECT_PAGE_HIERARCHY",
+        "value": os.environ.get("ENABLE_PROJECT_PAGE_HIERARCHY", "1"),
+        "category": "WORKSPACE_MANAGEMENT",
+        "is_encrypted": False,
+    },
 ]
 
 google_config_variables = [

@@ -10,9 +10,18 @@ from bs4 import BeautifulSoup
 
 # Django imports
 from django.conf import settings
+from django.db import transaction
+from django.db.models import F
 
 # Module imports
-from plane.db.models import FileAsset, Page, Issue
+from plane.db.models import (
+    FileAsset,
+    Issue,
+    Page,
+    ProjectPage,
+    ProjectPageHierarchyMutation,
+    ProjectPageHierarchyState,
+)
 from plane.utils.exception_logger import log_exception
 from plane.settings.storage import S3Storage
 from celery import shared_task
@@ -121,8 +130,48 @@ def copy_assets(entity, entity_identifier, project_id, asset_ids, user_id):
     return duplicated_assets
 
 
+@transaction.atomic
+def _finish_hierarchy_copy(mutation_id, *, failed):
+    if not mutation_id:
+        return
+    mutation = ProjectPageHierarchyMutation.objects.select_for_update().filter(id=mutation_id).first()
+    if mutation is None or mutation.outcome not in {"pending", "recoverable_failure"}:
+        return
+    result = dict(mutation.result)
+    if failed:
+        mutation.outcome = "recoverable_failure"
+        result["asset_copy_state"] = "failed"
+        result["pending_asset_copies"] = 0
+    elif mutation.outcome == "pending":
+        remaining = max(int(result.get("pending_asset_copies", 1)) - 1, 0)
+        result["pending_asset_copies"] = remaining
+        if remaining == 0:
+            ProjectPage.objects.filter(
+                id__in=result.get("project_page_ids", []),
+                archive_batch_id=mutation.operation_id,
+                deleted_at__isnull=True,
+            ).update(archived_at=None, archive_batch_id=None)
+            ProjectPageHierarchyState.objects.filter(project_id=mutation.project_id).update(revision=F("revision") + 1)
+            revision = ProjectPageHierarchyState.objects.values_list("revision", flat=True).get(
+                project_id=mutation.project_id
+            )
+            mutation.revision = revision
+            mutation.outcome = "success"
+            result["revision"] = revision
+            result["asset_copy_state"] = "ready"
+    mutation.result = result
+    mutation.save(update_fields=["outcome", "revision", "result", "updated_at"])
+
+
 @shared_task
-def copy_s3_objects_of_description_and_assets(entity_name, entity_identifier, project_id, slug, user_id):
+def copy_s3_objects_of_description_and_assets(
+    entity_name,
+    entity_identifier,
+    project_id,
+    slug,
+    user_id,
+    hierarchy_mutation_id=None,
+):
     """
     Step 1: Extract asset ids from the description_html of the entity
     Step 2: Duplicate the assets
@@ -149,7 +198,9 @@ def copy_s3_objects_of_description_and_assets(entity_name, entity_identifier, pr
             entity.description_binary = base64.b64decode(external_data.get("description_binary"))
             entity.save()
 
+        _finish_hierarchy_copy(hierarchy_mutation_id, failed=False)
         return
     except Exception as e:
         log_exception(e)
+        _finish_hierarchy_copy(hierarchy_mutation_id, failed=True)
         return []

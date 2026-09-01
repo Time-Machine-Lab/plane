@@ -8,6 +8,7 @@ import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
 import { PageIcon } from "@plane/propel/icons";
+import { useTranslation } from "@plane/i18n";
 import type { ICustomSearchSelectOption } from "@plane/types";
 import { Breadcrumbs, Header, BreadcrumbNavigationSearchDropdown } from "@plane/ui";
 import { getPageName } from "@plane/utils";
@@ -20,6 +21,7 @@ import { PageSyncingBadge } from "@/components/pages/header/syncing-badge";
 import { CommonProjectBreadcrumbs } from "@/components/breadcrumbs/common";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
+import { useInstance } from "@/hooks/store/use-instance";
 import { useAppRouter } from "@/hooks/use-app-router";
 import { EPageStoreType, usePage, usePageStore } from "@/hooks/store";
 
@@ -32,9 +34,11 @@ const storeType = EPageStoreType.PROJECT;
 export const PageDetailsHeader = observer(function PageDetailsHeader() {
   // router
   const router = useAppRouter();
+  const { t } = useTranslation();
   const { workspaceSlug, pageId, projectId } = useParams();
   // store hooks
   const { loader } = useProject();
+  const { config: instanceConfig } = useInstance();
   const { getPageById, getCurrentProjectPageIds } = usePageStore(storeType);
   const page = usePage({
     pageId: pageId?.toString() ?? "",
@@ -42,6 +46,7 @@ export const PageDetailsHeader = observer(function PageDetailsHeader() {
   });
   // derived values
   const projectPageIds = getCurrentProjectPageIds(projectId?.toString());
+  const isHierarchyEnabled = instanceConfig?.is_project_page_hierarchy_enabled !== false;
 
   const switcherOptions = projectPageIds
     .map((id) => {
@@ -51,8 +56,15 @@ export const PageDetailsHeader = observer(function PageDetailsHeader() {
         value: _page.id,
         query: _page.name,
         content: (
-          <div className="flex items-center justify-between gap-2">
-            <SwitcherLabel logo_props={_page.logo_props} name={getPageName(_page.name)} LabelIcon={PageIcon} />
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="min-w-0">
+              <SwitcherLabel logo_props={_page.logo_props} name={getPageName(_page.name)} LabelIcon={PageIcon} />
+              {isHierarchyEnabled && _page.path && _page.path.length > 1 && (
+                <div className="truncate pl-7 text-11 text-tertiary">
+                  {_page.path.map((item) => getPageName(item.name)).join(" / ")}
+                </div>
+              )}
+            </div>
             <PageAccessIcon {..._page} />
           </div>
         ),
@@ -71,12 +83,27 @@ export const PageDetailsHeader = observer(function PageDetailsHeader() {
             <Breadcrumbs.Item
               component={
                 <BreadcrumbLink
-                  label="Pages"
+                  label={t(isHierarchyEnabled ? "common.knowledge_base" : "common.pages")}
                   href={`/${workspaceSlug}/projects/${projectId}/pages/`}
                   icon={<PageIcon className="h-4 w-4 text-tertiary" />}
                 />
               }
             />
+
+            {isHierarchyEnabled &&
+              page.path
+                ?.slice(0, -1)
+                .map((item) => (
+                  <Breadcrumbs.Item
+                    key={item.id}
+                    component={
+                      <BreadcrumbLink
+                        label={getPageName(item.name)}
+                        href={`/${workspaceSlug}/projects/${projectId}/pages/${item.id}`}
+                      />
+                    }
+                  />
+                ))}
 
             <Breadcrumbs.Item
               component={

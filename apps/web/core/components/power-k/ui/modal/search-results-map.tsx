@@ -14,7 +14,7 @@ import type {
   IWorkspaceProjectSearchResult,
   IWorkspaceSearchResult,
 } from "@plane/types";
-import { generateWorkItemLink } from "@plane/utils";
+import { generateWorkItemLink, getPageName } from "@plane/utils";
 // components
 import type { TPowerKSearchResultsKeys } from "@/components/power-k/core/types";
 import { IssueIdentifier } from "@/components/issues/issue-detail/issue-identifier";
@@ -85,11 +85,15 @@ export const POWER_K_SEARCH_RESULTS_GROUPS_MAP: Record<TPowerKSearchResultsKeys,
   },
   page: {
     icon: FileText,
-    itemName: (page: IWorkspacePageSearchResult) => (
-      <p>
-        <span className="text-11 text-tertiary">{page.project__identifiers?.[0]}</span> {page.name}
-      </p>
-    ),
+    itemName: (page: IWorkspacePageSearchResult) => {
+      const hierarchyPath = page.path_text || page.path?.map((item) => getPageName(item.name)).join(" / ");
+      const fallbackPath = [page.project_identifiers?.[0], page.name].filter(Boolean).join(" / ");
+      return (
+        <p>
+          <span className="text-11 text-tertiary">{hierarchyPath || fallbackPath}</span>
+        </p>
+      );
+    },
     path: (page: IWorkspacePageSearchResult, projectId: string | undefined) => {
       let redirectProjectId = page?.project_ids?.[0];
       if (!!projectId && page?.project_ids?.includes(projectId)) redirectProjectId = projectId;

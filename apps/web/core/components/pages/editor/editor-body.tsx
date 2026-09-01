@@ -4,7 +4,7 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { observer } from "mobx-react";
 // plane imports
 import { LIVE_BASE_PATH, LIVE_BASE_URL } from "@plane/constants";
@@ -36,7 +36,7 @@ import { useParseEditorContent } from "@/hooks/use-parse-editor-content";
 import type { TCustomEventHandlers } from "@/hooks/use-realtime-page-events";
 import { useRealtimePageEvents } from "@/hooks/use-realtime-page-events";
 import type { TExtendedEditorExtensionsConfig } from "@/hooks/pages";
-import type { EPageStoreType } from "@/hooks/store";
+import { EPageStoreType, usePageStore } from "@/hooks/store";
 import { useEditorFlagging } from "@/hooks/use-editor-flagging";
 // store
 import type { TPageInstance } from "@/store/pages/base-page";
@@ -57,7 +57,6 @@ export type TEditorBodyHandlers = {
 
 type Props = {
   config: TEditorBodyConfig;
-  editorReady: boolean;
   editorForwardRef: React.RefObject<EditorRefApi>;
   handleEditorReady: (status: boolean) => void;
   handleOpenNavigationPane: () => void;
@@ -91,8 +90,13 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
     isFetchingFallbackBinary,
     onCollaborationStateChange,
   } = props;
+  const { cancelPendingTitleEdit, completePendingTitleEdit, pendingTitleEditPageId } = usePageStore(storeType);
   // refs
   const titleEditorRef = useRef<EditorTitleRefApi>(null);
+  const [titleEditorTarget, setTitleEditorTarget] = useState<{
+    element: HTMLDivElement;
+    pageId: string;
+  } | null>(null);
   // store hooks
   const { data: currentUser } = useUser();
   const { getWorkspaceBySlug } = useWorkspace();
@@ -236,6 +240,38 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
 
   const isPageLoading = pageId === undefined || !realtimeConfig;
 
+  const handleTitleEditorFocus = useCallback(() => {
+    if (pageId) completePendingTitleEdit(pageId, true);
+  }, [completePendingTitleEdit, pageId]);
+
+  const handleTitleContainerRef = useCallback(
+    (element: HTMLDivElement | null) => {
+      setTitleEditorTarget(element && pageId ? { element, pageId } : null);
+    },
+    [pageId]
+  );
+
+  useEffect(() => {
+    if (
+      !isContentEditable ||
+      pendingTitleEditPageId !== pageId ||
+      !titleEditorRef.current ||
+      titleEditorTarget?.pageId !== pageId ||
+      !titleEditorTarget.element.isConnected
+    )
+      return;
+
+    const activeElement = document.activeElement;
+    const canTransferFocus =
+      !activeElement || activeElement === document.body || activeElement.hasAttribute("data-page-title-focus-source");
+    if (!canTransferFocus) {
+      cancelPendingTitleEdit(pageId);
+      return;
+    }
+
+    titleEditorRef.current.focus("all");
+  }, [cancelPendingTitleEdit, isContentEditable, pageId, pendingTitleEditPageId, titleEditorTarget]);
+
   if (isPageLoading) return <PageContentLoader className={blockWidthClassName} />;
 
   return (
@@ -279,6 +315,8 @@ export const PageEditorBody = observer(function PageEditorBody(props: Props) {
             handleEditorReady={handleEditorReady}
             ref={editorForwardRef}
             titleRef={titleEditorRef}
+            titleContainerRef={handleTitleContainerRef}
+            onTitleEditorFocus={handleTitleEditorFocus}
             containerClassName="h-full p-0 pb-64"
             displayConfig={displayConfig}
             getEditorMetaData={getEditorMetaData}

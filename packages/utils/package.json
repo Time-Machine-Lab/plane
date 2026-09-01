@@ -18,6 +18,7 @@
     "check:lint": "oxlint --max-warnings=38 .",
     "check:types": "tsc --noEmit",
     "check:format": "oxfmt --check .",
+    "test": "node --test tests/*.test.mjs",
     "fix:lint": "oxlint --fix .",
     "fix:format": "oxfmt .",
     "clean": "rm -rf .turbo && rm -rf node_modules && rm -rf dist"

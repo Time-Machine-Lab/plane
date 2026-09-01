@@ -44,7 +44,7 @@ export function PageTabNavigation(props: TPageTabNavigation) {
       {pageTabs.map((tab) => (
         <Link
           key={tab.key}
-          href={`/${workspaceSlug}/projects/${projectId}/pages?type=${tab.key}`}
+          href={`/${workspaceSlug}/projects/${projectId}/pages?view=all&type=${tab.key}`}
           onClick={(e) => handleTabClick(e, tab.key)}
           className="flex h-full flex-col"
         >

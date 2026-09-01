@@ -11,9 +11,55 @@ from plane.app.views import (
     PagesDescriptionViewSet,
     PageVersionEndpoint,
     PageDuplicateEndpoint,
+    PageHierarchyViewSet,
 )
 
 urlpatterns = [
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/hierarchy/",
+        PageHierarchyViewSet.as_view({"get": "list"}),
+        name="project-page-hierarchy",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/hierarchy/preferences/",
+        PageHierarchyViewSet.as_view({"get": "retrieve_preferences", "patch": "update_preferences"}),
+        name="project-page-hierarchy-preferences",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/hierarchy/all-pages/",
+        PageHierarchyViewSet.as_view({"get": "all_pages"}),
+        name="project-page-hierarchy-all-pages",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/hierarchy/bulk-preview/",
+        PageHierarchyViewSet.as_view({"post": "bulk_preview"}),
+        name="project-page-hierarchy-bulk-preview",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/hierarchy/bulk/",
+        PageHierarchyViewSet.as_view({"post": "bulk_mutate"}),
+        name="project-page-hierarchy-bulk",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/hierarchy-path/",
+        PageHierarchyViewSet.as_view({"get": "path"}),
+        name="project-page-hierarchy-path",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/move-in-hierarchy/",
+        PageHierarchyViewSet.as_view({"post": "move"}),
+        name="project-page-hierarchy-move",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/hierarchy-preview/",
+        PageHierarchyViewSet.as_view({"get": "preview"}),
+        name="project-page-hierarchy-preview",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/copy-subtree/",
+        PageHierarchyViewSet.as_view({"post": "copy_subtree"}),
+        name="project-page-hierarchy-copy-subtree",
+    ),
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/pages-summary/",
         PageViewSet.as_view({"get": "summary"}),

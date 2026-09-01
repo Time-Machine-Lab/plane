@@ -8,6 +8,7 @@ import { useRef } from "react";
 import { observer } from "mobx-react";
 import { Logo } from "@plane/propel/emoji-icon-picker";
 import { PageIcon } from "@plane/propel/icons";
+import { useTranslation } from "@plane/i18n";
 // plane imports
 import { getPageName } from "@plane/utils";
 // components
@@ -34,10 +35,11 @@ export const PageListBlock = observer(function PageListBlock(props: TPageListBlo
     storeType,
   });
   const { isMobile } = usePlatformOS();
+  const { t } = useTranslation();
   // handle page check
   if (!page) return null;
   // derived values
-  const { name, logo_props, getRedirectionLink } = page;
+  const { name, logo_props, getRedirectionLink, path, depth, access, is_locked, archived_at } = page;
 
   return (
     <ListItem
@@ -51,6 +53,17 @@ export const PageListBlock = observer(function PageListBlock(props: TPageListBlo
         </>
       }
       title={getPageName(name)}
+      appendTitleElement={
+        <span className="hidden min-w-0 items-center gap-3 text-11 text-tertiary md:flex">
+          {path && path.length > 1 && (
+            <span className="max-w-80 truncate">{path.map((item) => getPageName(item.name)).join(" / ")}</span>
+          )}
+          {depth && <span className="tabular-nums">L{depth}</span>}
+          {access === 1 && <span>{t("common.access.private")}</span>}
+          {is_locked && <span>{t("wiki_collections.list.restricted_access")}</span>}
+          {archived_at && <span>{t("wiki_collections.predefined.archived")}</span>}
+        </span>
+      }
       itemLink={getRedirectionLink()}
       actionableItems={<BlockItemAction page={page} parentRef={parentRef} storeType={storeType} />}
       isMobile={isMobile}

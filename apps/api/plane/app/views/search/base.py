@@ -29,6 +29,8 @@ from rest_framework.response import Response
 # Module imports
 from plane.app.views.base import BaseAPIView
 from plane.app.permissions import WorkspaceUserPermission
+from plane.app.services import ProjectPageHierarchyService
+from plane.app.services.page_hierarchy import HierarchyContext
 from plane.db.models import (
     Workspace,
     Project,
@@ -41,6 +43,43 @@ from plane.db.models import (
     ProjectPage,
     WorkspaceMember,
 )
+
+
+def _enrich_project_page_results(view, pages, slug, project_id):
+    try:
+        project = Project.objects.only("id", "workspace_id").get(id=project_id, workspace__slug=slug)
+    except Project.DoesNotExist:
+        return []
+    role = (
+        ProjectMember.objects.filter(project=project, member=view.request.user, is_active=True)
+        .values_list("role", flat=True)
+        .first()
+    )
+    if role is None:
+        return []
+    service = ProjectPageHierarchyService(
+        HierarchyContext(
+            project_id=str(project.id),
+            workspace_id=str(project.workspace_id),
+            user_id=str(view.request.user.id),
+            project_role=role,
+        )
+    )
+    hierarchy = {item["id"]: item for item in service.all_pages(include_archived=False)}
+    results = []
+    for page in pages:
+        node = hierarchy.get(str(page["id"]))
+        if node is None:
+            continue
+        results.append(
+            {
+                **page,
+                "path": node["path"],
+                "path_text": " / ".join(item["name"] for item in node["path"]),
+                "depth": node["depth"],
+            }
+        )
+    return results
 
 
 class GlobalSearchEndpoint(BaseAPIView):
@@ -297,7 +336,10 @@ class GlobalSearchEndpoint(BaseAPIView):
         for entity in requested_entities:
             func = MODELS_MAPPER.get(entity)
             if func:
-                results[entity] = func(query or None, slug, project_id, workspace_search)
+                entity_results = func(query or None, slug, project_id, workspace_search)
+                if entity == "page" and project_id and workspace_search == "false":
+                    entity_results = _enrich_project_page_results(self, list(entity_results), slug, project_id)
+                results[entity] = entity_results
 
         return Response({"results": results}, status=status.HTTP_200_OK)
 
@@ -524,7 +566,7 @@ class SearchEndpoint(BaseAPIView):
                             "workspace__slug",
                         )[:count]
                     )
-                    response_data["page"] = list(pages)
+                    response_data["page"] = _enrich_project_page_results(self, list(pages), slug, project_id)
             return Response(response_data, status=status.HTTP_200_OK)
 
         else:

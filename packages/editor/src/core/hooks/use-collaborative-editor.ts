@@ -6,7 +6,7 @@
 
 import type { HocuspocusProvider } from "@hocuspocus/provider";
 import type { Extensions } from "@tiptap/core";
-import Collaboration from "@tiptap/extension-collaboration";
+import CollaborationExtension from "@tiptap/extension-collaboration";
 // react
 import type React from "react";
 import { useEffect, useMemo } from "react";
@@ -59,6 +59,7 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
     dragDropEnabled = true,
     isTouchDevice,
     onEditorFocus,
+    onTitleEditorFocus,
     placeholder,
     showPlaceholderOnEmpty,
     tabIndex,
@@ -78,7 +79,7 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
         dragDropEnabled,
       }),
       HeadingListExtension,
-      Collaboration.configure({
+      CollaborationExtension.configure({
         document: provider.document,
         field: "default",
       }),
@@ -167,7 +168,7 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
 
   const titleExtensions = useMemo(
     () => [
-      Collaboration.configure({
+      CollaborationExtension.configure({
         document: provider.document,
         field: "title",
       }),
@@ -185,6 +186,7 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
     extensions: Extensions;
     extendedEditorProps?: IEditorPropsExtended;
     getEditorMetaData?: IEditorProps["getEditorMetaData"];
+    onEditorFocus?: () => void;
   }>(
     () => ({
       id,
@@ -195,8 +197,19 @@ export const useCollaborativeEditor = (props: UseCollaborativeEditorArgs) => {
       extensions: titleExtensions,
       extendedEditorProps,
       getEditorMetaData,
+      onEditorFocus: onTitleEditorFocus,
     }),
-    [provider, id, editable, titleRef, updatePageProperties, titleExtensions, extendedEditorProps, getEditorMetaData]
+    [
+      provider,
+      id,
+      editable,
+      titleRef,
+      updatePageProperties,
+      titleExtensions,
+      extendedEditorProps,
+      getEditorMetaData,
+      onTitleEditorFocus,
+    ]
   );
 
   const titleEditor = useTitleEditor(titleEditorConfig as Parameters<typeof useTitleEditor>[0]);
