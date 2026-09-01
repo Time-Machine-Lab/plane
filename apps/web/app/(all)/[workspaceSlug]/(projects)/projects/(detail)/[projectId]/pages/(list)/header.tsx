@@ -9,6 +9,7 @@ import { observer } from "mobx-react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 // constants
 import { EPageAccess } from "@plane/constants";
+import { useTranslation } from "@plane/i18n";
 // plane types
 import { Button } from "@plane/propel/button";
 import { PageIcon } from "@plane/propel/icons";
@@ -20,6 +21,7 @@ import { Breadcrumbs, Header } from "@plane/ui";
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
+import { useInstance } from "@/hooks/store/use-instance";
 // plane web imports
 import { CommonProjectBreadcrumbs } from "@/components/breadcrumbs/common";
 import { EPageStoreType, usePageStore } from "@/hooks/store";
@@ -27,6 +29,7 @@ import { EPageStoreType, usePageStore } from "@/hooks/store";
 export const PagesListHeader = observer(function PagesListHeader() {
   // states
   const [isCreatingPage, setIsCreatingPage] = useState(false);
+  const { t } = useTranslation();
   // router
   const router = useRouter();
   const { workspaceSlug, projectId } = useParams();
@@ -34,6 +37,7 @@ export const PagesListHeader = observer(function PagesListHeader() {
   const pageType = searchParams.get("type");
   // store hooks
   const { currentProjectDetails, loader } = useProject();
+  const { config: instanceConfig } = useInstance();
   const { canCurrentUserCreatePage, createPage } = usePageStore(EPageStoreType.PROJECT);
   // handle page create
   const handleCreatePage = async () => {
@@ -52,8 +56,8 @@ export const PagesListHeader = observer(function PagesListHeader() {
       .catch((err) => {
         setToast({
           type: TOAST_TYPE.ERROR,
-          title: "Error!",
-          message: err?.data?.error || "Page could not be created. Please try again.",
+          title: t("common.error"),
+          message: err?.data?.error || t("wiki_collections.toasts.create_page_error"),
         });
       })
       .finally(() => setIsCreatingPage(false));
@@ -67,7 +71,9 @@ export const PagesListHeader = observer(function PagesListHeader() {
           <Breadcrumbs.Item
             component={
               <BreadcrumbLink
-                label="Pages"
+                label={t(
+                  instanceConfig?.is_project_page_hierarchy_enabled !== false ? "common.knowledge_base" : "common.pages"
+                )}
                 href={`/${workspaceSlug}/projects/${currentProjectDetails?.id}/pages/`}
                 icon={<PageIcon className="h-4 w-4 text-tertiary" />}
                 isLast
@@ -80,7 +86,7 @@ export const PagesListHeader = observer(function PagesListHeader() {
       {canCurrentUserCreatePage && (
         <Header.RightItem>
           <Button variant="primary" size="lg" onClick={handleCreatePage} loading={isCreatingPage}>
-            {isCreatingPage ? "Adding" : "Add page"}
+            {isCreatingPage ? t("common.adding") : t("wiki_collections.header.add_page")}
           </Button>
         </Header.RightItem>
       )}

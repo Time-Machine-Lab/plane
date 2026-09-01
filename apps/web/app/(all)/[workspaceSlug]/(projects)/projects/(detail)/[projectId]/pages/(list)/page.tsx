@@ -20,8 +20,10 @@ import { PageHead } from "@/components/core/page-title";
 import { DetailedEmptyState } from "@/components/empty-state/detailed-empty-state-root";
 import { PagesListRoot } from "@/components/pages/list/root";
 import { PagesListView } from "@/components/pages/pages-list-view";
+import { KnowledgeBaseManagementView, KnowledgeBaseTree } from "@/components/pages/knowledge-base";
 // hooks
 import { useProject } from "@/hooks/store/use-project";
+import { useInstance } from "@/hooks/store/use-instance";
 import { useUserPermissions } from "@/hooks/store/user";
 import { useAppRouter } from "@/hooks/use-app-router";
 // plane web hooks
@@ -39,6 +41,7 @@ function ProjectPagesPage({ params }: Route.ComponentProps) {
   const router = useAppRouter();
   const searchParams = useSearchParams();
   const type = searchParams.get("type");
+  const view = searchParams.get("view");
   const { workspaceSlug, projectId } = params;
   // theme hook
   const { resolvedTheme } = useTheme();
@@ -46,10 +49,14 @@ function ProjectPagesPage({ params }: Route.ComponentProps) {
   const { t } = useTranslation();
   // store hooks
   const { getProjectById, currentProjectDetails } = useProject();
+  const { config: instanceConfig } = useInstance();
   const { allowPermissions } = useUserPermissions();
   // derived values
   const project = getProjectById(projectId);
-  const pageTitle = project?.name ? `${project?.name} - Pages` : undefined;
+  const isHierarchyEnabled = instanceConfig?.is_project_page_hierarchy_enabled !== false;
+  const pageTitle = project?.name
+    ? `${project?.name} - ${t(isHierarchyEnabled ? "common.knowledge_base" : "common.pages")}`
+    : undefined;
   const canPerformEmptyStateActions = allowPermissions([EUserProjectRoles.ADMIN], EUserPermissionsLevel.PROJECT);
   const resolvedPath = resolvedTheme === "light" ? lightPagesAsset : darkPagesAsset;
   const pageType = getPageType(type);
@@ -75,14 +82,29 @@ function ProjectPagesPage({ params }: Route.ComponentProps) {
   return (
     <>
       <PageHead title={pageTitle} />
-      <PagesListView
-        pageType={pageType}
-        projectId={projectId}
-        storeType={EPageStoreType.PROJECT}
-        workspaceSlug={workspaceSlug}
-      >
-        <PagesListRoot pageType={pageType} storeType={EPageStoreType.PROJECT} />
-      </PagesListView>
+      {!isHierarchyEnabled ? (
+        <PagesListView
+          pageType={pageType}
+          projectId={projectId}
+          storeType={EPageStoreType.PROJECT}
+          workspaceSlug={workspaceSlug}
+        >
+          <PagesListRoot pageType={pageType} storeType={EPageStoreType.PROJECT} />
+        </PagesListView>
+      ) : view === "all" ? (
+        <KnowledgeBaseManagementView />
+      ) : pageType === "archived" ? (
+        <PagesListView
+          pageType={pageType}
+          projectId={projectId}
+          storeType={EPageStoreType.PROJECT}
+          workspaceSlug={workspaceSlug}
+        >
+          <PagesListRoot pageType={pageType} storeType={EPageStoreType.PROJECT} />
+        </PagesListView>
+      ) : (
+        <KnowledgeBaseTree />
+      )}
     </>
   );
 }

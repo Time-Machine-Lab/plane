@@ -66,5 +66,6 @@ export type TCollaborativeEditorHookProps = TCoreHookProps &
     "dragDropEnabled" | "extendedDocumentEditorProps" | "realtimeConfig" | "serverHandler" | "user"
   > & {
     titleRef?: ICollaborativeDocumentEditorProps["titleRef"];
+    onTitleEditorFocus?: ICollaborativeDocumentEditorProps["onTitleEditorFocus"];
     updatePageProperties?: ICollaborativeDocumentEditorProps["updatePageProperties"];
   };

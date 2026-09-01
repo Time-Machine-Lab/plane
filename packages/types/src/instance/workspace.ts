@@ -4,4 +4,4 @@
  * See the LICENSE file for details.
  */
 
-export type TInstanceWorkspaceConfigurationKeys = "DISABLE_WORKSPACE_CREATION";
+export type TInstanceWorkspaceConfigurationKeys = "DISABLE_WORKSPACE_CREATION" | "ENABLE_PROJECT_PAGE_HIERARCHY";

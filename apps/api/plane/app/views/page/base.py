@@ -4,11 +4,12 @@
 
 # Python imports
 import json
+import uuid
 from datetime import datetime
 from django.core.serializers.json import DjangoJSONEncoder
 
 # Django imports
-from django.db import connection
+from django.db import connection, transaction
 from django.db.models import (
     Exists,
     OuterRef,
@@ -43,7 +44,6 @@ from plane.db.models import (
     ProjectMember,
     ProjectPage,
     Project,
-    UserRecentVisit,
 )
 from plane.utils.error_codes import ERROR_CODES
 from plane.utils.host import base_host
@@ -55,6 +55,8 @@ from plane.bgtasks.page_version_task import track_page_version
 from plane.bgtasks.recent_visited_task import recent_visited_task
 from plane.bgtasks.copy_s3_object import copy_s3_objects_of_description_and_assets
 from plane.app.permissions import ProjectPagePermission
+from plane.app.services import ProjectPageHierarchyError, ProjectPageHierarchyService
+from plane.app.services.page_hierarchy import HierarchyContext, is_project_page_hierarchy_enabled
 
 
 def unarchive_archive_page_and_descendants(page_id, archived_at):
@@ -79,6 +81,40 @@ class PageViewSet(BaseViewSet):
     permission_classes = [ProjectPagePermission]
     search_fields = ["name"]
 
+    def _hierarchy_service(self, request, slug, project_id):
+        project = Project.objects.only("id", "workspace_id").get(pk=project_id, workspace__slug=slug)
+        project_role = (
+            ProjectMember.objects.filter(project=project, member=request.user, is_active=True)
+            .values_list("role", flat=True)
+            .first()
+        )
+        return ProjectPageHierarchyService(
+            HierarchyContext(
+                project_id=str(project.id),
+                workspace_id=str(project.workspace_id),
+                user_id=str(request.user.id),
+                project_role=project_role,
+            )
+        )
+
+    @staticmethod
+    def _merge_hierarchy(page_data, node):
+        page_data.update(
+            {
+                "parent": node["parent_id"],
+                "project_parent_id": node["parent_id"],
+                "sort_order": node["sort_order"],
+                "archived_at": node["archived_at"],
+                "project_archived_at": node["archived_at"],
+                "depth": node["depth"],
+                "path": node["path"],
+                "has_children": node["has_children"],
+                "child_count": node["child_count"],
+                "hierarchy_permissions": node["permissions"],
+            }
+        )
+        return page_data
+
     def get_queryset(self):
         subquery = UserFavorite.objects.filter(
             user=self.request.user,
@@ -95,7 +131,6 @@ class PageViewSet(BaseViewSet):
                 projects__project_projectmember__is_active=True,
                 projects__archived_at__isnull=True,
             )
-            .filter(parent__isnull=True)
             .filter(Q(owned_by=self.request.user) | Q(access=0))
             .prefetch_related("projects")
             .select_related("workspace")
@@ -106,7 +141,11 @@ class PageViewSet(BaseViewSet):
             .order_by("-is_favorite", "-created_at")
             .annotate(
                 project=Exists(
-                    ProjectPage.objects.filter(page_id=OuterRef("id"), project_id=self.kwargs.get("project_id"))
+                    ProjectPage.objects.filter(
+                        page_id=OuterRef("id"),
+                        project_id=self.kwargs.get("project_id"),
+                        deleted_at__isnull=True,
+                    )
                 )
             )
             .annotate(
@@ -127,9 +166,49 @@ class PageViewSet(BaseViewSet):
             .distinct()
         )
 
+    @transaction.atomic
     def create(self, request, slug, project_id):
+        data = request.data.copy()
+        parent_id = data.pop("parent_id", None)
+        if isinstance(parent_id, list):
+            parent_id = parent_id[0] if parent_id else None
+        operation_id = data.pop("operation_id", None)
+        if isinstance(operation_id, list):
+            operation_id = operation_id[0] if operation_id else None
+        operation_uuid = uuid.UUID(str(operation_id)) if operation_id else uuid.uuid4()
+        service = self._hierarchy_service(request, slug, project_id)
+        hierarchy_enabled = is_project_page_hierarchy_enabled()
+        if parent_id and not hierarchy_enabled:
+            return Response({"error": "Page not found", "code": "page_not_found"}, status=status.HTTP_404_NOT_FOUND)
+        if parent_id:
+            try:
+                parent_link = ProjectPage.objects.select_related("page").get(
+                    page_id=parent_id,
+                    project_id=project_id,
+                    workspace__slug=slug,
+                    deleted_at__isnull=True,
+                    archived_at__isnull=True,
+                )
+            except ProjectPage.DoesNotExist:
+                service.record_failure(
+                    operation_id=operation_uuid,
+                    operation="create",
+                    error=ProjectPageHierarchyError("page_not_found", "Page not found", status_code=404),
+                )
+                return Response({"error": "Page not found", "code": "page_not_found"}, status=404)
+            if parent_link.page.access == Page.PRIVATE_ACCESS:
+                if parent_link.page.owned_by_id != request.user.id:
+                    service.record_failure(
+                        operation_id=operation_uuid,
+                        operation="create",
+                        error=ProjectPageHierarchyError("page_not_found", "Page not found", status_code=404),
+                    )
+                    return Response({"error": "Page not found", "code": "page_not_found"}, status=404)
+                data["access"] = Page.PRIVATE_ACCESS
+        # Project placement is authoritative; never write a project parent to the legacy global field.
+        data.pop("parent", None)
         serializer = PageSerializer(
-            data=request.data,
+            data=data,
             context={
                 "project_id": project_id,
                 "owned_by_id": request.user.id,
@@ -140,7 +219,27 @@ class PageViewSet(BaseViewSet):
         )
 
         if serializer.is_valid():
-            serializer.save()
+            try:
+                with transaction.atomic():
+                    serializer.save()
+                    placement = (
+                        service.move(
+                            str(serializer.data["id"]),
+                            parent_page_id=str(parent_id) if parent_id else None,
+                            position="last",
+                            operation_id=operation_uuid,
+                            audit_operation="create",
+                        )
+                        if hierarchy_enabled
+                        else None
+                    )
+            except ProjectPageHierarchyError as error:
+                service.record_failure(
+                    operation_id=operation_uuid,
+                    operation="create",
+                    error=error,
+                )
+                return Response(error.as_dict(), status=error.status_code)
             # capture the page transaction
             page_transaction.delay(
                 new_description_html=request.data.get("description_html", "<p></p>"),
@@ -153,7 +252,16 @@ class PageViewSet(BaseViewSet):
             )
             page = self.get_queryset().get(pk=serializer.data["id"])
             serializer = PageDetailSerializer(page)
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
+            node = next(
+                item for item in service.all_pages(include_archived=True) if item["id"] == str(page.id)
+            )
+            response_data = self._merge_hierarchy(dict(serializer.data), node)
+            response_data["hierarchy_revision"] = (
+                placement["revision"]
+                if placement is not None
+                else service.path(str(page.id), include_archived=True)["revision"]
+            )
+            return Response(response_data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def partial_update(self, request, slug, project_id, page_id):
@@ -168,15 +276,6 @@ class PageViewSet(BaseViewSet):
             if page.is_locked:
                 return Response({"error": "Page is locked"}, status=status.HTTP_400_BAD_REQUEST)
 
-            parent = request.data.get("parent", None)
-            if parent:
-                _ = Page.objects.get(
-                    pk=parent,
-                    workspace__slug=slug,
-                    projects__id=project_id,
-                    project_pages__deleted_at__isnull=True,
-                )
-
             # Only update access if the page owner is the requesting  user
             if page.access != request.data.get("access", page.access) and page.owned_by_id != request.user.id:
                 return Response(
@@ -184,7 +283,17 @@ class PageViewSet(BaseViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            serializer = PageDetailSerializer(page, data=request.data, partial=True)
+            data = request.data.copy()
+            data.pop("parent", None)
+            if page.access != data.get("access", page.access):
+                try:
+                    self._hierarchy_service(request, slug, project_id).validate_access_change(
+                        str(page_id), data["access"]
+                    )
+                except ProjectPageHierarchyError as error:
+                    return Response(error.as_dict(), status=error.status_code)
+
+            serializer = PageDetailSerializer(page, data=data, partial=True)
             page_description = page.description_html
             if serializer.is_valid():
                 serializer.save()
@@ -213,6 +322,9 @@ class PageViewSet(BaseViewSet):
         project = Project.objects.get(pk=project_id)
         track_visit = request.query_params.get("track_visit", "true").lower() == "true"
 
+        if page is None:
+            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
+
         """
         if the role is guest and guest_view_all_features is false and owned by is not
         the requesting user then dont show the page
@@ -227,20 +339,25 @@ class PageViewSet(BaseViewSet):
                 is_active=True,
             ).exists()
             and not project.guest_view_all_features
-            and not page.owned_by == request.user
+            and page.owned_by != request.user
         ):
             return Response(
                 {"error": "You are not allowed to view this page"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if page is None:
-            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
         else:
             issue_ids = PageLog.objects.filter(page_id=page_id, entity_name="issue").values_list(
                 "entity_identifier", flat=True
             )
             data = PageDetailSerializer(page).data
+            try:
+                service = self._hierarchy_service(request, slug, project_id)
+                node = next(item for item in service.all_pages(include_archived=True) if item["id"] == str(page.id))
+                data = self._merge_hierarchy(dict(data), node)
+                data["hierarchy_revision"] = service.path(str(page.id), include_archived=True)["revision"]
+            except (ProjectPageHierarchyError, StopIteration):
+                return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
             data["issue_ids"] = issue_ids
             if track_visit:
                 recent_visited_task.delay(
@@ -293,6 +410,10 @@ class PageViewSet(BaseViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
+        try:
+            self._hierarchy_service(request, slug, project_id).validate_access_change(str(page_id), access)
+        except ProjectPageHierarchyError as error:
+            return Response(error.as_dict(), status=error.status_code)
         page.access = access
         page.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
@@ -311,7 +432,13 @@ class PageViewSet(BaseViewSet):
             and not project.guest_view_all_features
         ):
             queryset = queryset.filter(owned_by=request.user)
-        pages = PageSerializer(queryset, many=True).data
+        service = self._hierarchy_service(request, slug, project_id)
+        hierarchy_nodes = {item["id"]: item for item in service.all_pages(include_archived=True)}
+        pages = [
+            self._merge_hierarchy(dict(PageSerializer(page).data), hierarchy_nodes[str(page.id)])
+            for page in queryset
+            if str(page.id) in hierarchy_nodes
+        ]
         return Response(pages, status=status.HTTP_200_OK)
 
     def archive(self, request, slug, project_id, page_id):
@@ -334,16 +461,19 @@ class PageViewSet(BaseViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        UserFavorite.objects.filter(
-            entity_type="page",
-            entity_identifier=page_id,
-            project_id=project_id,
-            workspace__slug=slug,
-        ).delete()
-
-        unarchive_archive_page_and_descendants(page_id, datetime.now())
-
-        return Response({"archived_at": str(datetime.now())}, status=status.HTTP_200_OK)
+        service = self._hierarchy_service(request, slug, project_id)
+        operation_id = uuid.UUID(str(request.data.get("operation_id", uuid.uuid4())))
+        try:
+            result = service.archive(str(page_id), operation_id=operation_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except ProjectPageHierarchyError as error:
+            service.record_failure(
+                operation_id=operation_id,
+                operation="archive",
+                error=error,
+                root_page_id=str(page_id),
+            )
+            return Response(error.as_dict(), status=error.status_code)
 
     def unarchive(self, request, slug, project_id, page_id):
         page = Page.objects.get(
@@ -365,67 +495,34 @@ class PageViewSet(BaseViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # if parent archived then page will be un archived breaking hierarchy
-        if page.parent_id and page.parent.archived_at:
-            page.parent = None
-            page.save(update_fields=["parent"])
-
-        unarchive_archive_page_and_descendants(page_id, None)
-
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        service = self._hierarchy_service(request, slug, project_id)
+        operation_id = uuid.UUID(str(request.data.get("operation_id", uuid.uuid4())))
+        try:
+            result = service.restore(str(page_id), operation_id=operation_id)
+            return Response(result, status=status.HTTP_200_OK)
+        except ProjectPageHierarchyError as error:
+            service.record_failure(
+                operation_id=operation_id,
+                operation="restore",
+                error=error,
+                root_page_id=str(page_id),
+            )
+            return Response(error.as_dict(), status=error.status_code)
 
     def destroy(self, request, slug, project_id, page_id):
-        page = Page.objects.get(
-            pk=page_id,
-            workspace__slug=slug,
-            projects__id=project_id,
-            project_pages__deleted_at__isnull=True,
-        )
-
-        if page.archived_at is None:
-            return Response(
-                {"error": "The page should be archived before deleting"},
-                status=status.HTTP_400_BAD_REQUEST,
+        service = self._hierarchy_service(request, slug, project_id)
+        operation_id = uuid.UUID(str(request.data.get("operation_id", uuid.uuid4())))
+        try:
+            service.remove_subtrees([str(page_id)], operation_id=operation_id)
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except ProjectPageHierarchyError as error:
+            service.record_failure(
+                operation_id=operation_id,
+                operation="permanent_remove",
+                error=error,
+                root_page_id=str(page_id),
             )
-
-        if page.owned_by_id != request.user.id and (
-            not ProjectMember.objects.filter(
-                workspace__slug=slug,
-                member=request.user,
-                role=20,
-                project_id=project_id,
-                is_active=True,
-            ).exists()
-        ):
-            return Response(
-                {"error": "Only admin or owner can delete the page"},
-                status=status.HTTP_403_FORBIDDEN,
-            )
-
-        # remove parent from all the children
-        _ = Page.objects.filter(
-            parent_id=page_id,
-            projects__id=project_id,
-            workspace__slug=slug,
-            project_pages__deleted_at__isnull=True,
-        ).update(parent=None)
-
-        page.delete()
-        # Delete the user favorite page
-        UserFavorite.objects.filter(
-            project=project_id,
-            workspace__slug=slug,
-            entity_identifier=page_id,
-            entity_type="page",
-        ).delete()
-        # Delete the page from recent visit
-        UserRecentVisit.objects.filter(
-            project_id=project_id,
-            workspace__slug=slug,
-            entity_identifier=page_id,
-            entity_name="page",
-        ).delete(soft=False)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+            return Response(error.as_dict(), status=error.status_code)
 
     def summary(self, request, slug, project_id):
         queryset = (
@@ -435,7 +532,6 @@ class PageViewSet(BaseViewSet):
                 projects__project_projectmember__is_active=True,
                 projects__archived_at__isnull=True,
             )
-            .filter(parent__isnull=True)
             .filter(Q(owned_by=request.user) | Q(access=0))
             .annotate(
                 project=Exists(
@@ -481,8 +577,29 @@ class PageViewSet(BaseViewSet):
 class PageFavoriteViewSet(BaseViewSet):
     model = UserFavorite
 
+    @staticmethod
+    def _hierarchy_service(request, slug, project_id):
+        project = Project.objects.only("id", "workspace_id").get(pk=project_id, workspace__slug=slug)
+        project_role = (
+            ProjectMember.objects.filter(project=project, member=request.user, is_active=True)
+            .values_list("role", flat=True)
+            .first()
+        )
+        return ProjectPageHierarchyService(
+            HierarchyContext(
+                project_id=str(project.id),
+                workspace_id=str(project.workspace_id),
+                user_id=str(request.user.id),
+                project_role=project_role,
+            )
+        )
+
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER])
     def create(self, request, slug, project_id, page_id):
+        try:
+            self._hierarchy_service(request, slug, project_id).path(str(page_id))
+        except ProjectPageHierarchyError as error:
+            return Response(error.as_dict(), status=error.status_code)
         _ = UserFavorite.objects.create(
             project_id=project_id,
             entity_identifier=page_id,
@@ -603,25 +720,30 @@ class PageDuplicateEndpoint(BaseAPIView):
         if page.access == Page.PRIVATE_ACCESS and page.owned_by_id != request.user.id:
             return Response({"error": "Permission denied"}, status=status.HTTP_403_FORBIDDEN)
 
-        # get all the project ids where page is present
-        project_ids = ProjectPage.objects.filter(page_id=page_id).values_list("project_id", flat=True)
-
         page.pk = None
         page.name = f"{page.name} (Copy)"
         page.description_binary = None
+        page.parent = None
+        page.sort_order = Page.DEFAULT_SORT_ORDER
+        page.archived_at = None
+        page.deleted_at = None
         page.owned_by = request.user
         page.created_by = request.user
         page.updated_by = request.user
         page.save()
 
-        for project_id in project_ids:
-            ProjectPage.objects.create(
-                workspace_id=page.workspace_id,
-                project_id=project_id,
-                page_id=page.id,
-                created_by_id=page.created_by_id,
-                updated_by_id=page.updated_by_id,
-            )
+        # A standard duplicate is intentionally a root Page in the requested
+        # project. It must not inherit either a source hierarchy parent or the
+        # source Page's links to other projects.
+        ProjectPage.objects.create(
+            workspace_id=page.workspace_id,
+            project_id=project_id,
+            page_id=page.id,
+            parent=None,
+            sort_order=Page.DEFAULT_SORT_ORDER,
+            created_by_id=page.created_by_id,
+            updated_by_id=page.updated_by_id,
+        )
 
         page_transaction.delay(
             new_description_html=page.description_html,

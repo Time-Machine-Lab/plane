@@ -53,6 +53,8 @@ function CollaborativeDocumentEditorInner(props: ICollaborativeDocumentEditorPro
     user,
     extendedDocumentEditorProps,
     titleRef,
+    titleContainerRef,
+    onTitleEditorFocus,
     updatePageProperties,
     isFetchingFallbackBinary,
   } = props;
@@ -86,6 +88,7 @@ function CollaborativeDocumentEditorInner(props: ICollaborativeDocumentEditorPro
     tabIndex,
     translate,
     titleRef,
+    onTitleEditorFocus,
     updatePageProperties,
     user,
     actions,
@@ -125,6 +128,7 @@ function CollaborativeDocumentEditorInner(props: ICollaborativeDocumentEditorPro
           editor={editor}
           flaggedExtensions={flaggedExtensions}
           titleEditor={titleEditor}
+          titleContainerRef={titleContainerRef}
           editorContainerClassName={cn(editorContainerClassNames, "document-editor")}
           extendedEditorProps={extendedEditorProps}
           id={id}

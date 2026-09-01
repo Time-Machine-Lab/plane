@@ -211,6 +211,8 @@ export type ICollaborativeDocumentEditorProps = Omit<IEditorProps, "initialValue
   ) => void;
   pageRestorationInProgress?: boolean;
   titleRef?: React.MutableRefObject<EditorTitleRefApi | null>;
+  titleContainerRef?: React.Ref<HTMLDivElement>;
+  onTitleEditorFocus?: () => void;
   isFetchingFallbackBinary?: boolean;
 };
 

@@ -102,6 +102,15 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
   created_at: Date | undefined;
   updated_at: Date | undefined;
   deleted_at: Date | undefined;
+  project_parent_id: string | null | undefined;
+  sort_order: number | undefined;
+  project_archived_at: string | null | undefined;
+  depth: number | undefined;
+  path: TPage["path"];
+  has_children: boolean;
+  child_count: number;
+  hierarchy_permissions: TPage["hierarchy_permissions"];
+  hierarchy_revision: number | undefined;
   // helpers
   oldName: string = "";
   // services
@@ -140,6 +149,15 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
     this.updated_at = page?.updated_at || undefined;
     this.oldName = page?.name || "";
     this.deleted_at = page?.deleted_at || undefined;
+    this.project_parent_id = page.project_parent_id;
+    this.sort_order = page.sort_order;
+    this.project_archived_at = page.project_archived_at;
+    this.depth = page.depth;
+    this.path = page.path;
+    this.has_children = page.has_children ?? false;
+    this.child_count = page.child_count ?? 0;
+    this.hierarchy_permissions = page.hierarchy_permissions;
+    this.hierarchy_revision = page.hierarchy_revision;
 
     makeObservable(this, {
       // loaders
@@ -164,6 +182,15 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
       created_at: observable.ref,
       updated_at: observable.ref,
       deleted_at: observable.ref,
+      project_parent_id: observable.ref,
+      sort_order: observable.ref,
+      project_archived_at: observable.ref,
+      depth: observable.ref,
+      path: observable,
+      has_children: observable.ref,
+      child_count: observable.ref,
+      hierarchy_permissions: observable,
+      hierarchy_revision: observable.ref,
       isSyncingWithServer: observable.ref,
       // helpers
       oldName: observable.ref,
@@ -240,6 +267,15 @@ export class BasePage extends ExtendedBasePage implements TBasePage {
       created_at: this.created_at,
       updated_at: this.updated_at,
       deleted_at: this.deleted_at,
+      project_parent_id: this.project_parent_id,
+      sort_order: this.sort_order,
+      project_archived_at: this.project_archived_at,
+      depth: this.depth,
+      path: this.path,
+      has_children: this.has_children,
+      child_count: this.child_count,
+      hierarchy_permissions: this.hierarchy_permissions,
+      hierarchy_revision: this.hierarchy_revision,
       ...this.asJSONExtended,
     };
   }

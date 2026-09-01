@@ -10,6 +10,7 @@ import { EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 import { CycleIcon, IntakeIcon, ModuleIcon, PageIcon, ViewsIcon, WorkItemsIcon } from "@plane/propel/icons";
 import type { EUserProjectRoles, IPartialProject } from "@plane/types";
 import type { TNavigationItem } from "@/components/navigation/tab-navigation-root";
+import { useInstance } from "@/hooks/store/use-instance";
 
 type UseNavigationItemsProps = {
   workspaceSlug: string;
@@ -29,6 +30,8 @@ export const useNavigationItems = ({
   project,
   allowPermissions,
 }: UseNavigationItemsProps): TNavigationItem[] => {
+  const { config: instanceConfig } = useInstance();
+  const isHierarchyEnabled = instanceConfig?.is_project_page_hierarchy_enabled !== false;
   // Base navigation items
   const baseNavigation = useCallback(
     // oxlint-disable-next-line no-shadow
@@ -74,7 +77,7 @@ export const useNavigationItems = ({
         sortOrder: 4,
       },
       {
-        i18n_key: "sidebar.pages",
+        i18n_key: isHierarchyEnabled ? "sidebar.pages" : "common.pages",
         key: "pages",
         name: "Pages",
         href: `/${workspaceSlug}/projects/${projectId}/pages`,
@@ -94,7 +97,7 @@ export const useNavigationItems = ({
         sortOrder: 6,
       },
     ],
-    [project]
+    [isHierarchyEnabled, project]
   );
 
   // Combine, filter, and sort navigation items

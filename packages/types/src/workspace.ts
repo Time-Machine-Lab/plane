@@ -8,6 +8,7 @@ import type { TPaginationInfo } from "./common";
 import type { ICycle } from "./cycle";
 import type { TUserPermissions } from "./enums";
 import type { TProjectMembership } from "./project";
+import type { TPageHierarchyPathItem } from "./page";
 import type { IUser, IUserLite } from "./users";
 import type { TLoginMediums } from "./instance";
 import type { IWorkspaceViewProps } from "./view-props";
@@ -141,8 +142,11 @@ export interface IWorkspacePageSearchResult {
   id: string;
   name: string;
   project_ids: string[];
-  project__identifiers: string[];
+  project_identifiers: string[];
   workspace__slug: string;
+  path?: TPageHierarchyPathItem[];
+  path_text?: string;
+  depth?: number;
 }
 
 export interface IWorkspaceProjectSearchResult {

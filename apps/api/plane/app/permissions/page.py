@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: AGPL-3.0-only
 # See the LICENSE file for details.
 
-from plane.db.models import ProjectMember, Page
+from plane.db.models import ProjectMember, Page, ProjectPage
 from plane.app.permissions import ROLE
 
 
@@ -45,13 +45,44 @@ class ProjectPagePermission(BasePermission):
             # (GHSA-g49r / GHSA-ghcr). Require an *active* ProjectPage link (both
             # conditions on the same relation so they match one row) so a page
             # removed from the project (soft-deleted link) is also denied.
-            page = Page.objects.filter(
-                id=page_id,
-                workspace__slug=slug,
-                project_pages__project_id=project_id,
-                project_pages__deleted_at__isnull=True,
-            ).first()
-            if page is None:
+            project_page = (
+                ProjectPage.objects.select_related("page")
+                .filter(
+                    page_id=page_id,
+                    workspace__slug=slug,
+                    project_id=project_id,
+                    deleted_at__isnull=True,
+                )
+                .first()
+            )
+            if project_page is None:
+                return False
+            page = project_page.page
+
+            # Page permissions are project-hierarchy aware. A nominally public
+            # descendant below an inaccessible ancestor must not be reachable
+            # through detail, content, version, export, or collaboration APIs.
+            from plane.app.services.page_hierarchy import (
+                HierarchyContext,
+                ProjectPageHierarchyError,
+                ProjectPageHierarchyService,
+            )
+
+            include_archived = request.method in SAFE_METHODS or getattr(view, "action", None) in {
+                "unarchive",
+                "destroy",
+                "preview",
+            }
+            try:
+                ProjectPageHierarchyService(
+                    HierarchyContext(
+                        project_id=str(project_page.project_id),
+                        workspace_id=str(project_page.workspace_id),
+                        user_id=str(user_id),
+                        project_role=role,
+                    )
+                ).path(str(page_id), include_archived=include_archived)
+            except ProjectPageHierarchyError:
                 return False
 
             # Allow access if the user is the owner of the page

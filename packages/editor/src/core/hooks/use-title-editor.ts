@@ -28,6 +28,7 @@ type TUseTitleEditorProps = {
   field?: string;
   placeholder?: string;
   updatePageProperties?: ICollaborativeDocumentEditorProps["updatePageProperties"];
+  onEditorFocus?: () => void;
   id: string;
   extendedEditorProps?: IEditorPropsExtended;
   getEditorMetaData?: IEditorProps["getEditorMetaData"];
@@ -45,6 +46,7 @@ export const useTitleEditor = (props: TUseTitleEditorProps) => {
     extensions,
     provider,
     updatePageProperties,
+    onEditorFocus,
     titleRef,
     getEditorMetaData,
   } = props;
@@ -54,9 +56,10 @@ export const useTitleEditor = (props: TUseTitleEditorProps) => {
 
   const editor = useEditor(
     {
-      onUpdate: ({ editor }) => {
-        updatePageProperties?.(id, "property_updated", { name: editor?.getText() });
+      onUpdate: ({ editor: currentEditor }) => {
+        updatePageProperties?.(id, "property_updated", { name: currentEditor?.getText() });
       },
+      onFocus: onEditorFocus,
       editable,
       immediatelyRender: false,
       shouldRerenderOnTransaction: false,
@@ -71,7 +74,7 @@ export const useTitleEditor = (props: TUseTitleEditorProps) => {
       ],
       content: typeof initialValue === "string" && initialValue.trim() !== "" ? initialValue : "<h1></h1>",
     },
-    [editable, initialValue, docKey]
+    [editable, initialValue, docKey, onEditorFocus]
   );
 
   useImperativeHandle(titleRef, () => ({
