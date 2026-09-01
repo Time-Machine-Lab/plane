@@ -17,6 +17,9 @@ import type {
   IInstanceConfiguration,
   IInstanceInfo,
   TPage,
+  TStorageProfile,
+  TStorageProfilePayload,
+  TStorageProbe,
 } from "@plane/types";
 // api service
 import { APIService } from "../api.service";
@@ -112,6 +115,62 @@ export class InstanceService extends APIService {
   async updateConfigurations(data: Partial<IFormattedInstanceConfiguration>): Promise<IInstanceConfiguration[]> {
     return this.patch("/api/instances/configurations/", data)
       .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async storageProfiles(): Promise<TStorageProfile[]> {
+    return this.get("/api/instances/storage-profiles/")
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async createStorageProfile(data: TStorageProfilePayload): Promise<TStorageProfile> {
+    return this.post("/api/instances/storage-profiles/", data)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async updateStorageProfile(id: string, data: Partial<TStorageProfilePayload>): Promise<TStorageProfile> {
+    return this.patch(`/api/instances/storage-profiles/${id}/`, data)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async startStorageProbe(id: string): Promise<TStorageProbe> {
+    return this.post(`/api/instances/storage-profiles/${id}/probe/`)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async completeStorageProbe(id: string): Promise<TStorageProfile> {
+    return this.post(`/api/instances/storage-profiles/${id}/probe/complete/`)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async activateStorageProfile(id: string): Promise<TStorageProfile> {
+    return this.post(`/api/instances/storage-profiles/${id}/activate/`)
+      .then((response) => response.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
+  async rollbackStorageProfile(): Promise<{ status: "legacy" }> {
+    return this.post("/api/instances/storage-profiles/rollback/")
+      .then((response) => response.data)
       .catch((error) => {
         throw error?.response?.data;
       });

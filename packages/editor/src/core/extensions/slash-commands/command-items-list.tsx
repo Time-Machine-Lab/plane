@@ -15,6 +15,7 @@ import {
   Heading5,
   Heading6,
   ImageIcon,
+  Paperclip,
   List,
   ListOrdered,
   ListTodo,
@@ -37,6 +38,7 @@ import {
   toggleTextColor,
   toggleBackgroundColor,
   insertImage,
+  insertAttachment,
   insertCallout,
   setText,
   openEmojiPicker,
@@ -301,6 +303,19 @@ export const getSlashCommandFilteredSections =
         pushAfter: "code",
       });
     }
+    if (!disabledExtensions?.includes("attachment")) {
+      internalAdditionalOptions.push({
+        commandKey: "attachment",
+        key: "attachment",
+        title: "Attachment",
+        icon: <Paperclip className="size-3.5" />,
+        description: "Upload a file",
+        searchTerms: ["file", "attachment", "upload", "document", "video", "audio"],
+        command: ({ editor, range }: CommandProps) => insertAttachment({ editor, event: "insert", range }),
+        section: "general",
+        pushAfter: "image",
+      });
+    }
 
     [
       ...internalAdditionalOptions,
@@ -320,19 +335,20 @@ export const getSlashCommandFilteredSections =
       }
     });
 
-    const filteredSlashSections = SLASH_COMMAND_SECTIONS.map((section) => ({
-      ...section,
-      items: section.items.filter((item) => {
-        if (typeof query !== "string") return;
+    const filteredSlashSections = SLASH_COMMAND_SECTIONS.map((section) =>
+      Object.assign({}, section, {
+        items: section.items.filter((item) => {
+          if (typeof query !== "string") return;
 
-        const lowercaseQuery = query.toLowerCase();
-        return (
-          item.title.toLowerCase().includes(lowercaseQuery) ||
-          item.description.toLowerCase().includes(lowercaseQuery) ||
-          item.searchTerms.some((t) => t.includes(lowercaseQuery))
-        );
-      }),
-    }));
+          const lowercaseQuery = query.toLowerCase();
+          return (
+            item.title.toLowerCase().includes(lowercaseQuery) ||
+            item.description.toLowerCase().includes(lowercaseQuery) ||
+            item.searchTerms.some((t) => t.includes(lowercaseQuery))
+          );
+        }),
+      })
+    );
 
     return filteredSlashSections.filter((s) => s.items.length !== 0);
   };

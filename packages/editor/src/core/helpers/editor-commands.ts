@@ -98,8 +98,8 @@ export const insertTableCommand = (editor: Editor, range?: Range) => {
     const selection = window.getSelection();
     if (selection) {
       if (selection.rangeCount !== 0) {
-        const range = selection.getRangeAt(0);
-        if (findTableAncestor(range.startContainer)) {
+        const selectedRange = selection.getRangeAt(0);
+        if (findTableAncestor(selectedRange.startContainer)) {
           return;
         }
       }
@@ -128,6 +128,27 @@ export const insertImage = ({
   if (pos) imageOptions.pos = pos;
   if (file) imageOptions.file = file;
   return editor?.chain().focus().insertImageComponent(imageOptions).run();
+};
+
+export const insertAttachment = ({
+  editor,
+  event,
+  pos,
+  file,
+  range,
+}: {
+  editor: Editor;
+  event: "insert" | "drop";
+  pos?: number | null;
+  file?: File;
+  range?: Range;
+}) => {
+  if (range) editor.chain().focus().deleteRange(range).run();
+  return editor
+    .chain()
+    .focus()
+    .insertAttachment({ event, ...(pos ? { pos } : {}), ...(file ? { file } : {}) })
+    .run();
 };
 
 export const unsetLinkEditor = (editor: Editor) => {

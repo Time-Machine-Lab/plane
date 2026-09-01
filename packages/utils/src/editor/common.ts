@@ -58,6 +58,7 @@ export const isEditorEmpty = (description: string | undefined): boolean =>
   description.trim() === "";
 
 export enum CORE_EXTENSIONS {
+  ATTACHMENT = "attachment-component",
   BLOCKQUOTE = "blockquote",
   BOLD = "bold",
   BULLET_LIST = "bulletList",

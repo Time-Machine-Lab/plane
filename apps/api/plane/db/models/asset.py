@@ -63,6 +63,15 @@ class FileAsset(BaseModel):
     size = models.FloatField(default=0)
     is_uploaded = models.BooleanField(default=False)
     storage_metadata = models.JSONField(default=dict, null=True, blank=True)
+    # Null denotes the legacy environment-backed object store. New uploads bind
+    # to an immutable profile so rotating instance settings cannot strand them.
+    storage_profile = models.ForeignKey(
+        "license.StorageProfile",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="assets",
+    )
 
     class Meta:
         verbose_name = "File Asset"

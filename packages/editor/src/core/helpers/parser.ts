@@ -32,6 +32,10 @@ const extractAssetsFromHTMLContent = (htmlContent: string): string[] => {
     const src = component.getAttribute("src");
     if (src) assetSources.add(src);
   });
+  doc.querySelectorAll("attachment-component").forEach((component) => {
+    const src = component.getAttribute("src") ?? component.getAttribute("assetid");
+    if (src) assetSources.add(src);
+  });
   const additionalAssetIds = extractAdditionalAssetsFromHTMLContent(htmlContent);
   return [...Array.from(assetSources), ...additionalAssetIds];
 };
@@ -53,6 +57,13 @@ const replaceAssetsInHTMLContent = (props: { htmlContent: string; assetMap: Reco
     const oldSrc = component.getAttribute("src");
     if (oldSrc && assetMap[oldSrc]) {
       component.setAttribute("src", assetMap[oldSrc]);
+    }
+  });
+  doc.querySelectorAll("attachment-component").forEach((component) => {
+    const oldSrc = component.getAttribute("src") ?? component.getAttribute("assetid");
+    if (oldSrc && assetMap[oldSrc]) {
+      component.setAttribute("src", assetMap[oldSrc]);
+      component.setAttribute("assetid", assetMap[oldSrc]);
     }
   });
   // replace additional sources

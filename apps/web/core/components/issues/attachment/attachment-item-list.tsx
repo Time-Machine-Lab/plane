@@ -76,11 +76,21 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
 
         setIsUploading(true);
         createAttachment(currentFile)
-          .catch(() => {
+          .catch((error: unknown) => {
+            const response = error as { code?: string; error?: string };
+            const messages: Record<string, string> = {
+              empty: t("attachment.empty_error"),
+              oversized: t("attachment.oversized_error", { size: maxFileSize / 1024 / 1024 }),
+              dangerous: t("attachment.dangerous_error"),
+              unsupported: t("attachment.unsupported_error"),
+              storage_unavailable: t("attachment.storage_unavailable_error"),
+              finalization_missing: t("attachment.finalization_missing_error"),
+              finalization_mismatch: t("attachment.finalization_mismatch_error"),
+            };
             setToast({
               type: TOAST_TYPE.ERROR,
               title: t("toast.error"),
-              message: t("attachment.error"),
+              message: messages[response.code ?? ""] ?? response.error ?? t("attachment.error"),
             });
           })
           .finally(() => {
@@ -100,7 +110,7 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
       });
       return;
     },
-    [createAttachment, maxFileSize, workspaceSlug, handleFetchPropertyActivities]
+    [createAttachment, maxFileSize, workspaceSlug, handleFetchPropertyActivities, t]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -112,8 +122,8 @@ export const IssueAttachmentItemList = observer(function IssueAttachmentItemList
 
   return (
     <>
-      {uploadStatus?.map((uploadStatus) => (
-        <IssueAttachmentsUploadItem key={uploadStatus.id} uploadStatus={uploadStatus} />
+      {uploadStatus?.map((uploadItem) => (
+        <IssueAttachmentsUploadItem key={uploadItem.id} uploadStatus={uploadItem} />
       ))}
       {issueAttachments && (
         <>

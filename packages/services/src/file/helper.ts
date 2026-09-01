@@ -103,8 +103,19 @@ const validateAndDetectFileType = async (file: File): Promise<string> => {
     console.warn("Error detecting file type from signature:", _error);
   }
 
-  // fallback for unknown files
-  return "";
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  const extensionTypes: Record<string, string> = {
+    txt: "text/plain",
+    md: "text/markdown",
+    markdown: "text/markdown",
+    html: "text/html",
+    htm: "text/html",
+    canvas: "application/json",
+    pdf: "application/pdf",
+    mp3: "audio/mpeg",
+    mp4: "video/mp4",
+  };
+  return file.type && file.type !== "application/octet-stream" ? file.type : (extensionTypes[extension ?? ""] ?? "");
 };
 
 /**

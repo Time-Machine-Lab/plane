@@ -6,5 +6,8 @@
 
 // extensions
 import type { ImageExtensionStorage } from "@/extensions/image";
+import type { AttachmentExtensionStorage } from "@/extensions/attachment";
 
-export type ExtensionFileSetStorageKey = Extract<keyof ImageExtensionStorage, "deletedImageSet">;
+export type ExtensionFileSetStorageKey =
+  | Extract<keyof ImageExtensionStorage, "deletedImageSet">
+  | Extract<keyof AttachmentExtensionStorage, "deletedFileSet">;

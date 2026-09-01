@@ -22,34 +22,53 @@ class S3Storage(S3Boto3Storage):
 
     """S3 storage class to generate presigned URLs for S3 objects"""
 
-    def __init__(self, request=None):
+    def __init__(self, request=None, profile=None, asset=None, is_server=False):
         # Get the AWS credentials and bucket name from the environment
-        self.aws_access_key_id = os.environ.get("AWS_ACCESS_KEY_ID")
+        if asset is not None and profile is None:
+            profile = getattr(asset, "storage_profile", None)
+
+        self.profile = profile
+        self.aws_access_key_id = getattr(profile, "access_key_id", None) or os.environ.get("AWS_ACCESS_KEY_ID")
         # Use the AWS_SECRET_ACCESS_KEY environment variable for the secret key
-        self.aws_secret_access_key = os.environ.get("AWS_SECRET_ACCESS_KEY")
+        self.aws_secret_access_key = profile.get_secret() if profile is not None else os.environ.get("AWS_SECRET_ACCESS_KEY")
         # Use the AWS_S3_BUCKET_NAME environment variable for the bucket name
-        self.aws_storage_bucket_name = os.environ.get("AWS_S3_BUCKET_NAME")
+        self.aws_storage_bucket_name = getattr(profile, "bucket", None) or os.environ.get("AWS_S3_BUCKET_NAME")
         # Use the AWS_REGION environment variable for the region
-        self.aws_region = os.environ.get("AWS_REGION")
+        self.aws_region = getattr(profile, "region", None) or os.environ.get("AWS_REGION")
         # Use the AWS_S3_ENDPOINT_URL environment variable for the endpoint URL
-        self.aws_s3_endpoint_url = os.environ.get("AWS_S3_ENDPOINT_URL") or os.environ.get("MINIO_ENDPOINT_URL")
+        self.aws_s3_endpoint_url = (
+            profile.effective_endpoint
+            if profile is not None
+            else os.environ.get("AWS_S3_ENDPOINT_URL") or os.environ.get("MINIO_ENDPOINT_URL")
+        )
         # Use the SIGNED_URL_EXPIRATION environment variable for the expiration time (default: 3600 seconds)
         self.signed_url_expiration = int(os.environ.get("SIGNED_URL_EXPIRATION", "3600"))
 
-        if os.environ.get("USE_MINIO") == "1":
+        client_config = boto3.session.Config(
+            signature_version="s3v4",
+            s3={"addressing_style": "virtual"} if profile is not None else None,
+        )
+        if profile is None and os.environ.get("USE_MINIO") == "1":
             # Determine protocol based on environment variable
             if os.environ.get("MINIO_ENDPOINT_SSL") == "1":
                 endpoint_protocol = "https"
             else:
                 endpoint_protocol = request.scheme if request else "http"
+            # Browser-facing signatures use Plane's proxy host. Server-side
+            # metadata and content operations must use MinIO's internal endpoint.
+            endpoint_url = (
+                f"{endpoint_protocol}://{request.get_host()}"
+                if request is not None and not is_server
+                else self.aws_s3_endpoint_url
+            )
             # Create an S3 client for MinIO
             self.s3_client = boto3.client(
                 "s3",
                 aws_access_key_id=self.aws_access_key_id,
                 aws_secret_access_key=self.aws_secret_access_key,
                 region_name=self.aws_region,
-                endpoint_url=(f"{endpoint_protocol}://{request.get_host()}" if request else self.aws_s3_endpoint_url),
-                config=boto3.session.Config(signature_version="s3v4"),
+                endpoint_url=endpoint_url,
+                config=client_config,
             )
         else:
             # Create an S3 client
@@ -59,8 +78,18 @@ class S3Storage(S3Boto3Storage):
                 aws_secret_access_key=self.aws_secret_access_key,
                 region_name=self.aws_region,
                 endpoint_url=self.aws_s3_endpoint_url,
-                config=boto3.session.Config(signature_version="s3v4"),
+                config=client_config,
             )
+
+    @classmethod
+    def for_asset(cls, asset, request=None, is_server=False):
+        """Resolve an asset's immutable profile, falling back to environment storage."""
+        return cls(
+            request=request,
+            profile=getattr(asset, "storage_profile", None),
+            asset=asset,
+            is_server=is_server,
+        )
 
     def generate_presigned_post(self, object_name, file_type, file_size, expiration=None):
         """Generate a presigned URL to upload an S3 object"""
@@ -154,6 +183,20 @@ class S3Storage(S3Boto3Storage):
             "ETag": response.get("ETag"),
             "Metadata": response.get("Metadata", {}),
         }
+
+    def read_object(self, object_name, max_bytes):
+        """Read a bounded object, rejecting content that exceeds the preview limit."""
+        try:
+            response = self.s3_client.get_object(
+                Bucket=self.aws_storage_bucket_name,
+                Key=str(object_name),
+                Range=f"bytes=0-{max_bytes}",
+            )
+            data = response["Body"].read(max_bytes + 1)
+            return None if len(data) > max_bytes else data
+        except ClientError as e:
+            log_exception(e)
+            return None
 
     def copy_object(self, object_name, new_object_name):
         """Copy an S3 object to a new location"""

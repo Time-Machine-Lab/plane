@@ -80,6 +80,7 @@ from plane.db.models import (
     Workspace,
 )
 from plane.settings.storage import S3Storage
+from plane.app.services.attachment_policy import AttachmentPolicyError, get_active_storage_profile, validate_attachment
 from plane.utils.path_validator import sanitize_filename
 from plane.utils.order_queryset import (
     ACTIVITY_ORDER_BY_ALLOWLIST,
@@ -1941,19 +1942,23 @@ class IssueAttachmentListCreateAPIEndpoint(BaseAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        size_limit = min(size, settings.FILE_SIZE_LIMIT)
-
-        if not type or type not in settings.ATTACHMENT_MIME_TYPES:
+        storage_profile = get_active_storage_profile()
+        try:
+            decision = validate_attachment(name, int(size), type, storage_profile.file_size_limit if storage_profile else None)
+        except AttachmentPolicyError as error:
             return Response(
-                {"error": "Invalid file type.", "status": False},
+                {"error": str(error), "code": getattr(error, "code", "unsupported"), "status": False},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        type = decision.mime_type
+        size_limit = int(size)
 
         # Get the workspace
         workspace = Workspace.objects.get(slug=slug)
 
         # asset key
-        asset_key = f"{workspace.id}/{uuid.uuid4().hex}-{name}"
+        prefix = storage_profile.object_prefix if storage_profile else ""
+        asset_key = f"{prefix}{workspace.id}/{uuid.uuid4().hex}-{name}"
 
         if (
             request.data.get("external_id")
@@ -1995,10 +2000,11 @@ class IssueAttachmentListCreateAPIEndpoint(BaseAPIView):
             entity_type=FileAsset.EntityTypeContext.ISSUE_ATTACHMENT,
             external_id=external_id,
             external_source=external_source,
+            storage_profile=storage_profile,
         )
 
         # Get the presigned URL
-        storage = S3Storage(request=request)
+        storage = S3Storage(request=request, profile=storage_profile)
         # Generate a presigned URL to share an S3 object
         presigned_url = storage.generate_presigned_post(object_name=asset_key, file_type=type, file_size=size_limit)
         # Return the presigned URL
@@ -2161,7 +2167,7 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        storage = S3Storage(request=request)
+        storage = S3Storage.for_asset(asset, request=request)
         presigned_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
             disposition="attachment",
@@ -2221,6 +2227,14 @@ class IssueAttachmentDetailAPIEndpoint(BaseAPIView):
 
         # Send this activity only if the attachment is not uploaded before
         if not issue_attachment.is_uploaded:
+            metadata = S3Storage.for_asset(issue_attachment, request=request, is_server=True).get_object_metadata(
+                issue_attachment.asset.name
+            )
+            if not metadata:
+                return Response({"error": "Uploaded object was not found.", "code": "finalization_missing"}, status=status.HTTP_400_BAD_REQUEST)
+            if int(metadata.get("ContentLength") or 0) != int(issue_attachment.size or 0):
+                return Response({"error": "Uploaded object size does not match.", "code": "finalization_mismatch"}, status=status.HTTP_400_BAD_REQUEST)
+            issue_attachment.storage_metadata = metadata
             issue_activity.delay(
                 type="attachment.activity.created",
                 requested_data=None,

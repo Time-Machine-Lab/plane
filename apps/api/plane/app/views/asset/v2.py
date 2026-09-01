@@ -7,7 +7,7 @@ import uuid
 
 # Django imports
 from django.conf import settings
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.utils import timezone
 from django.db import IntegrityError
 from django.db.models import Q
@@ -22,10 +22,23 @@ from ..base import BaseAPIView
 from plane.db.models import FileAsset, Workspace, Project, User, WorkspaceMember, ProjectMember
 from plane.settings.storage import S3Storage
 from plane.app.permissions import allow_permission, ROLE
+from plane.app.permissions.page import ProjectPagePermission
 from plane.utils.cache import invalidate_cache_directly
 from plane.utils.path_validator import sanitize_filename
 from plane.bgtasks.storage_metadata_task import get_asset_object_metadata
 from plane.throttles.asset import AssetRateThrottle
+from plane.app.services.attachment_policy import AttachmentPolicyError, get_active_storage_profile, resolve_attachment_type, validate_attachment
+
+
+class _PageAssetPermissionView:
+    action = "preview"
+
+    def __init__(self, slug, project_id, page_id):
+        self.kwargs = {"slug": slug, "project_id": project_id, "page_id": page_id}
+
+
+def has_page_asset_access(request, slug, project_id, page_id):
+    return ProjectPagePermission().has_permission(request, _PageAssetPermissionView(slug, project_id, page_id))
 
 
 class UserAssetsV2Endpoint(BaseAPIView):
@@ -156,7 +169,7 @@ class UserAssetsV2Endpoint(BaseAPIView):
         )
 
         # Get the presigned URL
-        storage = S3Storage(request=request)
+        storage = S3Storage.for_asset(asset, request=request)
         # Generate a presigned URL to share an S3 object
         presigned_url = storage.generate_presigned_post(object_name=asset_key, file_type=type, file_size=size_limit)
         # Return the presigned URL
@@ -340,8 +353,13 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def post(self, request, slug):
         name = sanitize_filename(request.data.get("name")) or "unnamed"
-        type = request.data.get("type", "image/jpeg")
-        size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
+        declared_type = request.data.get("type")
+        try:
+            size = int(request.data.get("size", 0))
+            decision = validate_attachment(name, size, declared_type)
+        except AttachmentPolicyError as error:
+            return Response({"error": str(error), "code": getattr(error, "code", "unsupported"), "status": False}, status=status.HTTP_400_BAD_REQUEST)
+        type = decision.mime_type
         entity_type = request.data.get("entity_type")
         entity_identifier = request.data.get("entity_identifier", False)
 
@@ -351,7 +369,6 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
                 {"error": "Invalid entity type.", "status": False},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
         # WORKSPACE_LOGO may only be uploaded by workspace admins
         if entity_type == FileAsset.EntityTypeContext.WORKSPACE_LOGO:
             workspace_member = WorkspaceMember.objects.filter(
@@ -363,31 +380,17 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        # Check if the file type is allowed
-        allowed_types = [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/jpg",
-            "image/gif",
-        ]
-        if type not in allowed_types:
-            return Response(
-                {
-                    "error": "Invalid file type. Only JPEG, PNG, WebP, JPG and GIF files are allowed.",
-                    "status": False,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Get the size limit
-        size_limit = min(settings.FILE_SIZE_LIMIT, size)
+        size_limit = size
 
         # Get the workspace
         workspace = Workspace.objects.get(slug=slug)
 
         # asset key
-        asset_key = f"{workspace.id}/{uuid.uuid4().hex}-{name}"
+        storage_profile = get_active_storage_profile()
+        if storage_profile and size > storage_profile.file_size_limit:
+            return Response({"error": "File exceeds the configured upload limit.", "code": "oversized", "status": False}, status=status.HTTP_400_BAD_REQUEST)
+        prefix = storage_profile.object_prefix if storage_profile else ""
+        asset_key = f"{prefix}{workspace.id}/{uuid.uuid4().hex}-{name}"
 
         # Create a File Asset
         asset = FileAsset.objects.create(
@@ -397,11 +400,12 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
             workspace=workspace,
             created_by=request.user,
             entity_type=entity_type,
+            storage_profile=storage_profile,
             **self.get_entity_id_field(entity_type=entity_type, entity_id=entity_identifier),
         )
 
         # Get the presigned URL
-        storage = S3Storage(request=request)
+        storage = S3Storage.for_asset(asset, request=request)
         # Generate a presigned URL to share an S3 object
         presigned_url = storage.generate_presigned_post(object_name=asset_key, file_type=type, file_size=size_limit)
         # Return the presigned URL
@@ -477,7 +481,7 @@ class WorkspaceFileAssetEndpoint(BaseAPIView):
             )
 
         # Get the presigned URL
-        storage = S3Storage(request=request)
+        storage = S3Storage.for_asset(asset, request=request)
         # Generate a presigned URL to share an S3 object
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
@@ -519,7 +523,7 @@ class StaticFileAssetEndpoint(BaseAPIView):
         # Get the presigned URL.
         # Force attachment disposition for script-capable MIME types to prevent
         # same-origin XSS when assets are served on the application's origin.
-        storage = S3Storage(request=request)
+        storage = S3Storage.for_asset(asset, request=request)
         asset_mime_type = (asset.attributes.get("type") or "").split(";")[0].strip().lower()
         disposition = (
             "attachment" if asset_mime_type in settings.SCRIPT_CAPABLE_MIME_TYPES else "inline"
@@ -539,6 +543,8 @@ class AssetRestoreEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def post(self, request, slug, asset_id):
         asset = FileAsset.all_objects.get(id=asset_id, workspace__slug=slug)
+        if asset.page_id and not has_page_asset_access(request, slug, asset.project_id, asset.page_id):
+            return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
         asset.is_deleted = False
         asset.deleted_at = None
         asset.save(update_fields=["is_deleted", "deleted_at"])
@@ -580,8 +586,13 @@ class ProjectAssetEndpoint(BaseAPIView):
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
     def post(self, request, slug, project_id):
         name = sanitize_filename(request.data.get("name")) or "unnamed"
-        type = request.data.get("type", "image/jpeg")
-        size = int(request.data.get("size", settings.FILE_SIZE_LIMIT))
+        declared_type = request.data.get("type")
+        try:
+            size = int(request.data.get("size", 0))
+            decision = validate_attachment(name, size, declared_type)
+        except AttachmentPolicyError as error:
+            return Response({"error": str(error), "code": getattr(error, "code", "unsupported"), "status": False}, status=status.HTTP_400_BAD_REQUEST)
+        type = decision.mime_type
         entity_type = request.data.get("entity_type", "")
         entity_identifier = request.data.get("entity_identifier")
 
@@ -591,32 +602,21 @@ class ProjectAssetEndpoint(BaseAPIView):
                 {"error": "Invalid entity type.", "status": False},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        if entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION and not has_page_asset_access(
+            request, slug, project_id, entity_identifier
+        ):
+            return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
 
-        # Check if the file type is allowed
-        allowed_types = [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/jpg",
-            "image/gif",
-        ]
-        if type not in allowed_types:
-            return Response(
-                {
-                    "error": "Invalid file type. Only JPEG, PNG, WebP, JPG and GIF files are allowed.",
-                    "status": False,
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Get the size limit
-        size_limit = min(settings.FILE_SIZE_LIMIT, size)
+        size_limit = size
 
         # Get the workspace
         workspace = Workspace.objects.get(slug=slug)
 
-        # asset key
-        asset_key = f"{workspace.id}/{uuid.uuid4().hex}-{name}"
+        storage_profile = get_active_storage_profile()
+        if storage_profile and size > storage_profile.file_size_limit:
+            return Response({"error": "File exceeds the configured upload limit.", "code": "oversized", "status": False}, status=status.HTTP_400_BAD_REQUEST)
+        prefix = storage_profile.object_prefix if storage_profile else ""
+        asset_key = f"{prefix}{workspace.id}/{uuid.uuid4().hex}-{name}"
 
         # Create a File Asset
         asset = FileAsset.objects.create(
@@ -627,11 +627,12 @@ class ProjectAssetEndpoint(BaseAPIView):
             created_by=request.user,
             entity_type=entity_type,
             project_id=project_id,
+            storage_profile=storage_profile,
             **self.get_entity_id_field(entity_type, entity_identifier),
         )
 
         # Get the presigned URL
-        storage = S3Storage(request=request)
+        storage = S3Storage(request=request, profile=storage_profile)
         # Generate a presigned URL to share an S3 object
         presigned_url = storage.generate_presigned_post(object_name=asset_key, file_type=type, file_size=size_limit)
         # Return the presigned URL
@@ -648,22 +649,29 @@ class ProjectAssetEndpoint(BaseAPIView):
     def patch(self, request, slug, project_id, pk):
         # get the asset id
         asset = FileAsset.objects.get(id=pk, workspace__slug=slug, project_id=project_id)
-        # get the storage metadata
-        asset.is_uploaded = True
-        # get the storage metadata
-        if not asset.storage_metadata:
-            get_asset_object_metadata.delay(asset_id=str(pk))
+        if asset.page_id and not has_page_asset_access(request, slug, project_id, asset.page_id):
+            return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
+        if not asset.is_uploaded:
+            metadata = S3Storage.for_asset(asset, request=request, is_server=True).get_object_metadata(asset.asset.name)
+            if not metadata:
+                return Response({"error": "Uploaded object was not found.", "code": "finalization_missing"}, status=status.HTTP_400_BAD_REQUEST)
+            if int(metadata.get("ContentLength") or 0) != int(asset.size or 0):
+                return Response({"error": "Uploaded object size does not match.", "code": "finalization_mismatch"}, status=status.HTTP_400_BAD_REQUEST)
+            asset.storage_metadata = metadata
+            asset.is_uploaded = True
 
         # update the attributes
         asset.attributes = request.data.get("attributes", asset.attributes)
         # save the asset
-        asset.save(update_fields=["is_uploaded", "attributes"])
+        asset.save(update_fields=["is_uploaded", "attributes", "storage_metadata"])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST])
     def delete(self, request, slug, project_id, pk):
         # Get the asset
         asset = FileAsset.objects.get(id=pk, workspace__slug=slug, project_id=project_id)
+        if asset.page_id and not has_page_asset_access(request, slug, project_id, asset.page_id):
+            return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
         # Check deleted assets
         asset.is_deleted = True
         asset.deleted_at = timezone.now()
@@ -675,6 +683,8 @@ class ProjectAssetEndpoint(BaseAPIView):
     def get(self, request, slug, project_id, pk):
         # get the asset id
         asset = FileAsset.objects.get(workspace__slug=slug, project_id=project_id, pk=pk)
+        if asset.page_id and not has_page_asset_access(request, slug, project_id, asset.page_id):
+            return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
 
         # Check if the asset is uploaded
         if not asset.is_uploaded:
@@ -684,7 +694,7 @@ class ProjectAssetEndpoint(BaseAPIView):
             )
 
         # Get the presigned URL
-        storage = S3Storage(request=request)
+        storage = S3Storage.for_asset(asset, request=request)
         # Generate a presigned URL to share an S3 object
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
@@ -754,6 +764,8 @@ class ProjectBulkAssetEndpoint(BaseAPIView):
                 pass
 
         if asset.entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION:
+            if not has_page_asset_access(request, slug, project_id, entity_id):
+                return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
             assets.update(page_id=entity_id)
 
         if asset.entity_type == FileAsset.EntityTypeContext.DRAFT_ISSUE_DESCRIPTION:
@@ -772,8 +784,10 @@ class AssetCheckEndpoint(BaseAPIView):
 
     @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="WORKSPACE")
     def get(self, request, slug, asset_id):
-        asset = FileAsset.all_objects.filter(id=asset_id, workspace__slug=slug, deleted_at__isnull=True).exists()
-        return Response({"exists": asset}, status=status.HTTP_200_OK)
+        asset = FileAsset.all_objects.filter(id=asset_id, workspace__slug=slug, deleted_at__isnull=True).first()
+        if asset and asset.page_id and not has_page_asset_access(request, slug, asset.project_id, asset.page_id):
+            return Response({"exists": False}, status=status.HTTP_200_OK)
+        return Response({"exists": bool(asset)}, status=status.HTTP_200_OK)
 
 
 class DuplicateAssetEndpoint(BaseAPIView):
@@ -830,7 +844,6 @@ class DuplicateAssetEndpoint(BaseAPIView):
             if not Project.objects.filter(id=project_id, workspace=workspace).exists():
                 return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        storage = S3Storage(request=request)
         # Restrict the source asset to the same destination workspace to prevent cross-workspace asset copying
         original_asset = FileAsset.objects.filter(
             id=asset_id,
@@ -840,9 +853,19 @@ class DuplicateAssetEndpoint(BaseAPIView):
 
         if not original_asset:
             return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+        if original_asset.page_id and not has_page_asset_access(
+            request, slug, original_asset.project_id, original_asset.page_id
+        ):
+            return Response({"error": "Asset not found"}, status=status.HTTP_404_NOT_FOUND)
+        if entity_type == FileAsset.EntityTypeContext.PAGE_DESCRIPTION and not has_page_asset_access(
+            request, slug, project_id, entity_id
+        ):
+            return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
 
+        storage = S3Storage.for_asset(original_asset, request=request, is_server=True)
         sanitized_name = sanitize_filename(original_asset.attributes.get("name")) or "unnamed"
-        destination_key = f"{workspace.id}/{uuid.uuid4().hex}-{sanitized_name}"
+        prefix = original_asset.storage_profile.object_prefix if original_asset.storage_profile_id else ""
+        destination_key = f"{prefix}{workspace.id}/{uuid.uuid4().hex}-{sanitized_name}"
         duplicated_asset = FileAsset.objects.create(
             attributes={
                 "name": original_asset.attributes.get("name"),
@@ -856,6 +879,7 @@ class DuplicateAssetEndpoint(BaseAPIView):
             entity_type=entity_type,
             project_id=project_id if project_id else None,
             storage_metadata=original_asset.storage_metadata,
+            storage_profile=original_asset.storage_profile,
             **self.get_entity_id_field(entity_type=entity_type, entity_id=entity_id),
         )
         storage.copy_object(original_asset.asset, destination_key)
@@ -882,7 +906,10 @@ class WorkspaceAssetDownloadEndpoint(BaseAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        storage = S3Storage(request=request)
+        if asset.page_id and not has_page_asset_access(request, slug, asset.project_id, asset.page_id):
+            return Response({"error": "The requested asset could not be found."}, status=status.HTTP_404_NOT_FOUND)
+
+        storage = S3Storage.for_asset(asset, request=request)
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
             disposition="attachment",
@@ -910,7 +937,10 @@ class ProjectAssetDownloadEndpoint(BaseAPIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        storage = S3Storage(request=request)
+        if asset.page_id and not has_page_asset_access(request, slug, project_id, asset.page_id):
+            return Response({"error": "The requested asset could not be found."}, status=status.HTTP_404_NOT_FOUND)
+
+        storage = S3Storage.for_asset(asset, request=request)
         signed_url = storage.generate_presigned_url(
             object_name=asset.asset.name,
             disposition="attachment",
@@ -918,3 +948,41 @@ class ProjectAssetDownloadEndpoint(BaseAPIView):
         )
 
         return HttpResponseRedirect(signed_url)
+
+
+class ProjectAssetPreviewEndpoint(BaseAPIView):
+    """Return bounded source for text artifacts or short-lived inline access."""
+
+    @allow_permission([ROLE.ADMIN, ROLE.MEMBER, ROLE.GUEST], level="PROJECT")
+    def get(self, request, slug, project_id, asset_id):
+        asset = FileAsset.objects.filter(
+            id=asset_id, workspace__slug=slug, project_id=project_id, is_uploaded=True
+        ).first()
+        if asset is None:
+            return Response({"error": "The requested asset could not be found."}, status=status.HTTP_404_NOT_FOUND)
+        if asset.page_id and not has_page_asset_access(request, slug, project_id, asset.page_id):
+            return Response({"error": "You do not have access to this Page."}, status=status.HTTP_403_FORBIDDEN)
+
+        name = asset.attributes.get("name") or "unnamed"
+        decision = resolve_attachment_type(name, asset.attributes.get("type"))
+        if decision.presentation in {"text", "markdown", "interactive-html", "json-canvas"}:
+            storage = S3Storage.for_asset(asset, request=request, is_server=True)
+            limit = 10485760 if decision.presentation == "json-canvas" else 1048576
+            content = storage.read_object(asset.asset.name, limit)
+            if content is None:
+                return Response({"error": "Preview is unavailable or exceeds its limit.", "code": "preview_unavailable"}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+            response = HttpResponse(content, content_type="text/plain; charset=utf-8")
+            response["X-Content-Type-Options"] = "nosniff"
+            response["Cache-Control"] = "private, no-store"
+            return response
+
+        if decision.presentation == "download":
+            return Response({"presentation": "download", "download_url": asset.asset_url})
+        storage = S3Storage.for_asset(asset, request=request)
+        signed_url = storage.generate_presigned_url(
+            object_name=asset.asset.name,
+            expiration=300,
+            disposition="inline",
+            filename=name,
+        )
+        return Response({"presentation": decision.presentation, "url": signed_url})

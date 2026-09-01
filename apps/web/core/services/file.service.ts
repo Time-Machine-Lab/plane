@@ -61,6 +61,18 @@ export class FileService extends APIService {
     this.fileUploadService = new FileUploadService();
   }
 
+  async getProjectAssetPreview(
+    workspaceSlug: string,
+    projectId: string,
+    assetId: string
+  ): Promise<{ presentation: string; url?: string; download_url?: string } | string> {
+    return this.get(`/api/assets/v2/workspaces/${workspaceSlug}/projects/${projectId}/preview/${assetId}/`)
+      .then((response) => (typeof response.data === "string" ? response.data : response.data))
+      .catch((error) => {
+        throw error?.response?.data;
+      });
+  }
+
   private async updateWorkspaceAssetUploadStatus(workspaceSlug: string, assetId: string): Promise<void> {
     return this.patch(`/api/assets/v2/workspaces/${workspaceSlug}/${assetId}/`)
       .then((response) => response?.data)
@@ -82,10 +94,9 @@ export class FileService extends APIService {
     })
       .then(async (response) => {
         const signedURLResponse: TFileSignedURLResponse = response?.data;
-        const fileUploadPayload = generateFileUploadPayload(signedURLResponse, file);
-        await this.fileUploadService.uploadFile(
+        await this.fileUploadService.uploadFileWithRetry(
           signedURLResponse.upload_data.url,
-          fileUploadPayload,
+          () => generateFileUploadPayload(signedURLResponse, file),
           uploadProgressHandler
         );
         await this.updateWorkspaceAssetUploadStatus(workspaceSlug.toString(), signedURLResponse.asset_id);
@@ -159,10 +170,9 @@ export class FileService extends APIService {
     })
       .then(async (response) => {
         const signedURLResponse: TFileSignedURLResponse = response?.data;
-        const fileUploadPayload = generateFileUploadPayload(signedURLResponse, file);
-        await this.fileUploadService.uploadFile(
+        await this.fileUploadService.uploadFileWithRetry(
           signedURLResponse.upload_data.url,
-          fileUploadPayload,
+          () => generateFileUploadPayload(signedURLResponse, file),
           uploadProgressHandler
         );
         await this.updateProjectAssetUploadStatus(workspaceSlug, projectId, signedURLResponse.asset_id);

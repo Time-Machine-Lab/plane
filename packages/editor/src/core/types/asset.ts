@@ -17,4 +17,15 @@ export type TEditorImageAsset = {
   type: CORE_EXTENSIONS.IMAGE | CORE_EXTENSIONS.CUSTOM_IMAGE;
 };
 
-export type TEditorAsset = TEditorImageAsset | TAdditionalEditorAsset;
+export type TEditorAttachmentAsset = {
+  href: string;
+  id: string;
+  name: string;
+  src: string;
+  mimeType?: string;
+  size?: number;
+  presentation?: string;
+  type: "attachment-component";
+};
+
+export type TEditorAsset = TEditorImageAsset | TEditorAttachmentAsset | TAdditionalEditorAsset;

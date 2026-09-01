@@ -111,6 +111,8 @@ The API exposes separate authorized preview and download intents. Both resolve t
 
 The renderer may use a reviewed MIT JSON Canvas library or a Plane-owned adapter over existing canvas primitives. Before adding a dependency, implementation must confirm license, bundle impact, maintenance, React compatibility, untrusted-input behavior, and that no network fetch occurs implicitly. The behavior contract, rather than a specific library, is authoritative.
 
+Implementation review selected a Plane-owned bounded renderer instead of a third-party JSON Canvas package. This adds no license, maintenance, or bundle dependency, uses ordinary React/HTML/SVG primitives, performs no implicit network requests, and parses only the bounded JSON Canvas fields required by this change.
+
 ### 8. Reuse Page and work-item permissions at every asset boundary
 
 Upload, finalize, preview, download, duplicate, restore, and delete endpoints resolve the bound entity and apply its authoritative permission class. A project role alone is insufficient for a private Page asset. Work-item assets remain scoped to their workspace, project, work item, and permitted actor.

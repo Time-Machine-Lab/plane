@@ -96,7 +96,27 @@ const AssetItem = observer(function AssetItem(props: AssetItemProps) {
       </a>
     );
 
-  return null;
+  return (
+    <div className="group/asset-item flex min-h-12 items-center gap-2 rounded-sm border border-subtle px-3 py-2">
+      <div className="min-w-0 flex-1 truncate">
+        <p className="truncate text-13 font-medium">{asset.name}</p>
+        <p className="truncate text-11 text-secondary">
+          {"mimeType" in asset && asset.mimeType ? asset.mimeType : t("common.attachment")}
+        </p>
+      </div>
+      {assetDownloadSrc && (
+        <a
+          href={assetDownloadSrc}
+          target="_blank"
+          rel="noreferrer noopener"
+          download={asset.name}
+          aria-label={t("page_navigation_pane.tabs.assets.download_button")}
+        >
+          <Download className="size-3.5" />
+        </a>
+      )}
+    </div>
+  );
 });
 
 export const PageNavigationPaneAssetsTabPanel = observer(function PageNavigationPaneAssetsTabPanel(props: Props) {

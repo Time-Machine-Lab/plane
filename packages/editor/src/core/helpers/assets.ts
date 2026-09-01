@@ -42,5 +42,18 @@ export const CORE_ASSETS_META_DATA_RECORD: Partial<
       type: CORE_EXTENSIONS.CUSTOM_IMAGE,
     };
   },
+  [CORE_EXTENSIONS.ATTACHMENT]: (attrs) => {
+    if (!attrs?.assetId && !attrs?.src) return;
+    return {
+      href: `#attachment-${attrs?.id ?? attrs?.assetId}`,
+      id: attrs?.id ?? attrs?.assetId,
+      name: attrs?.name ?? "Attachment",
+      src: attrs?.assetId ?? attrs?.src,
+      mimeType: attrs?.mimeType,
+      size: attrs?.size ?? 0,
+      presentation: attrs?.presentation,
+      type: "attachment-component",
+    };
+  },
   ...ADDITIONAL_ASSETS_META_DATA_RECORD,
 };

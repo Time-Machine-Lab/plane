@@ -40,6 +40,26 @@ export class FileUploadService extends APIService {
       });
   }
 
+  async uploadFileWithRetry(
+    url: string,
+    dataFactory: () => FormData,
+    uploadProgressHandler?: AxiosRequestConfig["onUploadProgress"],
+    retries = 1
+  ): Promise<void> {
+    let lastError: unknown;
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      try {
+        // Retries are intentionally sequential because each attempt reuses the same upload intent.
+        // oxlint-disable-next-line no-await-in-loop
+        await this.uploadFile(url, dataFactory(), uploadProgressHandler);
+        return;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw lastError;
+  }
+
   cancelUpload() {
     this.cancelSource.cancel("Upload canceled");
   }

@@ -97,11 +97,12 @@ def sync_with_external_service(entity_name, description_html):
 def copy_assets(entity, entity_identifier, project_id, asset_ids, user_id):
     duplicated_assets = []
     workspace = entity.workspace
-    storage = S3Storage()
     original_assets = FileAsset.objects.filter(workspace=workspace, project_id=project_id, id__in=asset_ids)
 
     for original_asset in original_assets:
-        destination_key = f"{workspace.id}/{uuid.uuid4().hex}-{original_asset.attributes.get('name')}"
+        storage = S3Storage.for_asset(original_asset)
+        prefix = original_asset.storage_profile.object_prefix if original_asset.storage_profile_id else ""
+        destination_key = f"{prefix}{workspace.id}/{uuid.uuid4().hex}-{original_asset.attributes.get('name')}"
         duplicated_asset = FileAsset.objects.create(
             attributes={
                 "name": original_asset.attributes.get("name"),
@@ -115,6 +116,7 @@ def copy_assets(entity, entity_identifier, project_id, asset_ids, user_id):
             entity_type=original_asset.entity_type,
             project_id=project_id,
             storage_metadata=original_asset.storage_metadata,
+            storage_profile=original_asset.storage_profile,
             **get_entity_id_field(original_asset.entity_type, entity_identifier),
         )
         storage.copy_object(original_asset.asset, destination_key)

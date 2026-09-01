@@ -21,6 +21,11 @@ from plane.license.api.views import (
     InstanceAdminUserSessionEndpoint,
     InstanceWorkSpaceAvailabilityCheckEndpoint,
     InstanceWorkSpaceEndpoint,
+    StorageProfileEndpoint,
+    StorageProfileProbeEndpoint,
+    StorageProfileProbeCompleteEndpoint,
+    StorageProfileActivateEndpoint,
+    StorageProfileRollbackEndpoint,
 )
 
 urlpatterns = [
@@ -89,4 +94,10 @@ urlpatterns = [
         name="instance-workspace-availability",
     ),
     path("workspaces/", InstanceWorkSpaceEndpoint.as_view(), name="instance-workspace"),
+    path("storage-profiles/", StorageProfileEndpoint.as_view(), name="storage-profiles"),
+    path("storage-profiles/<uuid:pk>/", StorageProfileEndpoint.as_view(), name="storage-profile"),
+    path("storage-profiles/<uuid:pk>/probe/", StorageProfileProbeEndpoint.as_view(), name="storage-profile-probe"),
+    path("storage-profiles/<uuid:pk>/probe/complete/", StorageProfileProbeCompleteEndpoint.as_view(), name="storage-profile-probe-complete"),
+    path("storage-profiles/<uuid:pk>/activate/", StorageProfileActivateEndpoint.as_view(), name="storage-profile-activate"),
+    path("storage-profiles/rollback/", StorageProfileRollbackEndpoint.as_view(), name="storage-profile-rollback"),
 ]

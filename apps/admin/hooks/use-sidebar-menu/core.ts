@@ -4,13 +4,21 @@
  * See the LICENSE file for details.
  */
 
-import { Image, BrainCog, Cog, Mail, MessageCircle } from "lucide-react";
+import { Image, BrainCog, Cog, Mail, MessageCircle, HardDriveUpload } from "lucide-react";
 // plane imports
 import { LockIcon, WorkspaceIcon } from "@plane/propel/icons";
 // types
 import type { TSidebarMenuItem } from "./types";
 
-export type TCoreSidebarMenuKey = "general" | "email" | "workspace" | "authentication" | "ai" | "image" | "discord";
+export type TCoreSidebarMenuKey =
+  | "general"
+  | "email"
+  | "workspace"
+  | "authentication"
+  | "ai"
+  | "image"
+  | "storage"
+  | "discord";
 
 export const coreSidebarMenuLinks: Record<TCoreSidebarMenuKey, TSidebarMenuItem> = {
   general: {
@@ -48,6 +56,12 @@ export const coreSidebarMenuLinks: Record<TCoreSidebarMenuKey, TSidebarMenuItem>
     name: "Images in Plane",
     description: "Allow third-party image libraries.",
     href: `/image/`,
+  },
+  storage: {
+    Icon: HardDriveUpload,
+    name: "Object storage",
+    description: "Store uploaded files in Aliyun OSS.",
+    href: `/storage/`,
   },
   discord: {
     Icon: MessageCircle,

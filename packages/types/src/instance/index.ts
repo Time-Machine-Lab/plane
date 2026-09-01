@@ -12,3 +12,4 @@ export * from "./email";
 export * from "./discord";
 export * from "./image";
 export * from "./workspace";
+export * from "./storage";

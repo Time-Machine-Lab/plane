@@ -7,8 +7,8 @@
 import type { HocuspocusProvider } from "@hocuspocus/provider";
 import type { Extensions } from "@tiptap/core";
 import { CharacterCount } from "@tiptap/extension-character-count";
-import TaskItem from "@tiptap/extension-task-item";
-import TaskList from "@tiptap/extension-task-list";
+import TiptapTaskItem from "@tiptap/extension-task-item";
+import TiptapTaskList from "@tiptap/extension-task-list";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Underline } from "@tiptap/extension-underline";
 import { Markdown } from "tiptap-markdown";
@@ -25,6 +25,7 @@ import {
   CustomQuoteExtension,
   CustomTextAlignExtension,
   CustomTypographyExtension,
+  AttachmentExtension,
   ImageExtension,
   ListKeymap,
   Table,
@@ -92,12 +93,12 @@ export const CoreEditorExtensions = (args: TArguments): Extensions => {
     CustomTypographyExtension,
     Underline,
     TextStyle,
-    TaskList.configure({
+    TiptapTaskList.configure({
       HTMLAttributes: {
         class: "not-prose pl-2 space-y-2",
       },
     }),
-    TaskItem.configure({
+    TiptapTaskItem.configure({
       HTMLAttributes: {
         class: "relative",
       },
@@ -150,6 +151,10 @@ export const CoreEditorExtensions = (args: TArguments): Extensions => {
         isEditable: editable,
       })
     );
+  }
+
+  if (!disabledExtensions.includes("attachment")) {
+    extensions.push(AttachmentExtension(fileHandler));
   }
 
   return extensions;

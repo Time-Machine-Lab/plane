@@ -36,7 +36,7 @@ export class IssueAttachmentService extends APIService {
     )
       .then((response) => response?.data)
       .catch((error) => {
-        throw error?.response?.data;
+        throw error?.response?.data ?? error;
       });
   }
 
@@ -54,17 +54,16 @@ export class IssueAttachmentService extends APIService {
     )
       .then(async (response) => {
         const signedURLResponse: TIssueAttachmentUploadResponse = response?.data;
-        const fileUploadPayload = generateFileUploadPayload(signedURLResponse, file);
-        await this.fileUploadService.uploadFile(
+        await this.fileUploadService.uploadFileWithRetry(
           signedURLResponse.upload_data.url,
-          fileUploadPayload,
+          () => generateFileUploadPayload(signedURLResponse, file),
           uploadProgressHandler
         );
         await this.updateIssueAttachmentUploadStatus(workspaceSlug, projectId, issueId, signedURLResponse.asset_id);
         return signedURLResponse.attachment;
       })
       .catch((error) => {
-        throw error?.response?.data;
+        throw error?.response?.data ?? error;
       });
   }
 

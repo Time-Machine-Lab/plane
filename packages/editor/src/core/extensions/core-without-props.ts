@@ -4,14 +4,15 @@
  * See the LICENSE file for details.
  */
 
-import TaskItem from "@tiptap/extension-task-item";
-import TaskList from "@tiptap/extension-task-list";
+import TiptapTaskItem from "@tiptap/extension-task-item";
+import TiptapTaskList from "@tiptap/extension-task-list";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Underline } from "@tiptap/extension-underline";
 // plane editor imports
 import { CoreEditorAdditionalExtensionsWithoutProps } from "@/plane-editor/extensions/core/without-props";
 // extensions
 import { CustomCalloutExtensionConfig } from "./callout/extension-config";
+import { AttachmentExtensionConfig } from "./attachment/extension-config";
 import { CanvasExtensionConfig } from "./canvas/extension-config";
 import { CustomCodeBlockExtensionWithoutProps } from "./code/without-props";
 import { CustomCodeInlineExtension } from "./code-inline";
@@ -40,12 +41,12 @@ export const CoreEditorExtensionsWithoutProps = [
   CustomImageExtensionConfig,
   Underline,
   TextStyle,
-  TaskList.configure({
+  TiptapTaskList.configure({
     HTMLAttributes: {
       class: "not-prose pl-2 space-y-2",
     },
   }),
-  TaskItem.configure({
+  TiptapTaskItem.configure({
     HTMLAttributes: {
       class: "flex",
     },
@@ -60,6 +61,7 @@ export const CoreEditorExtensionsWithoutProps = [
   CustomMentionExtensionConfig,
   CustomTextAlignExtension,
   CustomCalloutExtensionConfig,
+  AttachmentExtensionConfig,
   CustomColorExtension,
   ...CoreEditorAdditionalExtensionsWithoutProps,
 ];

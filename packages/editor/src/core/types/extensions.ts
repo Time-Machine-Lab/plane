@@ -11,4 +11,5 @@ export type TExtensions =
   | "issue-embed"
   | "slash-commands"
   | "enter-key"
-  | "image";
+  | "image"
+  | "attachment";

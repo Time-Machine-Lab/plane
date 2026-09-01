@@ -11,6 +11,7 @@ from django.conf import settings
 
 # Module imports
 from plane.db.models import BaseModel
+from plane.utils.secret_encryption import decrypt_secret, encrypt_secret
 
 ROLE_CHOICES = ((20, "Admin"),)
 
@@ -81,6 +82,54 @@ class InstanceConfiguration(BaseModel):
         verbose_name_plural = "Instance Configurations"
         db_table = "instance_configurations"
         ordering = ("-created_at",)
+
+
+class StorageProfile(BaseModel):
+    """Versioned object-storage location used by newly-created file assets."""
+
+    class Provider(models.TextChoices):
+        ALIYUN_OSS = "ALIYUN_OSS", "Aliyun OSS"
+        S3 = "S3", "Amazon S3"
+
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Draft"
+        VERIFIED = "VERIFIED", "Verified"
+        ACTIVE = "ACTIVE", "Active"
+        RETIRED = "RETIRED", "Retired"
+
+    instance = models.ForeignKey(Instance, on_delete=models.CASCADE, related_name="storage_profiles")
+    provider = models.CharField(max_length=32, choices=Provider.choices, default=Provider.ALIYUN_OSS)
+    bucket = models.CharField(max_length=255)
+    region = models.CharField(max_length=128)
+    endpoint = models.URLField(max_length=500, blank=True)
+    access_key_id = models.CharField(max_length=255)
+    access_key_secret = models.TextField()
+    status = models.CharField(max_length=16, choices=Status.choices, default=Status.DRAFT)
+    file_size_limit = models.PositiveBigIntegerField(default=104857600)
+    object_prefix = models.CharField(max_length=255, default="plane-assets/")
+    verified_at = models.DateTimeField(null=True, blank=True)
+    verification_error = models.TextField(blank=True, default="")
+    last_probe_at = models.DateTimeField(null=True, blank=True)
+    probe_object_key = models.CharField(max_length=800, blank=True, default="")
+
+    class Meta:
+        db_table = "instance_storage_profiles"
+        ordering = ("-created_at",)
+        indexes = [models.Index(fields=["instance", "status"], name="storage_profile_status_idx")]
+
+    @property
+    def effective_endpoint(self):
+        if self.endpoint:
+            return self.endpoint.rstrip("/")
+        if self.provider == self.Provider.ALIYUN_OSS:
+            return f"https://oss-{self.region}.aliyuncs.com"
+        return f"https://s3.{self.region}.amazonaws.com"
+
+    def set_secret(self, value: str):
+        self.access_key_secret = encrypt_secret(value)
+
+    def get_secret(self) -> str:
+        return decrypt_secret(self.access_key_secret)
 
 
 class ChangeLog(BaseModel):

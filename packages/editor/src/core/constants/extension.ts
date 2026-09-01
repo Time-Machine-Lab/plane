@@ -50,6 +50,7 @@ export enum CORE_EXTENSIONS {
   WORK_ITEM_EMBED = "issue-embed-component",
   EMOJI = "emoji",
   UNIQUE_ID = "uniqueID",
+  ATTACHMENT = "attachment-component",
 }
 
 export const BLOCK_NODE_TYPES = [
@@ -76,4 +77,5 @@ export const BLOCK_NODE_TYPES = [
   CORE_EXTENSIONS.CALLOUT,
   CORE_EXTENSIONS.CANVAS,
   CORE_EXTENSIONS.WORK_ITEM_EMBED,
+  CORE_EXTENSIONS.ATTACHMENT,
 ];

@@ -43,4 +43,12 @@ const imageComponentHandler: AssetDuplicationHandler = ({ element, originalHtml 
 
 export const assetDuplicationHandlers: Record<string, AssetDuplicationHandler> = {
   "image-component": imageComponentHandler,
+  "attachment-component": ({ element, originalHtml }) => {
+    const src = element.getAttribute("src") ?? element.getAttribute("assetid");
+    if (!src || src.startsWith("http")) return { modifiedHtml: originalHtml, shouldProcess: false };
+    const originalTag = element.outerHTML;
+    element.setAttribute("id", uuidv4());
+    element.setAttribute("status", "duplicating");
+    return { modifiedHtml: originalHtml.replaceAll(originalTag, element.outerHTML), shouldProcess: true };
+  },
 };

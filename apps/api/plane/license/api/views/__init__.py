@@ -29,3 +29,11 @@ from .workspace import (
     InstanceWorkSpaceAvailabilityCheckEndpoint,
     InstanceWorkSpaceEndpoint,
 )
+
+from .storage import (
+    StorageProfileEndpoint,
+    StorageProfileProbeEndpoint,
+    StorageProfileProbeCompleteEndpoint,
+    StorageProfileActivateEndpoint,
+    StorageProfileRollbackEndpoint,
+)
