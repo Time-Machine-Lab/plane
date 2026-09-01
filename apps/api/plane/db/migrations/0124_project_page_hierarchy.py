@@ -67,7 +67,12 @@ def backfill_project_page_hierarchy(apps, schema_editor):
         "cycle_or_depth_repairs": 0,
         "archived_links": 0,
     }
-    project_ids = ProjectPage.objects.filter(deleted_at__isnull=True).values_list("project_id", flat=True).distinct()
+    project_ids = (
+        ProjectPage.objects.filter(deleted_at__isnull=True)
+        .order_by()
+        .values_list("project_id", flat=True)
+        .distinct()
+    )
     for project_id in project_ids.iterator():
         links = list(
             ProjectPage.objects.filter(project_id=project_id, deleted_at__isnull=True)
@@ -142,6 +147,10 @@ def reverse_backfill(apps, schema_editor):
 
 
 class Migration(migrations.Migration):
+    # Keep deferred schema work outside the data backfill transaction. PostgreSQL
+    # cannot create the deferred indexes while FK trigger events are pending.
+    atomic = False
+
     dependencies = [("db", "0123_mutica_agent_delegation")]
 
     operations = [
@@ -262,5 +271,9 @@ class Migration(migrations.Migration):
             model_name="projectpagehierarchymutation",
             index=models.Index(fields=["project", "revision"], name="project_page_mutation_rev_idx"),
         ),
-        migrations.RunPython(backfill_project_page_hierarchy, reverse_code=reverse_backfill),
+        migrations.RunPython(
+            backfill_project_page_hierarchy,
+            reverse_code=reverse_backfill,
+            atomic=True,
+        ),
     ]

@@ -166,6 +166,15 @@ same Tester rechecks only the failure and necessary adjacent behavior.
 
 ## Migration Plan
 
+Production hotfix note: migration `db.0124_project_page_hierarchy` reached shared environments but failed before it
+could be recorded as applied because PostgreSQL attempted deferred index creation while the hierarchy backfill still had
+pending foreign-key trigger events. A later migration cannot repair an earlier migration that cannot complete. As a narrow
+exception to the shared-migration immutability rule, the migration transaction boundary is changed without altering its
+schema, dependency, or data transformation: schema operations run outside one migration-wide transaction, while the
+`RunPython` backfill remains atomic. The project-ID scan also clears model default ordering before `distinct()` so every
+project is processed once rather than once per differently ordered link. Environments where `0124` is already applied do not
+rerun it; failed environments can retry it without partial hierarchy data.
+
 1. Add nullable ProjectPage hierarchy/archive fields, hierarchy state/mutation records, and supporting indexes without removing or changing legacy Page columns.
 2. Backfill every active ProjectPage link. Copy valid Page parent placement only when the parent has an active link in the same project; otherwise place the node at root. Copy legacy order and archive state, detect cycles/depth violations, and deterministically normalize affected sibling order.
 3. Deploy API reads capable of serving project hierarchy while existing clients continue using Page endpoints. Compare migration counts and invariant checks before enabling mutations.

@@ -69,3 +69,8 @@
 - [ ] 8.3 Probe migration compatibility, private ancestor non-disclosure, invalid/cyclic/deep/cross-project moves, concurrent reconciliation, partial failure recovery, multi-project survival, stable ordering, and large-tree behavior through observable test-environment outcomes.
 - [ ] 8.4 Verify feature-gate behavior, compatibility reads, sanitized audit behavior, rollback constraints, and necessary adjacent Page flows including editing, lock/access enforcement, favorites, versions, duplication, export, and collaboration identity.
 - [ ] 8.5 Record sanitized durable acceptance evidence and residual risks in `verification.md`; if acceptance fails, have the implementation Agent fix the affected scope, redeploy affected services, and have the same Tester recheck only the failure and necessary adjacent behavior before completion.
+
+## 9. Production Migration Hotfix
+
+- [x] 9.1 Separate the `db.0124` migration-wide transaction from its atomic hierarchy backfill so PostgreSQL executes deferred indexes only after foreign-key trigger events settle, and clear default ordering before selecting distinct projects so each project is backfilled once.
+- [x] 9.2 Deploy the API and migration runtime to the persistent test environment, confirm the migration and services are healthy, and obtain an independent Tester verdict.
