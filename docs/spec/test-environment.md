@@ -1,8 +1,8 @@
 # 测试环境 Runbook
 
-本 Runbook 只用于确实需要运行环境才能确认目标的需求。Windows 不需要 Docker、Docker Compose 或 WSL2。
-本地或离线能够完整验证的改动不进入本流程；需要测试环境时，只部署受影响服务，再由未参与实现的 Tester
-子 Agent 验证本次需求目标。
+本 Runbook 用于所有产生运行时行为的产品变更。Windows 主机只负责发起部署和必要的浏览器访问，不需要安装
+Django、pytest、Ruff、Docker、Docker Compose 或 WSL2。纯文档、静态配置等不产生运行时行为的改动不进入
+本流程；其余改动实现完成后直接部署受影响服务，再由未参与实现的 Tester 子 Agent 验证本次需求目标。
 
 ## 首次初始化
 
@@ -50,11 +50,12 @@ Admin 用于管理场景，Member 用于普通协作，Guest 用于低权限验�
 后续运行只补齐缺失对象，不重复创建数据。数据库、对象存储和相关数据卷持续保留，不因日常部署重建或清空。
 
 远端初始化和所有写操作只能发生在私密配置指定的 Plane 测试根目录及 Compose project 内。不得扫描、停止、
-修改或删除服务器上的其他项目、容器、网络、卷和数据。禁止全局 Docker prune 和销毁数据卷。
+修改或删除服务器上的其他项目、容器、网络、卷和数据。禁止 `docker system prune` 和任何 volume prune。部署前
+可在磁盘低于安全阈值时清理未使用的 BuildKit cache 和 dangling images；运行容器、被引用镜像和数据卷不受影响。
 
 ## 按需部署
 
-当需求必须依赖测试环境验证时运行：
+运行时实现完成后立即运行：
 
 ```powershell
 .\scripts\test\deploy-test.ps1
@@ -67,6 +68,9 @@ Admin 用于管理场景，Member 用于普通协作，Guest 用于低权限验�
 当共享包变更无法可靠推断运行时消费者时，`auto` 会停止并要求通过 `-Services` 明确列出实际消费者；不要因此
 默认部署所有应用。锁文件、根依赖或部署拓扑变化仍可触发 `all`。AI 不需要判断测试等级，也不需要在部署前后
 重复运行完整 build、全库检查或本地 Docker 测试。
+
+部署前不要求在 Windows 主机执行 Django、pytest、Ruff、后端自动化测试或本地 Docker 测试。当前主机缺少这些
+依赖不是错误或阻塞；除非用户明确要求，否则也不要为了本次交付安装它们。
 
 部署的是当前工作区快照，包括未提交但未被忽略的改动；`.git`、`.secrets`、`.runtime`、依赖缓存和构建缓存
 必须排除。成功输出只包含脱敏部署 ID、服务和测试地址。完整参数以脚本帮助为准：
@@ -82,6 +86,10 @@ Get-Help .\scripts\test\deploy-test.ps1 -Detailed
 .\scripts\test\start-local.ps1 -Apps web
 ```
 
+隧道由脚本维护为单实例，不需要手工建立。测试端口默认不开放到公网，以避免暴露测试账号，并保持登录 Cookie、
+跳转地址和 CORS 使用稳定的本地域名。只有配置了受控公网入口、HTTPS、防火墙来源限制及对应 Base URL 时，才改用
+远端地址直接访问。
+
 ## 测试
 
 部署成功后，由主 Agent 创建一个未参与实现的新 Tester 子 Agent 执行验收：
@@ -90,7 +98,7 @@ Get-Help .\scripts\test\deploy-test.ps1 -Detailed
 2. 使用部署脚本输出的测试地址确认 Plane 和关键 API 可访问。
 3. 从 `.secrets/plane-test.env` 读取适合场景的默认账号，并确认第三方凭据、观察渠道等前置条件；不得输出凭据。
 4. 使用完成需求目标所需的最少场景，验证本次改动和确有必要的相邻回归，不设置固定数量。
-5. 不重复实现 Agent 的开发检查，不在正常成功路径分析日志，不手工排列与需求无关的异常。
+5. 通过 UI、API 和可观察业务结果执行场景验收；除非用户明确要求，不运行 pytest、Ruff 或其他自动化测试套件。
 6. 在交付说明中记录脱敏结果；只有 OpenSpec、用户或风险明确要求时才写入 `verification.md`。
 
 公网端口不可达时，使用部署脚本提供的 `http://localhost:8000` SSH 隧道验收，不擅自修改云安全组或服务器

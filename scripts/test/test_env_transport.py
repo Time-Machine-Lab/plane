@@ -336,7 +336,12 @@ def tunnel(args: argparse.Namespace) -> None:
 
     class ForwardServer(socketserver.ThreadingTCPServer):
         daemon_threads = True
-        allow_reuse_address = True
+        allow_reuse_address = False
+
+        def server_bind(self) -> None:
+            if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+                self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            super().server_bind()
 
     try:
         with ForwardServer((args.bind_host, args.local_port), ForwardHandler) as server:

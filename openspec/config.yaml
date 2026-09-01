@@ -7,13 +7,14 @@ context: |
 
   docs/spec/README.md is the standards index. Read the standards mapped to the
   affected modules and preserve existing Plane patterns and module boundaries.
-  After implementation and necessary development checks, the primary Agent
-  creates a new Tester sub-agent that did not participate in implementation.
-  The Tester independently verifies the requirement using the least expensive
-  sufficient method: static, offline, local, or test-environment validation.
-  Deploy only when the core goal requires a runtime environment, and then only
-  deploy affected services. Automated tests are added only when risk and
-  regression value justify them.
+  After runtime implementation, the primary Agent immediately deploys affected
+  services with scripts/test/deploy-test.ps1, then creates a new Tester sub-agent
+  that did not participate in implementation. The Tester independently verifies
+  observable behavior in the deployed test environment. Local development checks
+  are optional debugging aids and never deployment prerequisites. Do not add or
+  run automated tests, pytest, Ruff, local Docker tests, or fixed lint/type/build
+  matrices unless the user explicitly requests them. Pure documentation or static
+  configuration changes may use static or offline validation without deployment.
 
 rules:
   proposal:
@@ -25,7 +26,7 @@ rules:
   design:
     - "Keep design proportional; document important contracts, migrations, rollout, and rollback decisions only when applicable."
   tasks:
-    - "Keep tasks concise; separate implementation, necessary development checks, and verification by a new Tester sub-agent that did not participate in implementation."
-    - "Add automated tests only for clear regression value, and add test-environment deployment only when the core requirement cannot be verified statically, offline, or locally."
-    - "Tester verification covers only the requirement goal, directly affected behavior, and necessary adjacent regression, with no fixed journey count or mandatory verification.md."
+    - "For runtime changes, keep tasks concise and separate implementation, immediate affected-service deployment, and verification by a new Tester sub-agent that did not participate in implementation."
+    - "Do not create development-check, automated-test, pytest, Ruff, local-Docker, or fixed command-matrix tasks unless the user explicitly requests them."
+    - "Tester verification runs against the deployed test environment and covers only the requirement goal, directly affected behavior, and necessary adjacent regression, with no fixed journey count or mandatory verification.md."
     - "After a fix, the same Tester rechecks only the failed scope and necessary adjacent behavior."

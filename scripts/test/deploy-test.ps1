@@ -53,6 +53,46 @@ function Test-PlaneReady {
     }
 }
 
+function Stop-StaleTestTunnels {
+    param(
+        [Parameter(Mandatory)][string]$PidPath,
+        [Parameter(Mandatory)][int]$LocalPort
+    )
+
+    $candidateIds = @()
+    if (Test-Path -LiteralPath $PidPath -PathType Leaf) {
+        $recordedPid = 0
+        if ([int]::TryParse((Get-Content -LiteralPath $PidPath -Raw).Trim(), [ref]$recordedPid)) {
+            $candidateIds += $recordedPid
+        }
+    }
+    $candidateIds += @(Get-NetTCPConnection -LocalPort $LocalPort -State Listen -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess)
+
+    foreach ($processId in @($candidateIds | Where-Object { $_ -gt 0 } | Select-Object -Unique)) {
+        $processInfo = Get-CimInstance Win32_Process -Filter "ProcessId = $processId" -ErrorAction SilentlyContinue
+        if (-not $processInfo) { continue }
+        $commandLine = [string]$processInfo.CommandLine
+        if ($commandLine -notmatch 'test_env_transport\.py' -or $commandLine -notmatch '\btunnel\b') {
+            $ownsPort = Get-NetTCPConnection -LocalPort $LocalPort -State Listen -OwningProcess $processId -ErrorAction SilentlyContinue
+            if ($ownsPort) {
+                throw "localhost:$LocalPort is occupied by an unrelated process (PID $processId)"
+            }
+            continue
+        }
+        & taskkill.exe /PID $processId /T /F 2>$null | Out-Null
+    }
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    while ([DateTime]::UtcNow -lt $deadline) {
+        $listener = Get-NetTCPConnection -LocalPort $LocalPort -State Listen -ErrorAction SilentlyContinue
+        if (-not $listener) { break }
+        Start-Sleep -Milliseconds 100
+    }
+    if (Get-NetTCPConnection -LocalPort $LocalPort -State Listen -ErrorAction SilentlyContinue) {
+        throw "The previous Plane test tunnel did not release localhost:$LocalPort"
+    }
+    Remove-Item -LiteralPath $PidPath -Force -ErrorAction SilentlyContinue
+}
+
 function Ensure-TestTunnel {
     param(
         [Parameter(Mandatory)][string]$Python,
@@ -70,6 +110,7 @@ function Ensure-TestTunnel {
     $stdoutPath = Join-Path $logsRoot "ssh-tunnel.stdout.log"
     $stderrPath = Join-Path $logsRoot "ssh-tunnel.stderr.log"
     $pidPath = Join-Path $sshRoot "tunnel.pid"
+    Stop-StaleTestTunnels -PidPath $pidPath -LocalPort 8000
     $process = Start-Process -FilePath $Python -ArgumentList @(
         $Helper, "tunnel", "--config", $Config, "--bind-host", "127.0.0.1", "--local-port", "8000",
         "--runtime-root", $RuntimeRoot
@@ -80,11 +121,13 @@ function Ensure-TestTunnel {
     $deadline = [DateTime]::UtcNow.AddSeconds(60)
     while ([DateTime]::UtcNow -lt $deadline) {
         if ($process.HasExited) {
+            Remove-Item -LiteralPath $pidPath -Force -ErrorAction SilentlyContinue
             throw "SSH tunnel exited before Plane became reachable. See $stdoutPath and $stderrPath"
         }
         if (Test-PlaneReady) { return }
         Start-Sleep -Seconds 2
     }
+    Stop-StaleTestTunnels -PidPath $pidPath -LocalPort 8000
     throw "Timed out waiting for Plane through the SSH tunnel. See $stdoutPath and $stderrPath"
 }
 

@@ -11,6 +11,73 @@ require_command() {
   command -v "$1" >/dev/null 2>&1 || die "Required command not found: $1"
 }
 
+free_disk_kib() {
+  df -Pk "${root}" | awk 'NR == 2 { print $4 }'
+}
+
+cleanup_retained_files() {
+  local -a old_releases=()
+  local -a old_backups=()
+  local current_release_dir=""
+
+  if [[ -L "${root}/current" ]]; then
+    current_release_dir="$(realpath -m -- "${root}/current")"
+  fi
+
+  mapfile -t old_releases < <(
+    find "${root}/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \
+      | sort -nr | tail -n +$((keep + 1)) | cut -d' ' -f2-
+  )
+  for old_release in "${old_releases[@]}"; do
+    [[ "${old_release}" == "${root}/releases/"* \
+      && "${old_release}" != "${release_dir:-}" \
+      && "${old_release}" != "${current_release_dir}" ]] || continue
+    rm -rf -- "${old_release}"
+  done
+
+  mapfile -t old_backups < <(
+    find "${root}/backups" -mindepth 1 -maxdepth 1 -type f -name '*-postgres.dump' -printf '%T@ %p\n' \
+      | sort -nr | tail -n +$((keep + 1)) | cut -d' ' -f2-
+  )
+  for old_backup in "${old_backups[@]}"; do
+    [[ "${old_backup}" == "${root}/backups/"* ]] || continue
+    rm -f -- "${old_backup}"
+  done
+}
+
+cleanup_project_images() {
+  local image_ref image_id
+  while read -r image_ref image_id; do
+    [[ -n "${image_ref}" && -n "${image_id}" ]] || continue
+    if [[ -z "$(docker ps -a --filter "ancestor=${image_id}" --quiet)" ]]; then
+      docker image rm "${image_ref}" >/dev/null 2>&1 || true
+    fi
+  done < <(
+    docker image ls --format '{{.Repository}}:{{.Tag}} {{.ID}}' \
+      | awk -v prefix="${project}-" 'index($1, prefix) == 1 { print $1, $2 }' | sort -u
+  )
+}
+
+ensure_disk_capacity() {
+  local minimum_free_kib=$((6 * 1024 * 1024))
+  local available_kib
+
+  cleanup_retained_files
+  cleanup_project_images
+  docker image prune --force >/dev/null
+  available_kib="$(free_disk_kib)"
+  if ((available_kib < minimum_free_kib)); then
+    echo "Low disk space before build; removing unused Docker build cache."
+    docker builder prune --all --force >/dev/null
+    docker image prune --force >/dev/null
+    available_kib="$(free_disk_kib)"
+  fi
+  if ((available_kib < minimum_free_kib)); then
+    die "At least 6 GiB of free disk space is required before building; only $((available_kib / 1024)) MiB is available"
+  fi
+  echo "Deployment disk preflight passed with $((available_kib / 1024)) MiB free."
+}
+
 upsert_env() {
   local key="$1"
   local value="$2"
@@ -111,6 +178,7 @@ EOF
 
 write_compose_override() {
   local override="${release_dir}/docker-compose.test.override.yml"
+  local service image_name
   if [[ -n "${selected[fixtures]:-}" ]]; then
     printf 'services: {}\n' >"${override}"
     return
@@ -131,6 +199,23 @@ write_compose_override() {
       dockerfile: "Dockerfile.ce"
 EOF
     return
+  fi
+
+  for service in web admin space live mcp proxy; do
+    if [[ -z "${selected[${service}]:-}" && -n "${running_images[${service}]:-}" ]]; then
+      printf '  %s:\n    image: "%s"\n' "${service}" "${running_images[${service}]}" >>"${override}"
+    fi
+  done
+  if [[ -z "${selected[api]:-}" && -z "${selected[worker]:-}" && -z "${selected[beat-worker]:-}" ]]; then
+    for service in api worker beat-worker; do
+      image_name="${running_images[${service}]:-${running_images[api]:-}}"
+      if [[ -n "${image_name}" ]]; then
+        printf '  %s:\n    image: "%s"\n' "${service}" "${image_name}" >>"${override}"
+      fi
+    done
+    if [[ -n "${running_images[api]:-}" ]]; then
+      printf '  migrator:\n    image: "%s"\n' "${running_images[api]}" >>"${override}"
+    fi
   fi
 
   for frontend in web admin space; do
@@ -362,6 +447,7 @@ exec 9>"${root}/.deploy.lock"
 flock -n 9 || die "Another Plane test deployment is already running"
 
 release_dir="${root}/releases/${release}"
+ensure_disk_capacity
 [[ ! -e "${release_dir}" ]] || die "Release already exists: ${release}"
 mkdir -m 700 -- "${release_dir}"
 
@@ -441,6 +527,7 @@ fi
 
 declare -a build_services=()
 declare -a start_services=()
+declare -A running_images=()
 run_migrator=false
 if [[ "${bootstrap_mode}" == true ]]; then
   start_services=(web admin space api worker beat-worker live mcp proxy)
@@ -458,6 +545,22 @@ else
     start_services+=(api worker beat-worker)
     run_migrator=true
   fi
+fi
+
+if [[ "${bootstrap_mode}" == false ]]; then
+  for service in web admin space api worker beat-worker live mcp proxy; do
+    container_id="$(
+      docker ps -a \
+        --filter "label=com.docker.compose.project=${project}" \
+        --filter "label=com.docker.compose.service=${service}" \
+        --format '{{.ID}}' | awk 'NR == 1 { print; exit }'
+    )"
+    if [[ -n "${container_id}" ]]; then
+      image_name="$(docker inspect --format '{{.Config.Image}}' "${container_id}")"
+      [[ "${image_name}" =~ ^[A-Za-z0-9._/@:-]+$ ]] || die "Invalid running image name for ${service}"
+      running_images["${service}"]="${image_name}"
+    fi
+  done
 fi
 
 write_compose_override
@@ -501,7 +604,7 @@ elif [[ "${#build_services[@]}" -gt 0 ]]; then
 fi
 if [[ "${run_migrator}" == true ]]; then "${compose[@]}" run --rm migrator; fi
 if [[ "${#start_services[@]}" -gt 0 ]]; then
-  "${compose[@]}" up -d --no-build "${start_services[@]}"
+  "${compose[@]}" up -d --no-build --no-deps "${start_services[@]}"
 fi
 health_check
 
@@ -526,10 +629,9 @@ ln -sfn "${release_dir}" "${root}/current"
 trap - ERR
 rm -f -- "${archive}" "$0"
 
-mapfile -t old_releases < <(find "${root}/releases" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' | sort -nr | tail -n +$((keep + 1)) | cut -d' ' -f2-)
-for old_release in "${old_releases[@]}"; do
-  [[ "${old_release}" == "${root}/releases/"* && "${old_release}" != "${release_dir}" ]] || continue
-  rm -rf -- "${old_release}"
-done
+cleanup_retained_files
+cleanup_project_images
+docker image prune --force >/dev/null
+echo "Deployment completed with $(( $(free_disk_kib) / 1024 )) MiB free."
 
 echo "Plane test release ${release} is running at ${base_url}."
