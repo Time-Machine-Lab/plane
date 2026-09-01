@@ -34,7 +34,7 @@ catalog:
   "@popperjs/core": "^2.11.8"
   "@radix-ui/react-scroll-area": "^1.2.3"
   "@react-pdf/renderer": "^4.3.0"
-  "@react-pdf/types": "^2.9.2"
+  "@react-pdf/types": "^2.14.0"
   "@react-router/dev": "7.17.0"
   "@react-router/node": "7.18.1"
   "@react-router/serve": "7.18.1"
