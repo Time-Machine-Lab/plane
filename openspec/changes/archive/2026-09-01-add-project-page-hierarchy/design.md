@@ -2,7 +2,7 @@
 
 Plane already has a mature Page document entity, editor, real-time content collaboration, versions, favorites, export, Page-level access, lock state, and project links. The current Django `Page` model also has `parent`, `sort_order`, and `archived_at`, but the web list only consumes root Pages and its shared `TPage` contract does not expose hierarchy. Those fields are global to a Page even though a Page may have multiple active `ProjectPage` links, so they cannot safely represent different locations or archive states in different projects.
 
-This change crosses the Django API, migrations, shared contracts and utilities, the web MobX store, project navigation, search presentation, and Page lifecycle actions. It has elevated authorization, tenant-isolation, migration, concurrency, and data-loss risk. Page content collaboration is not structurally changed, but existing Page behavior is an adjacent regression boundary.
+This change crosses the Django API, migrations, shared contracts and utilities, the web MobX store, project navigation, search presentation, and Page lifecycle actions. It has elevated authorization, tenant-isolation, migration, concurrency, and data-loss risk. Page content collaboration and other Page capabilities are not structurally changed and are outside this change's acceptance scope.
 
 ## Goals / Non-Goals
 
@@ -13,7 +13,7 @@ This change crosses the Django API, migrations, shared contracts and utilities, 
 - Preserve existing Page IDs, content, links, versions, favorites, ownership, visibility, lock behavior, collaboration, and export.
 - Provide deterministic, atomic, permission-safe structural and subtree lifecycle operations.
 - Keep large knowledge bases usable through lazy tree loading, bounded metadata, stable pagination, and normalized client state.
-- Provide independent test-environment evidence for structural invariants, migration, authorization, concurrency, accessibility, and adjacent Page behavior.
+- Provide focused executable and independent runtime evidence for hierarchy invariants, migration, authorization, concurrency, rollback, accessibility, and responsive behavior.
 
 **Non-Goals:**
 
@@ -128,29 +128,13 @@ Hierarchy reads fetch roots or one direct-child page at a time and use indexed s
 
 Recursive CTEs are bounded to 20 levels and scoped by workspace/project before recursion. Query-count regression tests use representative broad and deep fixtures to detect N+1 behavior; frontend tests assert collapsed branches do not create descendant rows. The server rejects over-depth mutations before writes.
 
-### 10. Validate in the test environment and retain durable evidence
+### 10. Test by risk boundary and retain durable verification evidence
 
-This change does not require backend or frontend automated-test additions or execution. After implementation, the primary
-Agent immediately deploys the affected API, web, worker, and migration runtime through `scripts/test/deploy-test.ps1` and
-assigns a fresh Tester Agent that did not participate in implementation. Host-side Django, pytest, Ruff, or Docker is not a
-prerequisite and its absence does not delay deployment.
+The implementation adds executable coverage for the frontend's pure hierarchy utilities and MobX state boundary using existing lightweight tooling. Existing backend test files remain useful regression assets, but adding or running backend pytest is not required for this change's acceptance and no component test framework is introduced.
 
-Independent test-environment acceptance is divided by the failure it protects against:
+Development checks cover TypeScript contracts, frontend/store behavior, Python syntax, feature-gate wiring, migration shape, and focused formatting. Because the core requirement depends on real database migration, permissions, API transactions, pointer/keyboard interaction, responsive rendering, and representative hierarchy scale, final acceptance uses the test environment with only affected services deployed.
 
-- model/migration: legacy roots, valid legacy nesting, invalid cross-project parents, duplicate links, multi-project Pages, archived subtrees, indexes, reversible schema behavior, and preservation of Page IDs/content;
-- hierarchy domain and API contracts: root/child reads, stable pagination, cycle/depth prevention, ordering compaction, subtree preservation, atomic rollback, idempotent retry, revision conflict reconciliation, and cross-project isolation;
-- authorization: project roles, private ownership, inaccessible ancestors, safe child counts, search/breadcrumb/favorite non-disclosure, access tightening, forged identifiers, and subtree mutation permissions;
-- lifecycle: archive batch semantics, restore restrictions, pre-archived descendants, other-project survival, single copy, subtree copy failure recovery, and descendant-aware removal;
-- frontend pure logic/store: normalized tree derivation, lazy branch loading, expansion preference pruning, direct-link expansion, favorite shortcuts, optimistic move success/rollback, newer revision invalidation, and filter/sort isolation;
-- component interaction and accessibility: tree keyboard semantics, named status controls, focus retention, valid/invalid drop cues, Move dialog parity, loading/empty/error states, and narrow viewport drawer behavior;
-- performance: bounded query counts for wide/deep fixtures, stable pagination under equal order values, and absence of Page body fetches during navigation;
-- adjacent regression: existing Page links, content editing, lock/access enforcement, favorites, single-Page duplicate, archive management, versions, mentions, collaboration document identity, and export remain intact.
-
-The Tester independently exercises representative requirement paths across administrator/member/private-owner roles and
-inspects observable UI, API, migration, permission, transaction, and responsive behavior rather than relying on implementation
-claims. It records durable, sanitized evidence in `verification.md` because of the migration and authorization risk. If
-acceptance fails, the implementation Agent fixes the affected scope, the primary Agent redeploys affected services, and the
-same Tester rechecks only the failure and necessary adjacent behavior.
+The primary Agent creates a fresh Tester sub-agent that did not participate in implementation. The Tester verifies only the TMLPLANE-7 knowledge-base capability: migration compatibility; root, nested, and direct-link navigation; remembered expansion and child creation; move, drag-and-drop, concurrency, rollback, and invalid-target handling; breadcrumb/search paths and favorites; subtree archive/restore/copy/removal; private-ancestor non-disclosure and tenant isolation; status indicators and All Pages metadata; feature-gate fallback; query bounds for representative broad/deep trees; and responsive/accessibility behavior. Versions, mentions, export, collaboration, editor behavior, and other unrelated Page directions are outside acceptance. The Tester records durable, sanitized evidence in `verification.md` because of the migration and authorization risk. If acceptance fails, the implementation Agent fixes the affected scope and the same Tester rechecks only the failure and directly affected behavior.
 
 ## Risks / Trade-offs
 
@@ -165,15 +149,6 @@ same Tester rechecks only the failure and necessary adjacent behavior.
 - [Rollback after writes loses project placement] -> The first rollback disables the new UI and reads legacy compatibility projections while retaining new ProjectPage columns and data; destructive schema removal is deferred to a later change after the compatibility window.
 
 ## Migration Plan
-
-Production hotfix note: migration `db.0124_project_page_hierarchy` reached shared environments but failed before it
-could be recorded as applied because PostgreSQL attempted deferred index creation while the hierarchy backfill still had
-pending foreign-key trigger events. A later migration cannot repair an earlier migration that cannot complete. As a narrow
-exception to the shared-migration immutability rule, the migration transaction boundary is changed without altering its
-schema, dependency, or data transformation: schema operations run outside one migration-wide transaction, while the
-`RunPython` backfill remains atomic. The project-ID scan also clears model default ordering before `distinct()` so every
-project is processed once rather than once per differently ordered link. Environments where `0124` is already applied do not
-rerun it; failed environments can retry it without partial hierarchy data.
 
 1. Add nullable ProjectPage hierarchy/archive fields, hierarchy state/mutation records, and supporting indexes without removing or changing legacy Page columns.
 2. Backfill every active ProjectPage link. Copy valid Page parent placement only when the parent has an active link in the same project; otherwise place the node at root. Copy legacy order and archive state, detect cycles/depth violations, and deterministically normalize affected sibling order.

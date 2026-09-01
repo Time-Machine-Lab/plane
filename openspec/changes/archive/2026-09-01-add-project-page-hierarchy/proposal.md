@@ -12,7 +12,7 @@ Project Pages are currently presented as a flat collection, which becomes diffic
 - Define inherited page visibility rules: a child may be more restrictive than its ancestors but may not be more visible; inaccessible nodes and path segments are not disclosed.
 - Store parent, sibling order, and project archive state in the project-page relationship so a Page linked to multiple projects can occupy a different location and lifecycle state in each project knowledge base.
 - Migrate existing active project-page links without changing Page IDs, content, ownership, or links: preserve valid same-project legacy nesting and place previously flat or invalid legacy placements at the root.
-- Validate hierarchy invariants, project and permission isolation, migration compatibility, subtree lifecycle behavior, ordering and concurrent mutations, accessible interactions, and adjacent Page regressions through independent test-environment scenarios.
+- Add focused executable coverage for frontend tree and store logic, and independently verify hierarchy migration, authorization, transactions, subtree lifecycle, accessibility, responsive behavior, and rollout controls in the test environment.
 
 ### Non-goals
 
@@ -33,8 +33,8 @@ None.
 
 ## Impact
 
-- `apps/api`: ProjectPage hierarchy schema and migration, hierarchy query and mutation contracts, subtree lifecycle handling, permission enforcement, and search path projection.
-- `apps/web`: Knowledge Base navigation, tree and management views, MobX hierarchy state, drag-and-drop and keyboard-accessible move flows, breadcrumbs, search paths, and responsive behavior.
+- `apps/api`: ProjectPage hierarchy schema and migration, hierarchy query and mutation contracts, subtree lifecycle handling, permission enforcement, search path projection, and API regression tests.
+- `apps/web`: Knowledge Base navigation, tree and management views, MobX hierarchy state, drag-and-drop and keyboard-accessible move flows, breadcrumbs, search paths, responsive behavior, and focused component/store tests.
 - `packages/types`, `packages/services`, `packages/constants`, `packages/utils`, and `packages/i18n`: shared hierarchy contracts, service methods, tree utilities, navigation labels, and localized user-facing text as needed.
 - Existing Page URLs, IDs, content, versions, favorites, and project links remain compatible. Existing links become root nodes during migration; rollback must not destroy hierarchy data before the compatibility window is complete.
 - Authorization and tenant isolation are high-risk boundaries: every hierarchy read and mutation remains scoped to an active ProjectPage link in the requested workspace and project, and unauthorized ancestor metadata must not be exposed.
