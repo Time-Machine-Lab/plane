@@ -20,11 +20,12 @@ export function AttachmentNodeView({ extension, node, updateAttributes, editor }
 
   useEffect(() => {
     const file = extension.storage.fileMap.get(id);
-    if (!assetId && status === "pending" && file && extension.options.uploadAsset) {
+    const uploadAsset = extension.options.uploadAsset;
+    if (!assetId && status === "pending" && file && uploadAsset) {
       updateAttributes({ status: "uploading", name: file.name, mimeType: file.type || mimeType, size: file.size });
       const upload = async () => {
         try {
-          const uploadedId = await extension.options.uploadAsset(id, file);
+          const uploadedId = await uploadAsset(id, file);
           updateAttributes({ assetId: uploadedId, src: uploadedId, status: "ready" });
           extension.storage.fileMap.delete(id);
         } catch {
