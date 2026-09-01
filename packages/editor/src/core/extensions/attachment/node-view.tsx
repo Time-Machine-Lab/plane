@@ -6,13 +6,32 @@ import type { AttachmentExtensionType, TAttachmentAttributes } from "./types";
 
 type Props = Omit<NodeViewProps, "extension"> & { extension: AttachmentExtensionType };
 
+const EXTENSION_MIME_TYPES: Record<string, string> = {
+  canvas: "application/json",
+  htm: "text/html",
+  html: "text/html",
+  markdown: "text/markdown",
+  md: "text/markdown",
+  mp3: "audio/mpeg",
+  mp4: "video/mp4",
+  pdf: "application/pdf",
+  txt: "text/plain",
+};
+
+const getCanonicalMimeType = (name: string, declaredType?: string) => {
+  const normalizedType = (declaredType ?? "").split(";", 1)[0].trim().toLowerCase();
+  if (normalizedType && normalizedType !== "application/octet-stream") return normalizedType;
+  const extension = name.split(".").pop()?.toLowerCase() ?? "";
+  return EXTENSION_MIME_TYPES[extension] ?? (normalizedType || "application/octet-stream");
+};
+
 export function AttachmentNodeView({ extension, node, updateAttributes, editor }: Props) {
   const attributes = node.attrs as TAttachmentAttributes;
   const { id, assetId, name, mimeType, size, status } = attributes;
   const [previewUrl, setPreviewUrl] = useState<string>();
   const [downloadUrl, setDownloadUrl] = useState<string>();
   const [textContent, setTextContent] = useState<string>();
-  const [htmlLaunched, setHtmlLaunched] = useState(false);
+  const [htmlLaunched, setHtmlLaunched] = useState(true);
   const [showHtmlSource, setShowHtmlSource] = useState(false);
   const [canvasScale, setCanvasScale] = useState(1);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -22,7 +41,12 @@ export function AttachmentNodeView({ extension, node, updateAttributes, editor }
     const file = extension.storage.fileMap.get(id);
     const uploadAsset = extension.options.uploadAsset;
     if (!assetId && status === "pending" && file && uploadAsset) {
-      updateAttributes({ status: "uploading", name: file.name, mimeType: file.type || mimeType, size: file.size });
+      updateAttributes({
+        status: "uploading",
+        name: file.name,
+        mimeType: getCanonicalMimeType(file.name, file.type || mimeType),
+        size: file.size,
+      });
       const upload = async () => {
         try {
           const uploadedId = await uploadAsset(id, file);
@@ -222,7 +246,7 @@ export function AttachmentNodeView({ extension, node, updateAttributes, editor }
               extension.storage.fileMap.set(id, file);
               updateAttributes({
                 name: file.name,
-                mimeType: file.type || "application/octet-stream",
+                mimeType: getCanonicalMimeType(file.name, file.type),
                 size: file.size,
                 status: "uploading",
               });
@@ -325,11 +349,8 @@ export function AttachmentNodeView({ extension, node, updateAttributes, editor }
           </div>
         </div>
       )}
-      {isHtml && textContent && !htmlLaunched && (
+      {isHtml && textContent && (
         <div className="mt-2 flex gap-3">
-          <button type="button" onClick={() => setHtmlLaunched(true)} className="text-sm text-link-primary">
-            Open interactive preview
-          </button>
           <button
             type="button"
             onClick={() => setShowHtmlSource((value) => !value)}
@@ -337,6 +358,16 @@ export function AttachmentNodeView({ extension, node, updateAttributes, editor }
           >
             {showHtmlSource ? "Hide source" : "View source"}
           </button>
+          {htmlLaunched && (
+            <button type="button" onClick={() => setHtmlLaunched(false)} className="text-sm text-link-primary">
+              Stop
+            </button>
+          )}
+          {!htmlLaunched && (
+            <button type="button" onClick={() => setHtmlLaunched(true)} className="text-sm text-link-primary">
+              Open interactive preview
+            </button>
+          )}
         </div>
       )}
       {isHtml && showHtmlSource && (

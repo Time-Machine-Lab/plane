@@ -11,6 +11,14 @@ import { ACCEPTED_ATTACHMENT_MIME_TYPES, ACCEPTED_IMAGE_MIME_TYPES } from "@/con
 // types
 import type { TEditorCommands, TExtensions } from "@/types";
 
+const ATTACHMENT_EXTENSIONS = new Set(["txt", "md", "markdown", "pdf", "html", "htm", "canvas", "mp4", "mp3"]);
+
+const isAcceptedAttachmentFile = (file: File) => {
+  if (ACCEPTED_IMAGE_MIME_TYPES.includes(file.type) || ACCEPTED_ATTACHMENT_MIME_TYPES.includes(file.type)) return true;
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return ATTACHMENT_EXTENSIONS.has(extension ?? "");
+};
+
 type Props = {
   disabledExtensions?: TExtensions[];
   flaggedExtensions?: TExtensions[];
@@ -32,9 +40,7 @@ export const DropHandlerPlugin = (props: Props): Plugin => {
         ) {
           event.preventDefault();
           const files = Array.from(event.clipboardData.files);
-          const acceptedFiles = files.filter(
-            (f) => ACCEPTED_IMAGE_MIME_TYPES.includes(f.type) || ACCEPTED_ATTACHMENT_MIME_TYPES.includes(f.type)
-          );
+          const acceptedFiles = files.filter(isAcceptedAttachmentFile);
 
           if (acceptedFiles.length) {
             const pos = view.state.selection.from;
@@ -61,9 +67,7 @@ export const DropHandlerPlugin = (props: Props): Plugin => {
         ) {
           event.preventDefault();
           const files = Array.from(event.dataTransfer.files);
-          const acceptedFiles = files.filter(
-            (f) => ACCEPTED_IMAGE_MIME_TYPES.includes(f.type) || ACCEPTED_ATTACHMENT_MIME_TYPES.includes(f.type)
-          );
+          const acceptedFiles = files.filter(isAcceptedAttachmentFile);
 
           if (acceptedFiles.length) {
             const coordinates = view.posAtCoords({
@@ -117,7 +121,7 @@ export const insertFilesSafely = async (args: InsertFilesSafelyArgs) => {
         else throw new Error("Wrong file type passed");
       } else {
         if (ACCEPTED_IMAGE_MIME_TYPES.includes(file.type)) fileType = "image";
-        else if (ACCEPTED_ATTACHMENT_MIME_TYPES.includes(file.type)) fileType = "attachment";
+        else if (isAcceptedAttachmentFile(file)) fileType = "attachment";
       }
       // insert file depending on the type at the current position
       if (fileType === "image" && !disabledExtensions?.includes("image")) {

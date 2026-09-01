@@ -26,7 +26,7 @@ export function PageAttachmentPreview({
   size = 0,
 }: PageAttachmentPreviewProps) {
   const [text, setText] = useState<string>();
-  const [htmlLaunched, setHtmlLaunched] = useState(false);
+  const [htmlLaunched, setHtmlLaunched] = useState(true);
   const [error, setError] = useState<string>();
   const isText = mimeType === "text/plain" || mimeType === "text/markdown";
   const isHtml = mimeType === "text/html" || mimeType === "application/xhtml+xml" || /\.html?$/i.test(name);
@@ -74,39 +74,52 @@ export function PageAttachmentPreview({
   }, [isCanvas, text]);
 
   if (error) return <AttachmentFallback name={name} downloadUrl={downloadUrl} message={error} />;
-  if (isHtml) {
-    if (!htmlLaunched)
-      return (
-        <AttachmentFallback
-          name={name}
-          downloadUrl={downloadUrl}
-          message="Interactive HTML preview"
-          action={
-            <button type="button" onClick={() => setHtmlLaunched(true)} className="text-link-primary">
-              Open preview
-            </button>
-          }
-        />
-      );
+  if (isHtml && text !== undefined && htmlLaunched) {
     return (
-      <div className="relative h-[min(70vh,640px)] min-h-64 overflow-hidden rounded border border-subtle">
-        <iframe
-          title={name}
-          srcDoc={isolatedHtml(text ?? "")}
-          sandbox="allow-scripts"
-          referrerPolicy="no-referrer"
-          className="h-full w-full"
-        />
-        <button
-          type="button"
-          onClick={() => setHtmlLaunched(false)}
-          className="text-xs absolute top-2 right-2 rounded bg-layer-2 px-2 py-1"
-        >
-          Stop
-        </button>
+      <div>
+        <div className="relative h-[min(70vh,640px)] min-h-64 overflow-hidden rounded border border-subtle">
+          <iframe
+            title={name}
+            srcDoc={isolatedHtml(text)}
+            sandbox="allow-scripts"
+            referrerPolicy="no-referrer"
+            className="h-full w-full"
+          />
+        </div>
+        <div className="mt-2 flex items-center gap-3">
+          {downloadUrl && (
+            <a href={downloadUrl} download={name} className="text-sm text-link-primary">
+              Download
+            </a>
+          )}
+          <button type="button" onClick={() => setHtmlLaunched(false)} className="text-sm text-link-primary">
+            Stop
+          </button>
+        </div>
       </div>
     );
   }
+  if (isHtml && text !== undefined)
+    return (
+      <AttachmentFallback
+        name={name}
+        downloadUrl={downloadUrl}
+        message="Interactive HTML preview"
+        action={
+          <button type="button" onClick={() => setHtmlLaunched(true)} className="text-link-primary">
+            Open preview
+          </button>
+        }
+      />
+    );
+  if (isHtml)
+    return (
+      <AttachmentFallback
+        name={name}
+        downloadUrl={downloadUrl}
+        message={sourceUrl ? "Interactive HTML preview" : "Preview unavailable"}
+      />
+    );
   if (isText && text !== undefined)
     return <pre className="text-sm max-h-96 overflow-auto rounded bg-layer-2 p-3 whitespace-pre-wrap">{text}</pre>;
   if (isCanvas && canvas)
