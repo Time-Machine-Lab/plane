@@ -165,7 +165,7 @@ export const KnowledgeBaseManagementView = observer(function KnowledgeBaseManage
           <option value="created_at">{t("project.project_view.sort_by.created_at")}</option>
           <option value="name">{t("common.name")}</option>
           <option value="depth">{t("wiki_collections.list.columns.nested_pages")}</option>
-          <option value="path">{t("common.knowledge_base")}</option>
+          <option value="path">{t("knowledge_base")}</option>
         </select>
         <button
           type="button"

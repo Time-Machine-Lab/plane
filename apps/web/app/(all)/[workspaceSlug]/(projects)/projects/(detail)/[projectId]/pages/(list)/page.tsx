@@ -55,7 +55,7 @@ function ProjectPagesPage({ params }: Route.ComponentProps) {
   const project = getProjectById(projectId);
   const isHierarchyEnabled = instanceConfig?.is_project_page_hierarchy_enabled !== false;
   const pageTitle = project?.name
-    ? `${project?.name} - ${t(isHierarchyEnabled ? "common.knowledge_base" : "common.pages")}`
+    ? `${project?.name} - ${t(isHierarchyEnabled ? "knowledge_base" : "common.pages")}`
     : undefined;
   const canPerformEmptyStateActions = allowPermissions([EUserProjectRoles.ADMIN], EUserPermissionsLevel.PROJECT);
   const resolvedPath = resolvedTheme === "light" ? lightPagesAsset : darkPagesAsset;

@@ -344,9 +344,9 @@ export const KnowledgeBaseTree = observer(function KnowledgeBaseTree() {
     : new Set<string>();
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-surface-1" aria-label={t("common.knowledge_base")}>
+    <div className="flex h-full min-h-0 flex-col bg-surface-1" aria-label={t("knowledge_base")}>
       <div className="flex h-11 shrink-0 items-center justify-between border-b border-subtle px-3">
-        <h1 className="truncate text-14 font-medium">{t("common.knowledge_base")}</h1>
+        <h1 className="truncate text-14 font-medium">{t("knowledge_base")}</h1>
         <div className="flex items-center">
           <button
             type="button"
@@ -406,7 +406,7 @@ export const KnowledgeBaseTree = observer(function KnowledgeBaseTree() {
         {rootState === "loaded" && visibleHierarchyRows.length === 0 && (
           <div className="px-3 py-4 text-13 text-tertiary">{t("wiki_collections.list.no_pages_title")}</div>
         )}
-        <div role="tree" aria-label={t("common.knowledge_base")}>
+        <div role="tree" aria-label={t("knowledge_base")}>
           {visibleHierarchyRows.map((row, index) => (
             <Fragment key={row.id}>
               <KnowledgeBaseTreeRow

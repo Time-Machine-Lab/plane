@@ -72,7 +72,7 @@ export const PagesListHeader = observer(function PagesListHeader() {
             component={
               <BreadcrumbLink
                 label={t(
-                  instanceConfig?.is_project_page_hierarchy_enabled !== false ? "common.knowledge_base" : "common.pages"
+                  instanceConfig?.is_project_page_hierarchy_enabled !== false ? "knowledge_base" : "common.pages"
                 )}
                 href={`/${workspaceSlug}/projects/${currentProjectDetails?.id}/pages/`}
                 icon={<PageIcon className="h-4 w-4 text-tertiary" />}

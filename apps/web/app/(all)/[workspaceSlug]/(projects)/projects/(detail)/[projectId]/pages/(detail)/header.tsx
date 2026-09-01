@@ -83,7 +83,7 @@ export const PageDetailsHeader = observer(function PageDetailsHeader() {
             <Breadcrumbs.Item
               component={
                 <BreadcrumbLink
-                  label={t(isHierarchyEnabled ? "common.knowledge_base" : "common.pages")}
+                  label={t(isHierarchyEnabled ? "knowledge_base" : "common.pages")}
                   href={`/${workspaceSlug}/projects/${projectId}/pages/`}
                   icon={<PageIcon className="h-4 w-4 text-tertiary" />}
                 />

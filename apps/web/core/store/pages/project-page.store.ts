@@ -517,7 +517,16 @@ export class ProjectPageStore implements IProjectPageStore {
     if (!workspaceSlug || !projectId) return Promise.resolve();
     const branchKey = parentId ?? PAGE_HIERARCHY_ROOT;
     const pendingRequest = this.hierarchyBranchRequests.get(branchKey);
-    if (pendingRequest) return pendingRequest;
+    if (pendingRequest) {
+      // A forced refresh must run after an in-flight request. Otherwise its older
+      // response can overwrite an optimistic create or move made meanwhile.
+      return force
+        ? pendingRequest.then(
+            () => this.fetchHierarchyBranch(parentId, true),
+            () => this.fetchHierarchyBranch(parentId, true)
+          )
+        : pendingRequest;
+    }
     if (!force && this.hierarchyBranchState[branchKey] === "loaded") return Promise.resolve();
 
     const request = (async () => {
@@ -635,7 +644,10 @@ export class ProjectPageStore implements IProjectPageStore {
         }
       });
       const branchesToRefresh = new Set<string | null>();
-      if (snapshot.oldParentKey !== snapshot.newParentKey) branchesToRefresh.add(snapshot.node.parent_id);
+      if (snapshot.oldParentKey !== snapshot.newParentKey) {
+        branchesToRefresh.add(snapshot.node.parent_id);
+        branchesToRefresh.add(payload.parent_id);
+      }
       if (result.revision > submittedRevision + 1) {
         branchesToRefresh.add(snapshot.node.parent_id);
         branchesToRefresh.add(payload.parent_id);

@@ -27,7 +27,6 @@ export function MovePageDialog(props: Props) {
   const { t } = useTranslation();
   const loadErrorMessage = t("wiki_collections.add_existing_page_modal.error_message");
   const searchInputRef = useRef<HTMLInputElement | null>(null);
-  const initialNodesRef = useRef(nodes);
   const [query, setQuery] = useState("");
   const [parentId, setParentId] = useState<string | null | undefined>(undefined);
   const [moving, setMoving] = useState(false);
@@ -53,7 +52,6 @@ export function MovePageDialog(props: Props) {
     const sequence = ++searchSequence.current;
     setError(null);
     if (!query.trim()) {
-      setDestinationNodes(initialNodesRef.current);
       setLoadingDestinations(false);
       return;
     }
@@ -76,6 +74,10 @@ export function MovePageDialog(props: Props) {
       if (searchSequence.current === sequence) searchSequence.current += 1;
     };
   }, [loadErrorMessage, onSearch, query]);
+
+  useEffect(() => {
+    if (query.trim() === "") setDestinationNodes(nodes);
+  }, [nodes, query]);
 
   useEffect(() => {
     if (!onSearch) {
@@ -189,7 +191,7 @@ export function MovePageDialog(props: Props) {
                 className="flex h-9 w-full items-center gap-2 rounded px-2 text-left text-13 hover:bg-layer-1 disabled:opacity-50"
               >
                 <PageIcon className="size-4" />
-                <span className="min-w-0 flex-1 truncate">{t("common.knowledge_base")}</span>
+                <span className="min-w-0 flex-1 truncate">{t("knowledge_base")}</span>
                 {parentId === null && <Check className="size-4 text-accent-primary" />}
               </button>
               {loadingDestinations && <div className="px-2 py-3 text-12 text-tertiary">{t("common.loading")}</div>}

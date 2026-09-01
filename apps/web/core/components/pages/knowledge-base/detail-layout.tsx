@@ -22,8 +22,8 @@ export function KnowledgeBaseDetailLayout({ children }: { children: React.ReactN
           type="button"
           onClick={() => setDrawerOpen(true)}
           className="shadow-sm focus-visible:ring-accent absolute top-2 left-2 z-20 grid size-9 place-items-center rounded border border-subtle bg-surface-1 focus-visible:ring-2 lg:hidden"
-          title={t("common.knowledge_base")}
-          aria-label={t("common.knowledge_base")}
+          title={t("knowledge_base")}
+          aria-label={t("knowledge_base")}
         >
           <PanelLeft className="size-4" />
         </button>
