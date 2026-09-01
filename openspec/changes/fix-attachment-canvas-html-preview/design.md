@@ -10,6 +10,7 @@ HTML source is fetched through the authorized preview endpoint. The existing ifr
 - Continue sending the original `File` to the upload service; `getFileMetaDataForUpload` remains authoritative for extension fallback and returns `application/json` for `.canvas`.
 - Initialize HTML preview state as active in both PageAttachmentPreview and the editor attachment node view. The node view keeps source controls available while the iframe is active and keeps Download in the attachment metadata row.
 - If source loading fails or exceeds the bounded preview limit, render the existing download fallback instead of an empty iframe.
+- When constructing a direct-to-object-storage multipart payload, use the signed `Content-Type` for the file part. This keeps browser-reported generic MIME values (notably `.canvas`) aligned with the server's signed POST policy.
 
 ## Compatibility and Security
 

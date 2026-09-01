@@ -2,6 +2,7 @@
 
 - [x] 1.1 Add extension-aware attachment filtering for drag and paste, including `.canvas` with empty or generic browser MIME values.
 - [x] 1.2 Preserve canonical `.canvas` metadata through the existing upload helper and verify the attachment node receives the resolved type.
+- [x] 1.3 Align the multipart file-part MIME with the signed upload policy for generic browser MIME values.
 
 ## 2. HTML attachment presentation
 

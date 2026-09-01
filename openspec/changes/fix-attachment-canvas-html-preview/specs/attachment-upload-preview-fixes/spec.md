@@ -10,6 +10,12 @@ The editor MUST accept a file for attachment insertion when its MIME type is emp
 - **THEN** the editor inserts an attachment node and starts the normal upload flow
 - **AND** the upload metadata resolves the canonical type as `application/json`
 
+#### Scenario: Upload a Canvas file with a generic browser MIME
+
+- **WHEN** the server signs a `.canvas` upload as `application/json` and the browser reports the source file as `application/octet-stream`
+- **THEN** the multipart file part uses the signed `application/json` type
+- **AND** the object-storage POST policy accepts the upload for finalization
+
 ### Requirement: Default inline HTML preview
 
 An uploaded HTML attachment MUST render its bounded source in the existing isolated interactive preview without requiring an initial Open action.

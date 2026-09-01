@@ -57,8 +57,14 @@ const validateFilename = (filename: string): string | null => {
  */
 export const generateFileUploadPayload = (signedURLResponse: TFileSignedURLResponse, file: File): FormData => {
   const formData = new FormData();
-  Object.entries(signedURLResponse.upload_data.fields).forEach(([key, value]) => formData.append(key, value));
-  formData.append("file", file);
+  const fields = signedURLResponse.upload_data.fields;
+  Object.entries(fields).forEach(([key, value]) => formData.append(key, value));
+
+  // S3-compatible POST policies compare the multipart file part's MIME to the signed field.
+  // Browsers commonly report `.canvas` as application/octet-stream, while the server signs it as JSON.
+  const signedContentType = fields["Content-Type"]?.trim();
+  const filePart = signedContentType ? new Blob([file], { type: signedContentType }) : file;
+  formData.append("file", filePart, file.name);
   return formData;
 };
 

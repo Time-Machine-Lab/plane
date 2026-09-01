@@ -28,3 +28,9 @@ Evidence:
 Evidence:
 
 - `.runtime/test/AI-TEST-canvas-html-final.png`
+
+## Production follow-up diagnosis
+
+- After the storage profile was activated, a fresh production Canvas upload still failed while the card correctly displayed `application/json`.
+- The signed POST policy uses `application/json`, but the browser's original `.canvas` `File` can retain `application/octet-stream` as its multipart part MIME. The shared upload helper now uses the signed `Content-Type` when building that part.
+- A fresh deployment and independent production recheck are required for this follow-up fix.
