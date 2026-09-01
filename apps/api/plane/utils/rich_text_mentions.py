@@ -15,6 +15,11 @@ from plane.utils.uuid import is_valid_uuid
 MENTION_TAG = "mention-component"
 USER_MENTION_ENTITY = "user_mention"
 EXCERPT_BLOCK_TAGS = ("p", "li", "blockquote", "h1", "h2", "h3", "h4", "h5", "h6")
+DISCORD_URL_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9_])https?://[^\s<>\[\]{}\"\u3001\u3002\uff0c\uff01\uff1f\uff1b\uff1a\u300d\u300f\u3009\u300b\u3011\u301b]+",
+    re.IGNORECASE,
+)
+DISCORD_MARKDOWN_ESCAPE_PATTERN = re.compile(r"([\\`*_{}\[\]()<>#+\-.!|~])")
 
 
 def _rich_text_html(value: Any, field: str | None = None) -> str:
@@ -60,7 +65,31 @@ def get_removed_user_mentions(new_value: Any, old_value: Any, *, field: str | No
 
 
 def escape_discord_markdown(value: str) -> str:
-    return re.sub(r"([\\`*_{}\[\]()<>#+\-.!|~])", r"\\\1", value)
+    escaped_parts: list[str] = []
+    last_end = 0
+    for match in DISCORD_URL_PATTERN.finditer(value):
+        escaped_parts.append(_escape_discord_markdown_segment(value[last_end : match.start()]))
+        escaped_parts.append(match.group(0))
+        last_end = match.end()
+    escaped_parts.append(_escape_discord_markdown_segment(value[last_end:]))
+    return "".join(escaped_parts)
+
+
+def _escape_discord_markdown_segment(value: str) -> str:
+    return DISCORD_MARKDOWN_ESCAPE_PATTERN.sub(r"\\\1", value)
+
+
+def _truncate_discord_excerpt(escaped: str, limit: int) -> str:
+    target_length = limit - 1
+    cutoff = target_length
+    for match in DISCORD_URL_PATTERN.finditer(escaped):
+        if match.start() < target_length < match.end():
+            cutoff = match.start()
+            break
+    output = escaped[:cutoff]
+    if output.endswith("\\"):
+        output = output[:-1]
+    return f"{output}…"
 
 
 def _replace_rich_components(soup: BeautifulSoup, display_names: Mapping[str, str]) -> None:
@@ -113,7 +142,7 @@ def build_safe_rich_text_excerpt(
     escaped = escape_discord_markdown(plain_text)
     if len(escaped) <= limit:
         return escaped
-    return f"{escaped[: limit - 1]}…"
+    return _truncate_discord_excerpt(escaped, limit)
 
 
 @dataclass(frozen=True)
