@@ -135,7 +135,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment: production
     env:
-      # Production runs on the K3s cluster (k3s.seasonschange.cn), namespace plane.
+      # Production runs on the K3s cluster (k3s.tmlab.top), namespace plane.
       # KUBE_CONFIG is a kubeconfig for the namespace-scoped ServiceAccount plane/ci-deployer.
       NAMESPACE: plane
       VERSION: ${{ needs.prepare.outputs.version }}

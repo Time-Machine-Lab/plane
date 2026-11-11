@@ -1,4 +1,4 @@
-# Plane on the K3s cluster (k3s.seasonschange.cn), namespace `plane`.
+# Plane on the K3s cluster (k3s.tmlab.top), namespace `plane`.
 # Applied by .github/workflows/release-deploy.yml with __DOCKER_USERNAME__ and __VERSION__ substituted.
 #
 # Pre-created in the cluster (not in git): namespace `plane` and the Secrets
