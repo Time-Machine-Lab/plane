@@ -1,5 +1,22 @@
 # Production deployment
 
+> **Since 2026-11-11 production runs on the K3s cluster, not on the Docker host.**
+> Manifests: `deployments/k3s/` (namespace `plane`). PostgreSQL is the shared CloudNativePG
+> cluster `pg-main` (database `plane`); MinIO data is in PVC `plane-minio-data`.
+> On a release tag, `.github/workflows/release-deploy.yml` builds the images, then with the
+> repository secret `KUBE_CONFIG` (ServiceAccount `plane/ci-deployer`):
+> 1. dumps the database into PVC `plane-predeploy-backups` (last 5 kept),
+> 2. runs the migrator Job,
+> 3. applies `deployments/k3s/plane.yaml` with the new tag and waits for every Deployment,
+>    running `kubectl rollout undo` on all application Deployments if any fails,
+> 4. checks `https://plane.tmlab.top`.
+>
+> Nginx on 207.57.124.102 still terminates TLS and proxies to Traefik. The rest of this document,
+> `deploy.sh`, `preflight.sh` and the compose override describe the previous Docker setup and are
+> kept for reference only; the Deployment Preflight workflow still targets that host.
+
+## Previous Docker setup
+
 The release workflow deploys Plane behind a host-managed Nginx reverse proxy:
 
 ```text

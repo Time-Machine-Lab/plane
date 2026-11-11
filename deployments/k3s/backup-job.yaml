@@ -1,0 +1,34 @@
+# Pre-release pg_dump of the `plane` database into PVC plane-predeploy-backups (last 5 kept).
+# Migrations are not reversible, so CI runs this before the migrator. The cluster also takes a
+# daily dump of every pg-main database (database/pg-main-dump CronJob).
+apiVersion: batch/v1
+kind: Job
+metadata: {name: plane-predeploy-backup, namespace: plane}
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      securityContext: {fsGroup: 26}
+      containers:
+        - name: dump
+          image: ghcr.io/cloudnative-pg/postgresql:17-standard-trixie
+          command: ["/bin/bash", "-c"]
+          args:
+            - |
+              set -euo pipefail
+              f="/backup/plane-$(date -u +%Y%m%dT%H%M%SZ)-before-__VERSION__.dump"
+              pg_dump "$DATABASE_URL" -Fc -f "$f"
+              ls -la "$f"
+              ls -1t /backup/*.dump | tail -n +6 | xargs -r rm -f
+          env:
+            - name: DATABASE_URL
+              valueFrom: {secretKeyRef: {name: plane-app-env, key: DATABASE_URL}}
+          resources: {requests: {cpu: 50m, memory: 64Mi}, limits: {memory: 512Mi}}
+          volumeMounts: [{name: backup, mountPath: /backup}]
+      volumes:
+        - name: backup
+          persistentVolumeClaim: {claimName: plane-predeploy-backups}

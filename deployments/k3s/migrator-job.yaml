@@ -1,0 +1,20 @@
+# Runs Django migrations before the new release starts. Recreated by CI on every release.
+apiVersion: batch/v1
+kind: Job
+metadata: {name: plane-migrator, namespace: plane}
+spec:
+  backoffLimit: 2
+  template:
+    spec:
+      restartPolicy: Never
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      containers:
+        - name: migrator
+          image: docker.io/__DOCKER_USERNAME__/plane-api:__VERSION__
+          args: ["./bin/docker-entrypoint-migrator.sh"]
+          envFrom: [{secretRef: {name: plane-app-env}}]
+          resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {memory: 1Gi}}
+          volumeMounts: [{name: logs, mountPath: /code/plane/logs}]
+      volumes: [{name: logs, emptyDir: {}}]
