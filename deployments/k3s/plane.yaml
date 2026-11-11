@@ -1,0 +1,395 @@
+# Plane on the K3s cluster (k3s.seasonschange.cn), namespace `plane`.
+# Applied by .github/workflows/release-deploy.yml with __DOCKER_USERNAME__ and __VERSION__ substituted.
+#
+# Pre-created in the cluster (not in git): namespace `plane` and the Secrets
+#   plane-app-env (api/worker/beat-worker/migrator), plane-live-env, plane-mcp-env,
+#   plane-proxy-env, plane-minio-env, plane-mq-env.
+# PostgreSQL is the shared CloudNativePG cluster pg-main (database `plane`); `plane-db` is an
+# ExternalName alias so DATABASE_URL/PGHOST keep their compose-era host name.
+# Stateful pieces (Valkey, RabbitMQ, MinIO, backend) are pinned to the node labelled role=legacy.
+# MinIO uses a locally imported image (imagePullPolicy: Never) because minio/minio no longer
+# publishes pullable tags on Docker Hub.
+apiVersion: v1
+kind: Service
+metadata: {name: plane-db, namespace: plane}
+spec:
+  type: ExternalName
+  externalName: pg-main-rw.database.svc.cluster.local
+  ports: [{port: 5432}]
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: plane-minio-data, namespace: plane}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: {requests: {storage: 5Gi}}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: plane-mq-data, namespace: plane}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: {requests: {storage: 1Gi}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: plane-redis, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: plane-redis}}
+  template:
+    metadata: {labels: {app: plane-redis}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      containers:
+        - name: plane-redis
+          image: docker.io/valkey/valkey:7.2.11-alpine
+          ports: [{containerPort: 6379}]
+          resources: {requests: {cpu: 20m, memory: 16Mi}, limits: {memory: 256Mi}}
+          readinessProbe: {tcpSocket: {port: 6379}, initialDelaySeconds: 2, periodSeconds: 10}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: plane-mq, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: plane-mq}}
+  template:
+    metadata: {labels: {app: plane-mq}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      containers:
+        - name: plane-mq
+          image: docker.io/library/rabbitmq:3.13.6-management-alpine
+          ports: [{containerPort: 5672}]
+          envFrom: [{secretRef: {name: plane-mq-env}}]
+          env:
+            - {name: RABBITMQ_NODENAME, value: rabbit@localhost}
+          resources: {requests: {cpu: 20m, memory: 128Mi}, limits: {memory: 512Mi}}
+          readinessProbe: {tcpSocket: {port: 5672}, initialDelaySeconds: 15, periodSeconds: 10}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/rabbitmq}
+      volumes:
+        - {name: data, persistentVolumeClaim: {claimName: plane-mq-data}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: plane-minio, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: plane-minio}}
+  template:
+    metadata: {labels: {app: plane-minio}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      containers:
+        - name: plane-minio
+          image: docker.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+          imagePullPolicy: Never
+          args: ["server","/export","--console-address",":9090"]
+          ports: [{containerPort: 9000}]
+          envFrom: [{secretRef: {name: plane-minio-env}}]
+          resources: {requests: {cpu: 20m, memory: 128Mi}, limits: {memory: 512Mi}}
+          readinessProbe: {tcpSocket: {port: 9000}, initialDelaySeconds: 5, periodSeconds: 10}
+          volumeMounts:
+            - {name: data, mountPath: /export}
+      volumes:
+        - {name: data, persistentVolumeClaim: {claimName: plane-minio-data}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: api, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: api}}
+  template:
+    metadata: {labels: {app: api}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      containers:
+        - name: api
+          image: docker.io/__DOCKER_USERNAME__/plane-api:__VERSION__
+          args: ["./bin/docker-entrypoint-api.sh"]
+          ports: [{containerPort: 8000}]
+          envFrom: [{secretRef: {name: plane-app-env}}]
+          resources: {requests: {cpu: 20m, memory: 256Mi}, limits: {memory: 1536Mi}}
+          readinessProbe: {tcpSocket: {port: 8000}, initialDelaySeconds: 20, periodSeconds: 10}
+          volumeMounts:
+            - {name: logs, mountPath: /code/plane/logs}
+      volumes:
+        - {name: logs, emptyDir: {}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: worker, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: worker}}
+  template:
+    metadata: {labels: {app: worker}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      containers:
+        - name: worker
+          image: docker.io/__DOCKER_USERNAME__/plane-api:__VERSION__
+          args: ["./bin/docker-entrypoint-worker.sh"]
+          envFrom: [{secretRef: {name: plane-app-env}}]
+          resources: {requests: {cpu: 20m, memory: 256Mi}, limits: {memory: 1536Mi}}
+          volumeMounts:
+            - {name: logs, mountPath: /code/plane/logs}
+      volumes:
+        - {name: logs, emptyDir: {}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: beat-worker, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: beat-worker}}
+  template:
+    metadata: {labels: {app: beat-worker}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      nodeSelector: {role: legacy}
+      containers:
+        - name: beat-worker
+          image: docker.io/__DOCKER_USERNAME__/plane-api:__VERSION__
+          args: ["./bin/docker-entrypoint-beat.sh"]
+          envFrom: [{secretRef: {name: plane-app-env}}]
+          resources: {requests: {cpu: 20m, memory: 96Mi}, limits: {memory: 1536Mi}}
+          volumeMounts:
+            - {name: logs, mountPath: /code/plane/logs}
+      volumes:
+        - {name: logs, emptyDir: {}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: web, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: web}}
+  template:
+    metadata: {labels: {app: web}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: web
+          image: docker.io/__DOCKER_USERNAME__/plane-web:__VERSION__
+          ports: [{containerPort: 3000}]
+          resources: {requests: {cpu: 20m, memory: 16Mi}, limits: {memory: 256Mi}}
+          readinessProbe: {tcpSocket: {port: 3000}, initialDelaySeconds: 3, periodSeconds: 10}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: admin, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: admin}}
+  template:
+    metadata: {labels: {app: admin}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: admin
+          image: docker.io/__DOCKER_USERNAME__/plane-admin:__VERSION__
+          ports: [{containerPort: 3000}]
+          resources: {requests: {cpu: 20m, memory: 16Mi}, limits: {memory: 256Mi}}
+          readinessProbe: {tcpSocket: {port: 3000}, initialDelaySeconds: 3, periodSeconds: 10}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: space, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: space}}
+  template:
+    metadata: {labels: {app: space}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: space
+          image: docker.io/__DOCKER_USERNAME__/plane-space:__VERSION__
+          ports: [{containerPort: 3000}]
+          resources: {requests: {cpu: 20m, memory: 96Mi}, limits: {memory: 512Mi}}
+          readinessProbe: {tcpSocket: {port: 3000}, initialDelaySeconds: 5, periodSeconds: 10}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: live, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: live}}
+  template:
+    metadata: {labels: {app: live}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: live
+          image: docker.io/__DOCKER_USERNAME__/plane-live:__VERSION__
+          ports: [{containerPort: 3000}]
+          envFrom: [{secretRef: {name: plane-live-env}}]
+          resources: {requests: {cpu: 20m, memory: 128Mi}, limits: {memory: 512Mi}}
+          readinessProbe: {tcpSocket: {port: 3000}, initialDelaySeconds: 5, periodSeconds: 10}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: mcp, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: mcp}}
+  template:
+    metadata: {labels: {app: mcp}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: mcp
+          image: docker.io/__DOCKER_USERNAME__/plane-mcp:__VERSION__
+          ports: [{containerPort: 3100}]
+          envFrom: [{secretRef: {name: plane-mcp-env}}]
+          resources: {requests: {cpu: 20m, memory: 48Mi}, limits: {memory: 256Mi}}
+          readinessProbe: {tcpSocket: {port: 3100}, initialDelaySeconds: 5, periodSeconds: 10}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: proxy, namespace: plane}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: proxy}}
+  template:
+    metadata: {labels: {app: proxy}}
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: proxy
+          image: docker.io/__DOCKER_USERNAME__/plane-proxy:__VERSION__
+          ports: [{containerPort: 80}]
+          envFrom: [{secretRef: {name: plane-proxy-env}}]
+          resources: {requests: {cpu: 20m, memory: 32Mi}, limits: {memory: 256Mi}}
+          readinessProbe: {tcpSocket: {port: 80}, initialDelaySeconds: 3, periodSeconds: 10}
+          volumeMounts:
+            - {name: config, mountPath: /config}
+            - {name: data, mountPath: /data}
+      volumes:
+        - {name: config, emptyDir: {}}
+        - {name: data, emptyDir: {}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: plane-redis, namespace: plane}
+spec:
+  selector: {app: plane-redis}
+  ports: [{port: 6379, targetPort: 6379}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: plane-mq, namespace: plane}
+spec:
+  selector: {app: plane-mq}
+  ports: [{port: 5672, targetPort: 5672}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: plane-minio, namespace: plane}
+spec:
+  selector: {app: plane-minio}
+  ports: [{port: 9000, targetPort: 9000}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: api, namespace: plane}
+spec:
+  selector: {app: api}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: web, namespace: plane}
+spec:
+  selector: {app: web}
+  ports: [{port: 3000, targetPort: 3000}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: admin, namespace: plane}
+spec:
+  selector: {app: admin}
+  ports: [{port: 3000, targetPort: 3000}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: space, namespace: plane}
+spec:
+  selector: {app: space}
+  ports: [{port: 3000, targetPort: 3000}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: live, namespace: plane}
+spec:
+  selector: {app: live}
+  ports: [{port: 3000, targetPort: 3000}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: mcp, namespace: plane}
+spec:
+  selector: {app: mcp}
+  ports: [{port: 3100, targetPort: 3100}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: proxy, namespace: plane}
+spec:
+  selector: {app: proxy}
+  ports: [{port: 80, targetPort: 80}]
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: {name: plane, namespace: plane}
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: plane.tmlab.top
+      http:
+        paths:
+          - {path: /, pathType: Prefix, backend: {service: {name: proxy, port: {number: 80}}}}
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: plane-predeploy-backups, namespace: plane}
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: {requests: {storage: 5Gi}}
